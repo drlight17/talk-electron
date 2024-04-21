@@ -15,7 +15,7 @@ All app settings are saved in the local user folder in file config.json:
 - Linux `~/.config/NC Talk Electron`
 
 Supported setting arguments (see example.config.json):
-- `server_url` - Nextcloud Server URL with installed Talk application (it is also supported as app CLI argument, use it as `--server_url=http:\\nextcloud.address.com`)
+- `server_url` - Nextcloud Server URL with installed Talk application (it is also supported as app CLI argument, use it as <br />`--server_url=http:\\nextcloud.address.com` )
 - `app_icon_name` - default application icon path name to use in GUI (dock, taskbar and so on, default is icon.png)
 - `notification_icon_name` - notification icon path name to use in app (default is notification.png)
 - `start_hidden` - boolean true\false value means to hide app in tray on startup (default is false)
