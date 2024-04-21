@@ -1,0 +1,12 @@
+/* styles.css */
+/*hide some elements*/
+.side-menu-opener, #nextcloud, .toast-error,#header > div.header-right > div:nth-child(1), /*#header > div.header-right > div:nth-child(2),*/ #header > div.header-right > div:nth-child(3),/*#profile,*/#accessibility_settings, #settings,#admin_settings, #core_apps, #core_users,#help, #body-login > footer {
+	display:none!important;
+}
+
+/*center vertically login form*/
+#body-login .wrapper {
+	margin-block:initial!important;
+}
+
+/* Add styles here to customize the appearance of your app */

@@ -1,0 +1,68 @@
+{
+  "name": "talk-electron",
+  "productName": "NC Talk Electron",
+  "description": "Talk web embedded app",
+  "keywords": [
+    "nextcloud",
+    "talk",
+    "spreed",
+    "electron",
+    "win7"
+  ],
+  "icon": "icon.png",
+  "main": "./main.js",
+  "version": "0.1.0-alpha",
+  "author": "drlight17",
+  "build": {
+    "appId": "com.electron.talk-electron",
+    "productName": "NC Talk Electron",
+    "asar": false,
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64"
+          ]
+        },
+        {
+          "target": "dmg",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "win": {
+      "icon": "icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "msi",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "dist": "electron-builder",
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron-fetch": "^1.9.1",
+    "electron-packager": "^17.1.2",
+    "electron-prompt": "^1.7.0",
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "^22.3.27",
+    "electron-builder": "^24.13.3"
+  }
+}
