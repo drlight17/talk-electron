@@ -22,3 +22,19 @@ Supported setting arguments (see example.config.json):
 - `show_on_notify` -  boolean true\false value means to show app main window on every notification (default is false)
 - `use_server_icon` - boolean true\false value means to use Nextcloud Server logo icon in GUI (dock, taskbar and so on, default is false
 
+# For developers
+It as simple as 1,2,3:
+```
+git clone https://github.com/drlight17/talk-electron
+cd ./talk-electron
+npm install
+```
+To run dev app use:
+```
+npm start 
+```
+To build distributive use:
+```
+npm run dist
+```
+For more details see [package.json](package.json)
