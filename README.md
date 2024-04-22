@@ -23,6 +23,7 @@ Supported setting arguments (see example.config.json):
 - `start_hidden` - boolean true\false value means to hide app in tray on startup (default is false)
 - `show_on_notify` -  boolean true\false value means to show app main window on every notification (default is false)
 - `use_server_icon` - boolean true\false value means to use Nextcloud Server logo icon in GUI (dock, taskbar and so on, default is false
+- `run_at_startup` - boolean true\false value means to start on system user logon (default is false)
 
 # For developers
 It as simple as 1,2,3:
