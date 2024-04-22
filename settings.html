@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8" />
+	<title>Настройки NC Talk Electron</title>
+	<link rel="stylesheet" href="styles.css">
+	<script src="settings.js"></script>
+</head>
+<body>
+	<div id="app">
+		<form id="settings_form" onsubmit="return false">
+		    <label for="server_url">Адрес сервера Nextcloud:</label>
+		    <input type="text" name="server_url" id="server_url"><br><br>
+		    <input type='hidden' value=false name='run_at_startup'>
+		    <input type="checkbox" value=true name="run_at_startup" id="run_at_startup">
+		    <label for="run_at_startup">Автозапуск при входе пользователя</label>
+		    <br>
+		    <input type='hidden' value=false name='use_server_icon'>
+		    <input type="checkbox" value=true name="use_server_icon" id="use_server_icon">
+		    <label for="use_server_icon">Использовать логотип сервера</label>
+		    <br>
+		    <input type='hidden' value=false name='show_on_notify'>
+		    <input type="checkbox" value=true name="show_on_notify" id="show_on_notify">
+		    <label for="show_on_notify">Показывать окно чата при получении уведомления</label>
+		    <br>
+		    <input type='hidden' value=false name='start_hidden'>
+		    <input type="checkbox" value=true name="start_hidden" id="start_hidden">
+		    <label for="start_hidden">Запускать в свернутом виде</label>
+		    <br><br>
+		    <div class="buttons">
+			    <button type="submit" onclick="return saveSettings();">ОК</button>
+			    <button type="cancel" onclick="self.close()">Отмена</button>
+			</div>
+		</form>
+	</div>
+</body>
+</html>

@@ -4,5 +4,6 @@
   "notification_icon_name": "notification.png",
   "start_hidden": true,
   "show_on_notify": false,
-  "use_server_icon": true
+  "use_server_icon": true,
+  "run_at_startup": true
 }

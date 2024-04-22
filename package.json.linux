@@ -16,47 +16,37 @@
   "build": {
     "appId": "com.electron.talk-electron",
     "productName": "NC Talk Electron",
-    "asar": true,
-    "nsis": {
-      "oneClick": true,
-      "perMachine": true,
-      "allowElevation": true
-    },
-    "msi": {
-      "oneClick": true,
-      "perMachine": true
-    },
-    "mac": {
+    "asar": false,
+    "linux": {
       "target": [
         {
-          "target": "dmg",
-          "arch": [
-            "arm64"
-          ]
-        },
-        {
-          "target": "dmg",
+          "target": "AppImage",
           "arch": [
             "x64"
           ]
-        }
-      ]
-    },
-    "win": {
-      "icon": "icon.ico",
-      "target": [
+        },
         {
-          "target": "nsis",
+          "target": "flatpak",
           "arch": [
-            "x64",
-            "ia32"
+            "x64"
           ]
         },
         {
-          "target": "msi",
+          "target": "tar.gz",
           "arch": [
-            "x64",
-            "ia32"
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
           ]
         }
       ]
@@ -74,6 +64,6 @@
   },
   "devDependencies": {
     "electron": "^22.3.27",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^22.10.5"
   }
 }

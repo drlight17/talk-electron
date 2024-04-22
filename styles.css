@@ -9,4 +9,24 @@
 	margin-block:initial!important;
 }
 
+/*settings styling*/
+
+#app {
+	font-family: sans-serif;
+	font-size: smaller;
+	display: flex;
+    justify-content: center;
+    margin-top: 10%;
+    /*height: 100vh;*/
+    overflow-y:hidden;
+    overflow-x:hidden;
+    align-items: center;
+}
+.buttons {
+	display: flex;
+    justify-content: space-evenly;
+}
+.buttons button {
+	min-width: 100px
+}
 /* Add styles here to customize the appearance of your app */
