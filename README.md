@@ -41,7 +41,7 @@ To build distributive use:
 npm run dist
 ```
 For more details see [package.json](package.json)
-===
-### Note about @paymoapp/electron-shutdown-handler used for Windows shutdown/reboot handle
-If you want to successfully build ia32 (x86 32bit) app you will need [a3d01a-electron-shutdown-handler-v1.0.15-napi-v6-win32-ia32.tar.gz](https://github.com/drlight17/talk-electron/files/15130364/a3d01a-electron-shutdown-handler-v1.0.15-napi-v6-win32-ia32.tar.gz) inside your `%AppData%\Local\npm-cache\_prebuilds\` folder.
+
+
+
 
