@@ -24,7 +24,7 @@ Supported setting arguments (see example.config.json):
 - `show_on_notify` -  boolean true\false value means to show app main window on every notification (default is false)
 - `use_server_icon` - boolean true\false value means to use Nextcloud Server logo icon in GUI (dock, taskbar and so on, default is false
 - `run_at_startup` - boolean true\false value means to start on system user logon (default is false)
-- `allow_domain` - comma-separated string with the list of allowed for SSO domains, * wildcard supported (use "*" only for all domains, but it maybe insecure)
+- `allow_domain` - comma-separated string with the list of SSO allowed domains, * wildcard supported (use "*" only for all domains, but it maybe insecure)
 
 # For developers
 It as simple as 1,2,3:
