@@ -16,7 +16,7 @@ const { join } = require('path');
 const path = require('node:path');
 
 const Store = require('electron-store');
-try { 
+try {
   const store = new Store();
 
   let is_notification = false;
@@ -427,6 +427,19 @@ try {
 
   }
 
+
+  function checkWinWidth(win) {
+    let  size = win.getSize();
+    //console.log(size)
+    //console.log(store.get('bounds').width);
+    if ((size[0] < 512) && (store.get('bounds').width >= 512)) {
+      console.log("Narrow window, reload page to prevent user input block!");
+      return true;
+    } else {
+      return false;
+    }
+  }
+
   async function createWindow () {
     // for SSO setting, allowed domains
     if (store.get('allow_domain')) {
@@ -470,6 +483,18 @@ try {
     {
         app.setAppUserModelId(app.name);
     }
+    // force page refresh to prevent user input text block in narrow (< 512px) window. Do debounce with 1 second
+    let debounce;
+
+    win.on("resize", function () {
+      clearTimeout(debounce);
+      debounce = setTimeout(function() {
+        if (checkWinWidth(win)) {
+          win.reload();
+        }
+        store.set('bounds', win.getBounds());
+      }, 1000);
+    })
     // some things when window is ready
     win.on('ready-to-show', () => {
       // apply context menus
@@ -630,7 +655,7 @@ try {
 
 
     // Open the DevTools.
-    //win.webContents.openDevTools()
+    win.webContents.openDevTools()
   }
 
   function preventUnsupportedBrowser(win) {
