@@ -1,3 +1,7 @@
+0.2.1-alpha
+
+- [x] BUG: user input blocks (mouse, keyboard) in case of narrow width window (< 512 px) after resize. Force page refresh on window resize (with debounce timeout).
+
 0.2.0-alpha
 
 - [x] add NTLM/kerberos SSO support
