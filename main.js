@@ -1,10 +1,15 @@
 // Modules to control application life and create native browser window
-const { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, Notification, dialog } = require('electron')
-const prompt = require('electron-prompt')
+const { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor } = require('electron')
+const prompt = require('electron-prompt');
+
+const ShutdownHandler = require('@paymoapp/electron-shutdown-handler').default;
+
+
 //const { Resvg } = require('@resvg/resvg-js')
 const fetch = require('electron-fetch').default
 
 const isMac = process.platform === 'darwin'
+const isWindows = process.platform === 'win32'
 
 const fs = require("fs");
 const { join } = require('path');
@@ -57,6 +62,12 @@ try {
         label: 'Файл',
         submenu: [
           {
+            label: 'Открыть Nextcloud',
+            click: () => {
+              shell.openExternal(store.get('server_url'));
+            },
+          },
+          {
             label: 'Настройки',
             click: () => {
               openSettings();
@@ -101,7 +112,7 @@ try {
           { label : "Помощь",
             accelerator: 'F1',
             click: () => {
-              openPopup('https://docs.nextcloud.com/server/latest/user_manual/ru');
+              openPopup('https://docs.nextcloud.com/server/latest/user_manual/ru/talk');
               //app.exit(0);
             }
           },
@@ -133,6 +144,12 @@ try {
         },
       },
       { type: 'separator' },
+      {
+        label: 'Открыть Nextcloud',
+        click: () => {
+          shell.openExternal(store.get('server_url'));
+        },
+      },
       {
         label: 'Настройки',
         click: () => {
@@ -411,6 +428,11 @@ try {
   }
 
   async function createWindow () {
+    // for SSO setting, allowed domains
+    if (store.get('allow_domain')) {
+      session.defaultSession.allowNTLMCredentialsForDomains(store.get('allow_domain'));
+    }
+
     // Create the browser window.
     win = new BrowserWindow({
       title: app.getName(),
@@ -427,7 +449,11 @@ try {
       }
     });
 
-    win.setBounds(store.get('bounds'));
+    // hanlde open external links in system browser
+    win.webContents.setWindowOpenHandler(({ url }) => {
+      shell.openExternal(url);
+      return { action: 'deny' };
+    });
 
     //customize about
     app.setAboutPanelOptions({
@@ -481,6 +507,9 @@ try {
           if (isMac) app.dock.hide();
           win.hide();
       })
+      win.on('hide', event => {
+        store.set('bounds', win.getBounds());
+      })
 
       // get notification dot status dirty with 1s timeout, TODO place to detect on webContents change
       win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'notification_observer.js')), true)
@@ -516,7 +545,7 @@ try {
     // check cloud
     win.webContents.on('did-finish-load', function(e) {
       
-      win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'nextcloud_check.js')), true)
+      win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'nextcloud_check.js')),true)
 
       win.webContents.on('console-message', (event, level, message, line, sourceId) => {
         try {
@@ -545,6 +574,9 @@ try {
     });
 
     win.on('show', function () {
+
+      win.setBounds(store.get('bounds'));
+
       if (isMac) app.dock.setIcon(icon);
       
       if (is_notification) {
@@ -564,7 +596,6 @@ try {
     details = win.webContents.on('will-navigate', (event,redirectUrl) => {
       url = this.details.getURL();
 
-
       if (!(redirectUrl.includes('apps/spreed'))) {
         if (redirectUrl.includes('logout')) {
           preventUnsupportedBrowser(win);
@@ -572,15 +603,29 @@ try {
           details.executeJavaScript('window.location.replace("'+url+'")')
         }
       }
+
+      //event.preventDefault();
+
       // open profile process
       if (redirectUrl.includes('/u/')) {
         event.preventDefault();
         // dirty prevent PageLoaders appear
         win.webContents.insertCSS('#profile span.loading-icon { display:none;}');
         win.webContents.insertCSS('#side-menu-loader-bar { width:0!important;}');
+
         openPopup(redirectUrl);
       }
 
+      // open files process
+      if (redirectUrl.includes('/f/')) {
+        event.preventDefault();
+        // dirty prevent PageLoaders appear
+        win.webContents.insertCSS('#profile span.loading-icon { display:none;}');
+        win.webContents.insertCSS('#side-menu-loader-bar { width:0!important;}');
+
+        shell.openExternal(redirectUrl);
+        return { action: 'deny' };
+      }
     });
 
 
@@ -680,12 +725,35 @@ try {
   // This method will be called when Electron has finished
   // initialization and is ready to create browser windows.
   // Some APIs can only be used after this event occurs.
-  app.whenReady().then(() => {
+  app.whenReady().then((event) => {
+
+    // handle OS shutdown/logout to prevent crush
+    /*console.log('PID =', process.pid);
+
+    process.on('exit', function() {
+      //e.preventDefault();
+      console.log('Shutdown/logout is detected! Exiting app!');
+    });*/
+    
     if (url == "") {
       setServerUrl(url_example);
     } else {
       url += "/apps/spreed";
       createWindow();
+      // handle OS shutdown/logout to prevent crush
+      if (isWindows) {
+        console.log('PID =', process.pid);
+        app.on('before-quit', e => {
+            e.preventDefault();
+        })
+        ShutdownHandler.setWindowHandle(win.getNativeWindowHandle());
+        ShutdownHandler.blockShutdown('');
+        ShutdownHandler.on('shutdown', () => {
+          console.log('Shutdown/logout is detected! Exiting app!');
+          ShutdownHandler.releaseShutdown();
+          app.exit(0);
+        })
+      }
       guiInit();
     }
   })

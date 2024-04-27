@@ -9,6 +9,10 @@
 	margin-block:initial!important;
 }
 
+#nc_link img{
+	filter:inherit!important;
+}
+
 /*settings styling*/
 
 #app {

@@ -11,6 +11,8 @@
 		<form id="settings_form" onsubmit="return false">
 		    <label for="server_url">Адрес сервера Nextcloud:</label>
 		    <input type="text" name="server_url" id="server_url"><br><br>
+		    <label title="Несколько значений через запятую, * - wildcard (может обозначать любой поддомен)" for="allow_domain">Разрешить SSO с доменов (* для всех):</label>
+		    <input type="text" name="allow_domain" id="allow_domain"><br><br>
 		    <input type='hidden' value=false name='run_at_startup'>
 		    <input type="checkbox" value=true name="run_at_startup" id="run_at_startup">
 		    <label for="run_at_startup">Автозапуск при входе пользователя</label>

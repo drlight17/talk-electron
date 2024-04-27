@@ -7,6 +7,10 @@ function loadSettings(settings) {
     document.getElementById('server_url').value = '`+url_example+`';
   }
 
+  if (settings.allow_domain !== undefined) {
+    document.getElementById('allow_domain').value = settings.allow_domain;
+  }
+
   if (settings.run_at_startup !== undefined) {
     document.getElementById('run_at_startup').checked = settings.run_at_startup;
   } else {
