@@ -2,6 +2,7 @@
 
 - [x] BUG: user input blocks (mouse, keyboard) in case of narrow width window (< 512 px) after resize. 
 and in case of opened conversations list menu with narrow width window (< 512 px). Prevent resize to less then 512px because of [12236](https://github.com/nextcloud/spreed/issues/12236) and others.
+- [x] BUG: prevent running multiple app instances
 
 0.2.0-alpha
 
