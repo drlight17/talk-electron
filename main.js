@@ -78,6 +78,7 @@ try {
             label: 'Выйти',
             accelerator: isMac ? 'Cmd+Q' : 'Alt+X',
             click: () => {
+              store.set('bounds', win.getBounds());
               app.exit(0);
             },
           }
@@ -160,6 +161,7 @@ try {
       {
         label: 'Выйти',
         click: () => {
+          store.set('bounds', win.getBounds());
           app.exit(0);
         },
       }
@@ -452,6 +454,9 @@ try {
       center: true,
       show: store.get('start_hidden') ? !JSON.parse(store.get('start_hidden')) : true,
       resizable: true,
+      minWidth: 512, // temporary restrict min window width by 512px,
+      // see issues https://github.com/nextcloud/spreed/issues/12236
+      // https://github.com/nextcloud/spreed/issues/11454
       icon:icon,
       useContentSize: true,
       webPreferences: {
@@ -461,6 +466,8 @@ try {
         nodeIntegration: true,
       }
     });
+
+    win.setBounds(store.get('bounds'));
 
     // hanlde open external links in system browser
     win.webContents.setWindowOpenHandler(({ url }) => {
@@ -536,8 +543,12 @@ try {
         store.set('bounds', win.getBounds());
       })
 
-      // get notification dot status dirty with 1s timeout, TODO place to detect on webContents change
+      // get notification dot status on webContents change
       win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'notification_observer.js')), true)
+
+      // get navigation menu closed observe
+      //win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'navi_menu_observer.js')), true)
+
       win.webContents.on('console-message', (event, level, message, line, sourceId) => {
         try {
           //console.log(JSON.parse(message))
