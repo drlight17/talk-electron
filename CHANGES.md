@@ -1,3 +1,10 @@
+0.2.2-alpha
+
+- [x] BUG: close navi menu when user-menu clicked
+- [x] BUG: fix iconPath in linux and windows
+- [x] toggle devtools on F12 and in main menu
+- [x] process maximize and unmaximize main window
+
 0.2.1-alpha
 
 - [x] BUG: user input blocks (mouse, keyboard) in case of narrow width window (< 512 px) after resize. 
