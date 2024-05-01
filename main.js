@@ -59,8 +59,9 @@ if (!gotTheLock) {
           name: app.getName()
       })
     }
+    let iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
+    let icon = nativeImage.createFromPath(iconPath); // template with center transparency
 
-    let icon = nativeImage.createFromPath(path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png')); // template with center transparency
     const icon_notification = nativeImage.createFromPath(path.join(__dirname,store.get('notification_icon_name')||'notification.png'));
     //const icon_red_dot = nativeImage.createFromPath(path.join(__dirname,'red_dot.png'));
 
@@ -69,7 +70,7 @@ if (!gotTheLock) {
 
     var win = null;
     var appIcon = null;
-
+    var MainMenu = null;
 
     let mainMenuTemplate = [
         {
@@ -111,10 +112,10 @@ if (!gotTheLock) {
               accelerator: isMac ? 'Cmd+H' : 'Ctrl+H',
               role : "hide"
             },
-            { label: 'Развернуть',
+            { label: 'На весь экран',
               accelerator: isMac ? 'Cmd+M' : 'Ctrl+M',
               click: () => {
-                win.maximize();
+                checkMaximize(true);
                 if (isMac) { /*app.dock.setIcon(icon); */app.dock.show();};
               },
             },
@@ -129,6 +130,21 @@ if (!gotTheLock) {
               click: () => {
                 openPopup('https://docs.nextcloud.com/server/latest/user_manual/ru/talk');
                 //app.exit(0);
+              }
+            },
+            { label: win,
+              id: "devtools_switcher",
+              accelerator: 'F12',
+              click: () => {
+                if (win.webContents.isDevToolsOpened()) {
+                  mainMenuTemplate[2].submenu[1].label = "Открыть DevTools";
+                } else {
+                  mainMenuTemplate[2].submenu[1].label = "Закрыть DevTools";
+                }
+
+                MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+                Menu.setApplicationMenu(MainMenu);
+                win.webContents.toggleDevTools();
               }
             },
             { type: 'separator' },
@@ -180,6 +196,27 @@ if (!gotTheLock) {
           },
         }
     ];
+
+    function checkMaximize(click) {
+      if (win.isMaximized()) {
+        if (click) {
+          mainMenuTemplate[1].submenu[3].label = "На весь экран";
+          win.unmaximize()
+        } else {
+          mainMenuTemplate[1].submenu[3].label = "Восстановить размер";
+        }
+      } else {
+        if (click) {
+          mainMenuTemplate[1].submenu[3].label = "Восстановить размер";
+          win.maximize()
+        } else {
+          mainMenuTemplate[1].submenu[3].label = "На весь экран";
+        }
+      }
+
+      MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+      Menu.setApplicationMenu(MainMenu);
+    }
 
     function isInternalLink(url) {
       return url.startsWith('file')
@@ -444,17 +481,15 @@ if (!gotTheLock) {
     }
 
 
-    function checkWinWidth(win) {
+    /*function checkWinWidth(win) {
       let  size = win.getSize();
-      //console.log(size)
-      //console.log(store.get('bounds').width);
       if ((size[0] < 512) && (store.get('bounds').width >= 512)) {
         console.log("Narrow window, reload page to prevent user input block!");
         return true;
       } else {
         return false;
       }
-    }
+    }*/
 
     async function createWindow () {
       // for SSO setting, allowed domains
@@ -496,7 +531,7 @@ if (!gotTheLock) {
         authors: ["drlight17"],
         version: app.getVersion(),
         copyright: "Lisense AGPLv3 ©2024",
-        iconPath: icon
+        iconPath: iconPath
       });
 
       // to set app.name instead of electron.app.Electron in Windows notifications
@@ -504,18 +539,29 @@ if (!gotTheLock) {
       {
           app.setAppUserModelId(app.name);
       }
+
+      win.on("maximize", function () {
+        checkMaximize();
+      })
+
+      win.on("unmaximize", function () {
+        checkMaximize();
+      })
       // force page refresh to prevent user input text block in narrow (< 512px) window. Do debounce with 1 second
       let debounce;
+
 
       win.on("resize", function () {
         clearTimeout(debounce);
         debounce = setTimeout(function() {
-          if (checkWinWidth(win)) {
+          /*if (checkWinWidth(win)) {
             win.reload();
-          }
+          }*/
           store.set('bounds', win.getBounds());
-        }, 1000);
+          win.focus();
+        }, 500);
       })
+
       // some things when window is ready
       win.on('ready-to-show', () => {
         // apply context menus
@@ -562,6 +608,9 @@ if (!gotTheLock) {
 
         // get navigation menu closed observe
         //win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'navi_menu_observer.js')), true)
+
+        // get user menu open observe
+        win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'user_menu_observer.js')), true)
 
         win.webContents.on('console-message', (event, level, message, line, sourceId) => {
           try {
@@ -699,8 +748,14 @@ if (!gotTheLock) {
       // set mac dock icon
       if (isMac) app.dock.setIcon(icon);
 
-      let menu = Menu.buildFromTemplate(mainMenuTemplate);
-      Menu.setApplicationMenu(menu);
+
+      if (win.webContents.isDevToolsOpened()) {
+        mainMenuTemplate[2].submenu[1].label = "Закрыть DevTools";
+      } else {
+        mainMenuTemplate[2].submenu[1].label = "Открыть DevTools";
+      }
+
+      checkMaximize();
 
       appIcon = new Tray(trayIcon)
       const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
@@ -814,7 +869,6 @@ if (!gotTheLock) {
   }
   catch (err) {
     dialog.showErrorBox('Ошибка', 'Файл config.json поврежден! Он будет пересоздан!');
-    //fs.promises.copyFile(path.join(__dirname, 'config.json')
     fs.unlinkSync(app.getPath('userData')+"/config.json")
     app.relaunch();
     app.exit()
