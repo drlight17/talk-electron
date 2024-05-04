@@ -1,3 +1,9 @@
+0.2.3-alpha
+- [x] BUG: process no spreed app found (404) in nextcloud_check.js
+- [x] add access to user settings of NC from the app user-menu
+- [x] BUG: make all new windows only one instance (single)
+- [x] BUG: change devtools toggle label on devtools close
+
 0.2.2-alpha
 
 - [x] BUG: close navi menu when user-menu clicked
