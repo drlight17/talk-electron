@@ -34,6 +34,7 @@ if (!gotTheLock) {
     const store = new Store();
 
     let is_notification = false;
+    let settings_opened = false;
 
     let url = "";
     const url_example = 'http://cloud.example.com';
@@ -132,18 +133,9 @@ if (!gotTheLock) {
                 //app.exit(0);
               }
             },
-            { label: win,
-              id: "devtools_switcher",
+            { label: 'Открыть DevTools',
               accelerator: 'F12',
               click: () => {
-                if (win.webContents.isDevToolsOpened()) {
-                  mainMenuTemplate[2].submenu[1].label = "Открыть DevTools";
-                } else {
-                  mainMenuTemplate[2].submenu[1].label = "Закрыть DevTools";
-                }
-
-                MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
-                Menu.setApplicationMenu(MainMenu);
                 win.webContents.toggleDevTools();
               }
             },
@@ -351,72 +343,97 @@ if (!gotTheLock) {
     }
 
     function openSettings() {
-      let win = new BrowserWindow({
-        modal: true,
-        icon:icon,
-        title:'Настройки',
-        width: 500,
-        height: 300,
-        resizable:false
-      })
+      if (!(settings_opened)) {
+        let win_settings = new BrowserWindow({
+          modal: true,
+          icon:icon,
+          title:'Настройки',
+          width: 500,
+          height: 300,
+          resizable:false,
+          parent: win
+        })
 
-      win.loadFile('settings.html');
-      win.setMenu(null);
+        win_settings.loadFile('settings.html');
+        win_settings.setMenu(null);
 
-      // save app name title
-      win.on('page-title-updated', function(e) {
-        e.preventDefault()
-      });
-      win.on('ready-to-show', () => {
-        getSettings(win);
-        win.webContents.on('console-message', (event, level, message, line, sourceId) => {
-          setSettings(message,win);
+
+        // save app name title
+        win_settings.on('page-title-updated', function(e) {
+          e.preventDefault()
         });
-      });
+
+        win_settings.once('ready-to-show', () => {
+          win_settings.show();
+          settings_opened = true;
+          getSettings(win_settings);
+          win_settings.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            setSettings(message,win_settings);
+          });
+        });
+
+        win_settings.on('closed', function(e) {
+          settings_opened = false;
+        });
 
 
-      //win.webContents.openDevTools()
+        //win.webContents.openDevTools()
+      }
     }
 
     function openPopup(url) {
       // check for cloud profile link
-      if (url.includes('/u/'))  {
+      let allow_navi = false;
+      if (url.includes('/settings/user')) {
+        title = "Настройки пользователя";
+        allow_navi = true;
+      } else if (url.includes('/u/'))  {
         title = "Профиль"
       } else {
         title = "Помощь"
       }
 
 
-      let win = new BrowserWindow({
+      let win_popup = new BrowserWindow({
         modal: true,
         icon:icon,
-        title:title
+        title:title,
+        parent: win
       })
 
       var theUrl = url;
 
-      win.loadURL(theUrl);
-      win.setMenu(null);
+      win_popup.loadURL(theUrl);
+      win_popup.setMenu(null);
 
       // save app name title
-      win.on('page-title-updated', function(e) {
+      win_popup.on('page-title-updated', function(e) {
         e.preventDefault()
       });
 
       // add app styling override for cloud
-      win.on('ready-to-show', () => {
-        win.webContents.insertCSS('#header, div.profile__wrapper div.profile__sidebar div.user-actions,#app-content-vue a[href*="/settings/user"] {display:none!important;}');
-        win.webContents.insertCSS('#content-vue { margin-top: 0px!important; height: 100% !important;}');
+      win_popup.on('ready-to-show', () => {
+        win_popup.show();
+        win_popup.webContents.insertCSS('#app-content div.admin.access__section, #app-content div.shared.access__section, #app-content .social-button, #header, div.profile__wrapper div.profile__sidebar div.user-actions,#app-content-vue a[href*="/settings/user"] {display:none!important;}');
+        win_popup.webContents.insertCSS('#content-vue { margin-top: 0px!important; height: 100% !important;}');
       })
 
-      // prevent navigation away from help pages
-      win.webContents.on('will-navigate', (event,redirectUrl) => {
-        // check for nextcloud help urls
-        if (!(redirectUrl.includes('docs.nextcloud.com')))  {
-          event.preventDefault();
-        }
+      win_popup.webContents.setWindowOpenHandler(({ url }) => {
+        shell.openExternal(url);
+        return { action: 'deny' };
+      })
 
+
+      // prevent navigation away from help pages
+      win_popup.webContents.on('will-navigate', (event,redirectUrl) => {
+        if (!(allow_navi)) {
+          // check for nextcloud help urls
+          if (!(redirectUrl.includes('docs.nextcloud.com')))  {
+            event.preventDefault();
+          }
+        }
       });
+      //win_popup.webContents.openDevTools()
     }
 
     /*async function convertIcon (icon) {
@@ -714,12 +731,19 @@ if (!gotTheLock) {
 
           openPopup(redirectUrl);
         }
+        // open profile settings
+        if (redirectUrl.includes('/settings/user')) {
+          event.preventDefault();
+          // dirty prevent PageLoaders appear
+          win.webContents.insertCSS('#side-menu-loader-bar { width:0!important;}');
+
+          openPopup(redirectUrl);
+        }
 
         // open files process
         if (redirectUrl.includes('/f/')) {
           event.preventDefault();
           // dirty prevent PageLoaders appear
-          win.webContents.insertCSS('#profile span.loading-icon { display:none;}');
           win.webContents.insertCSS('#side-menu-loader-bar { width:0!important;}');
 
           shell.openExternal(redirectUrl);
@@ -727,6 +751,18 @@ if (!gotTheLock) {
         }
       });
 
+
+      win.webContents.on('devtools-closed', () => {
+        mainMenuTemplate[2].submenu[1].label = "Открыть DevTools";
+        MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+        Menu.setApplicationMenu(MainMenu);
+      })
+
+      win.webContents.on('devtools-opened', () => {
+        mainMenuTemplate[2].submenu[1].label = "Закрыть DevTools";
+        MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+        Menu.setApplicationMenu(MainMenu);
+      })
 
       // Open the DevTools.
       //win.webContents.openDevTools()
@@ -747,13 +783,6 @@ if (!gotTheLock) {
       trayIcon.setTemplateImage(true);
       // set mac dock icon
       if (isMac) app.dock.setIcon(icon);
-
-
-      if (win.webContents.isDevToolsOpened()) {
-        mainMenuTemplate[2].submenu[1].label = "Закрыть DevTools";
-      } else {
-        mainMenuTemplate[2].submenu[1].label = "Открыть DevTools";
-      }
 
       checkMaximize();
 
