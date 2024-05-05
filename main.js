@@ -365,6 +365,10 @@ if (!gotTheLock) {
         });
 
         win_settings.once('ready-to-show', () => {
+          if (isMac) {
+            win.show();
+            app.dock.show();
+          }
           win_settings.show();
           settings_opened = true;
           getSettings(win_settings);
