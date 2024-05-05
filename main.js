@@ -165,6 +165,7 @@ if (!gotTheLock) {
             if (isMac) app.dock.hide();
             win.hide()
           },
+          role : "hide"
         },
         { type: 'separator' },
         {
@@ -345,7 +346,7 @@ if (!gotTheLock) {
     function openSettings() {
       if (!(settings_opened)) {
         let win_settings = new BrowserWindow({
-          modal: true,
+          modal: !isMac,
           icon:icon,
           title:'Настройки',
           width: 500,
@@ -395,7 +396,7 @@ if (!gotTheLock) {
 
 
       let win_popup = new BrowserWindow({
-        modal: true,
+        modal: !isMac,
         icon:icon,
         title:title,
         parent: win
