@@ -1,3 +1,8 @@
+0.2.4-alpha
+- [x] BUG: close navi menu when create new conference or settings clicked (maybe add auto close navi on every non navi click or action?)
+- [x] BUG: on pinned/maximized main window hide (not close) it opens again (windows)
+- [x] ia32 win version
+
 0.2.3-alpha
 - [x] BUG: process no spreed app found (404) in nextcloud_check.js
 - [x] add access to user settings of NC from the app user-menu
