@@ -580,7 +580,8 @@ if (!gotTheLock) {
             win.reload();
           }*/
           store.set('bounds', win.getBounds());
-          win.focus();
+          // check 0.2.4-alpha BUG pinned/maximized window
+          //win.focus();
         }, 500);
       })
 
