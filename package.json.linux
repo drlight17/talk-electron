@@ -11,13 +11,17 @@
   ],
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "0.2.3-alpha",
+  "version": "0.2.5-alpha",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "homepage": "https://github.com/drlight17/talk-electron",
   "build": {
     "appId": "com.electron.talk-electron",
     "productName": "NC Talk Electron",
     "asar": true,
+    "asarUnpack": [
+      "**/node_modules/sharp/**/*",
+      "**/node_modules/@img/**/*"
+    ],
     "linux": {
       "icon": "icon.icns",
       "target": [
@@ -59,15 +63,16 @@
     "start": "electron ."
   },
   "dependencies": {
-    "electron-fetch": "^1.9.1",
     "@electron/packager": "latest",
     "@paymoapp/electron-shutdown-handler": "latest",
-    "electron-prompt": "^1.7.0",
-    "electron-store": "^8.2.0"
+    "electron-prompt": "latest",
+    "electron-fetch": "^1.9.1",
+    "electron-store": "^8.2.0",
+    "sharp": "^0.33.4"
   },
   "devDependencies": {
-    "electron": "^22.3.27",
     "@paymoapp/electron-shutdown-handler": "latest",
-    "electron-builder": "^22.10.5"
+    "electron": "^22.3.27",
+    "electron-builder": "^24.13.3"
   }
 }

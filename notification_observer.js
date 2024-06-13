@@ -12,10 +12,10 @@ function waitForElm(selector) {
             }
         });
 
-        observer.observe($('#notifications').get(0), {
+        /*observer.observe($('#notifications').get(0), {
             childList: true,
             subtree: true
-        });
+        });*/
     });
 }
 

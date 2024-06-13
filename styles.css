@@ -9,9 +9,9 @@
 	margin-block:initial!important;
 }
 
-#nc_link img{
+/*#nc_link img{
 	filter:inherit!important;
-}
+}*/
 
 /*settings styling*/
 
@@ -33,4 +33,5 @@
 .buttons button {
 	min-width: 100px
 }
+
 /* Add styles here to customize the appearance of your app */

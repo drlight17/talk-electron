@@ -1,4 +1,5 @@
 function loadSettings(settings) {
+
   //let settings_json = JSON.stringify(settings);
 
   if (settings.server_url !== undefined) {
@@ -23,10 +24,16 @@ function loadSettings(settings) {
     document.getElementById('use_server_icon').checked = false;
   }
 
-  if (settings.show_on_notify !== undefined) {
-    document.getElementById('show_on_notify').checked = settings.show_on_notify;
+  if (settings.show_on_new_message !== undefined) {
+    document.getElementById('show_on_new_message').checked = settings.show_on_new_message;
   } else {
-    document.getElementById('show_on_notify').checked = false;
+    document.getElementById('show_on_new_message').checked = false;
+  }
+
+  if (settings.always_on_top !== undefined) {
+    document.getElementById('always_on_top').checked = settings.always_on_top;
+  } else {
+    document.getElementById('always_on_top').checked = false;
   }
 
   if (settings.start_hidden !== undefined) {

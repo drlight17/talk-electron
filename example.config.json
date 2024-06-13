@@ -1,9 +1,11 @@
 {
   "server_url": "https://cloud.example.com",
+  "allow_domain": "*",
   "app_icon_name": "icon.png",
   "notification_icon_name": "notification.png",
   "start_hidden": true,
-  "show_on_notify": false,
+  "show_on_new_message": false,
   "use_server_icon": true,
-  "run_at_startup": true
+  "run_at_startup": true,
+  "always_on_top": false
 }
