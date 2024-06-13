@@ -1,3 +1,20 @@
+0.2.5-alpha
+
+- [x] BUG: broken context menu (right-click double click) with Nexctloud 29
+- [x] BUG: force open Talk after logout and login fix
+- [x] add server address to app windows title and tray title
+- [x] BUG: delayed page refresh after reload loader disappear (macos only?)
+- [x] error hadle if no connection with NC or Talk (pinger) - add spinner as semitransparent modal window
+- [x] always on the top option
+- [x] BUG: fix light/dark nextcloud style "Open Nextcloud" link in user menu
+- [x] BUG: fix macos theme taskbar icon (make sure to [turn off macos taskbar transparency](https://discussions.apple.com/thread/254896301?answerId=259117195022#259117195022) to proper usage)
+- [x] show number of notifications on icon
+- [x] BUG: double reload after login only apperas in case of non-cookie session login (SSO for example) - leave this behaviour!
+- [x] BUG: if show_on_new_message is true - show on every new message
+- [x] electron promts for server and allow domains input
+- [x] replace notification process by the number of unread messages
+- [x] BUG: no notifications in hidden app after dismissed notifications
+
 0.2.4-alpha
 - [x] BUG: close navi menu when create new conference or settings clicked (maybe add auto close navi on every non navi click or action?)
 - [x] BUG: on pinned/maximized main window hide (not close) it opens again (windows)
