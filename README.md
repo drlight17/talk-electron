@@ -26,6 +26,7 @@ Supported setting arguments (see example.config.json):
 - `use_server_icon` - boolean true\false value means to use Nextcloud Server logo icon in GUI (dock, taskbar and so on, default is false
 - `run_at_startup` - boolean true\false value means to start on system user logon (default is false)
 - `allow_domain` - comma-separated string with the list of SSO allowed domains, * wildcard supported (use "*" only for all domains, but it maybe insecure)
+- `always_on_top` - true\false value means to show app main window on top of every other windows (default is false)
 
 # For developers
 It as simple as 1,2,3:
