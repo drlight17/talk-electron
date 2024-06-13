@@ -68,7 +68,7 @@
     "electron-prompt": "latest",
     "electron-fetch": "^1.9.1",
     "electron-store": "^8.2.0",
-    "sharp": "^0.33.4"
+    "sharp": "^0.32"
   },
   "devDependencies": {
     "@paymoapp/electron-shutdown-handler": "latest",

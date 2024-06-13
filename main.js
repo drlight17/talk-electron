@@ -733,6 +733,7 @@ async function main() {
           win.setEnabled(true);
           //win.setOpacity(1);
           switchSpinner(false)
+          console.log(unread)
           if (unread != 0) {
             win.setTitle(app.getName() + " - " + store.get('server_url') + " - Непрочитанных сообщений: " + unread);
           } else {
@@ -985,6 +986,8 @@ async function main() {
               unread = JSON.parse(message).action.unread
               removed = JSON.parse(message).action.removed
               UnreadTray(unread,removed);
+              // update title with unread on load
+              block_gui_loading(false);
             }
             if (JSON.parse(message).action == 'not_alive') {
               if (!gui_blocked) {
