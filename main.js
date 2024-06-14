@@ -11,6 +11,8 @@ const isMac = process.platform === 'darwin'
 const isWindows = process.platform === 'win32'
 const isLinux = process.platform === 'linux'
 
+
+
 /*if ((isMac) || (isLinux)) {
   var { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor, nativeTheme } = require('electron')
 }
@@ -47,11 +49,16 @@ async function main() {
 
     try {
       const store = new Store();
-
-      let promted = false
+      // to check first run status
+      let initialized =false;
+      // to check prompted status for dialogs
+      let prompted = false
+      // to check gui_blocked status
       let gui_blocked = false
       //let is_notification = false;
+      // for storing unread counter
       let unread = false;
+      // to store settings menu opened status
       let settings_opened = false;
 
       let url = "";
@@ -386,6 +393,10 @@ async function main() {
       function switchSpinner(state) {
 
         if (state) {
+          // prevent memory leaking
+          if (win_loading) {
+            win_loading.destroy();
+          }
           win_loading = new BrowserWindow({
             //modal: !isMac,
             // TODO check vibrancy value if not Windows 10 (for mac os especially)
@@ -402,26 +413,41 @@ async function main() {
             title: app.getName() + " - " + store.get('server_url') + " - Загрузка...",
             resizable:false,
             parent: win,
-            // TODO use opacity instead of vibrancy in case of linux ?
             opacity: 0.6, // return in case of not using electron-acrylic-window
             //vibrancy: 'fullscreen-ui',    // on MacOS
             //backgroundMaterial: 'acrylic', // on Windows 11
+            transparent: true, // on linux, also see css
             show: false
           })
 
-          win_loading.setBounds(store.get('bounds'));
           win_loading.loadFile('loading.html');
+          
+          // TODO change y position for linux 
           //win_loading.setEnabled(false);
           //win_loading.setOpacity(0.8)
           //win.hide();
           //if (!store.get('start_hidden')) {
-          if (win.isVisible()) {
-              win_loading.show();
+          if (isLinux) {
+            if ((!initialized)) {
+              // linux first run +29px fix (check non-KDE...)
+              win_loading.setBounds({x: store.get('bounds').x, y: store.get('bounds').y, width: store.get('bounds').width, height:store.get('bounds').height + 29} );
+            } else {
+              win_loading.setBounds({x: store.get('bounds').x, y: store.get('bounds').y - 29, width: store.get('bounds').width, height:store.get('bounds').height + 29} );
+            }
+          } else {
+            win_loading.setBounds(store.get('bounds'));
           }
 
+          if (win.isVisible()) {
+            if (isLinux) {
+              win.setResizable(false)
+            }
+            win_loading.show();
+          }
         } else {
           win_loading.hide();
           if (win.isVisible()) {
+            win.setResizable(true)
             win.focus();
           }
         }
@@ -560,7 +586,8 @@ async function main() {
           font_size = "90"
         }
           // colored text
-          var SVGtext = `<text style="fill: `+text_color+`; stroke: `+text_color+`; /*stroke-width:3*/" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Oxygen-Sans, Cantarell, Ubuntu, 'Helvetica Neue', 'Noto Sans', 'Liberation Sans', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'" font-size="`+font_size+`" text-anchor="middle" x="40" y="65" >`+unread+`</text>`
+          let font_family = !isLinux ? "system-ui, -apple-system, 'Segoe UI', Roboto, Oxygen-Sans, Cantarell, Ubuntu, 'Helvetica Neue', 'Noto Sans', 'Liberation Sans', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'" : "Noto Sans"
+          var SVGtext = `<text style="fill: `+text_color+`; stroke: `+text_color+`; /*stroke-width:3*/" font-family="`+font_family+`" font-size="`+font_size+`" text-anchor="middle" x="40" y="65" >`+unread+`</text>`
           // transparent text
           //var SVGtext = `<mask id="clip"><rect width="100%" height="100%" fill="`+text_color+`"/><text font-size="`+font_size+`" font-weight="bold" text-anchor="middle" x="40" y="65">`+unread+`</text></mask>`
 
@@ -606,7 +633,12 @@ async function main() {
 
 
           let trayIcon = nativeImage.createFromBuffer(newImage);
-            //console.log(badge)
+
+          // set linux taskbar image same as tray
+          if (isLinux) {
+            win.setIcon(trayIcon)
+          }
+
           trayIcon = trayIcon.resize({width:16});
 
           appIcon.setImage(trayIcon);
@@ -621,6 +653,7 @@ async function main() {
           //  windows the icon to display on the bottom right corner of the taskbar icon
           let newImage = await sharp(Buffer.from(badge)).toBuffer();
           win.setOverlayIcon(nativeImage.createFromBuffer(newImage), 'Непрочитанных сообщений: '+ unread);
+
           return;
         }
       }
@@ -733,10 +766,18 @@ async function main() {
           win.setEnabled(true);
           //win.setOpacity(1);
           switchSpinner(false)
-          console.log(unread)
+          //console.log(unread)
           if (unread != 0) {
+            // set linux taskbar image same as tray
+            if (isLinux) {
+              win.setIcon(icon)
+            }
             win.setTitle(app.getName() + " - " + store.get('server_url') + " - Непрочитанных сообщений: " + unread);
           } else {
+            // set linux taskbar image same as tray
+            if (isLinux) {
+              win.setIcon(icon)
+            }
             win.setTitle(app.getName() + " - " + store.get('server_url'));
           }
           //if(appIcon === null) {
@@ -746,6 +787,7 @@ async function main() {
       }
 
       async function createWindow () {
+        
         // for SSO setting, allowed domains
         if (store.get('allow_domain')) {
           session.defaultSession.allowNTLMCredentialsForDomains(store.get('allow_domain'));
@@ -808,6 +850,19 @@ async function main() {
           checkMaximize();
         })
 
+        // as linux don't respect  win.setEnabled(false) for minimize operations
+        win.on("minimize", function () {
+          if ((isLinux) && (gui_blocked)) {
+            win_loading.hide();
+          }
+        })
+
+        win.on("restore", function () {
+          if ((isLinux) && (gui_blocked)) {
+            win_loading.show();
+          }
+        })
+
         //Do debounce with 500 ms
         let debounce;
 
@@ -821,19 +876,20 @@ async function main() {
             store.set('bounds', win.getBounds());
             // check 0.2.4-alpha BUG pinned/maximized window
             //win.focus();
-          }, 500);
+          }, 200);
         })
-
-        win.on("moved", function () {
+        // for linux compatibility change "moved" to "move"
+        win.on("move", function () {
           clearTimeout(debounce);
           debounce = setTimeout(function() {
             /*if (checkWinWidth(win)) {
               win.reload();
             }*/
+            //console.log(win.getBounds().y)
             store.set('bounds', win.getBounds());
             // check 0.2.4-alpha BUG pinned/maximized window
             //win.focus();
-          }, 500);
+          }, 200);
         })
 
         // Prevent window from closing and quitting app
@@ -962,7 +1018,7 @@ async function main() {
           if (gui_blocked) {
             block_gui_loading(false);
           }
-
+          initialized = true;
         });
 
         /*win.webContents.on('unresponsive', function(e) {
@@ -1014,7 +1070,7 @@ async function main() {
             if (JSON.parse(message).action == 'not_found') {
               win.close();
               appIcon.destroy();
-              if (!promted) {
+              if (!prompted) {
                 dialog.showErrorBox('Ошибка','Nextcloud или Talk необходимых версий не найдены или нет возможности открыть страницу входа!');
                 //app.exit(0);
                 setServerUrl (store.get('server_url')||url_example);
@@ -1147,7 +1203,7 @@ async function main() {
 
       // set allow domain prompt
       function setAllowDomains () {
-        promted = true;
+        prompted = true;
         // ask for SSO
         dialog.showMessageBox(win, {
             'type': 'question',
@@ -1163,7 +1219,7 @@ async function main() {
             if (result.response !== 0) {
               createWindow();
               guiInit();
-              promted = false;
+              prompted = false;
             }
 
             // if yes
@@ -1191,14 +1247,14 @@ async function main() {
                   // try without allowed_domains
                   createWindow();
                   guiInit();
-                  promted = false;
+                  prompted = false;
 
                 } else {
                   //let address = input[0]
                   store.set('allow_domain',input)
                   createWindow();
                   guiInit();
-                  promted = false;
+                  prompted = false;
                   //}
                 }
               })
@@ -1214,7 +1270,7 @@ async function main() {
 
       // set server_url prompt
       function setServerUrl (server_url) {
-        promted = true;
+        prompted = true;
         // show input box for server address
         prompt({
           title: 'Запрос адреса сервера Nextcloud',
@@ -1239,7 +1295,7 @@ async function main() {
             setAllowDomains();
             /*createWindow();
             guiInit();
-            promted = false;*/
+            prompted = false;*/
 
           }
         })
@@ -1255,6 +1311,14 @@ async function main() {
       // This method will be called when Electron has finished
       // initialization and is ready to create browser windows.
       // Some APIs can only be used after this event occurs.
+
+      // TODO To enable transparency on Linux (in KDE dont work?)
+      if (isLinux) {
+        app.commandLine.appendSwitch('enable-transparent-visuals');
+        app.commandLine.appendSwitch('disable-gpu');
+        app.disableHardwareAcceleration();
+      }
+
       app.whenReady().then((event) => {
 
         console.log('PID =', process.pid);
