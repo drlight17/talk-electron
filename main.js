@@ -49,12 +49,10 @@ async function main() {
 
     try {
       const store = new Store();
-      // to check first run status
-      let initialized =false;
       // to check prompted status for dialogs
       let prompted = false
       // to check gui_blocked status
-      let gui_blocked = false
+      //let gui_blocked = false
       //let is_notification = false;
       // for storing unread counter
       let unread = false;
@@ -87,7 +85,8 @@ async function main() {
       }
       let iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
       let icon = nativeImage.createFromPath(iconPath); // template with center transparency
-      
+      let trayIcon = icon
+
       if (isMac) {
         var icon_bw = await bw_icon_process(icon);
         // as this icon is for macos tray only resize it here
@@ -102,7 +101,7 @@ async function main() {
       //const icon = './icon.png';
 
       var win = null;
-      var win_loading = null;
+      //var win_loading = null;
       var appIcon = null;
       var MainMenu = null;
 
@@ -139,10 +138,10 @@ async function main() {
               //{ label : "Обновить", role : "reload" },
               { label: 'Обновить',
                 click: () => {
-                  if (!gui_blocked) {
-                    block_gui_loading(true);
+                  /*if (!gui_blocked) {
+                    block_gui_loading(true);*/
                     win.reload()
-                  }
+                  //}
                 },
                 accelerator: isMac ? 'Cmd+R' : 'Ctrl+R'
               },
@@ -197,9 +196,9 @@ async function main() {
           {
             label: 'Показать',
             click: () => {
-              if (gui_blocked) {
+              /*if (gui_blocked) {
                 win_loading.show();
-              }
+              }*/
               win.show()
               if (isMac) { /*app.dock.setIcon(icon);*/ app.dock.show();};
             },
@@ -209,7 +208,7 @@ async function main() {
             click: () => {
               if (isMac) app.dock.hide();
               win.hide()
-              win_loading.hide();
+              //win_loading.hide();
             },
             role : "hide"
           },
@@ -390,7 +389,7 @@ async function main() {
 
       }
 
-      function switchSpinner(state) {
+      /*function switchSpinner(state) {
 
         if (state) {
           // prevent memory leaking
@@ -399,12 +398,6 @@ async function main() {
           }
           win_loading = new BrowserWindow({
             //modal: !isMac,
-            // TODO check vibrancy value if not Windows 10 (for mac os especially)
-            /*vibrancy: (isWindows) ? {
-                theme: 'appearance-based', // (default) or 'dark' or '#rrggbbaa'
-                effect: 'acrylic', // (default) or 'blur'
-                disableOnBlur: true, // (default)
-            } : 'under-window',*/
             frame : false,
             movable: false,
             focusable: false,
@@ -453,7 +446,7 @@ async function main() {
         }
         // show devtools
         //win_loading.webContents.openDevTools()
-      }
+      }*/
 
 
       function openSettings() {
@@ -524,7 +517,7 @@ async function main() {
         win_popup.loadURL(theUrl);
         win_popup.setMenu(null);
 
-        block_gui_loading(false);
+        //block_gui_loading(false);
 
         // save app name title
         win_popup.on('page-title-updated', function(e) {
@@ -619,7 +612,7 @@ async function main() {
         if (purpose == "tray") {
 
           //let newImage = await sharp(Buffer.from(badge)).toBuffer();
-          // TODO process icon for macos to vlack and white colors
+          // process icon for macos to black and white colors
           if (isMac) {
             icon = await bw_icon_process(icon)
           }
@@ -632,20 +625,23 @@ async function main() {
           newImage = await sharp(newImage).composite([{ input: Buffer.from(badge), top: 45, left: 45, blend: 'over'}]).toBuffer();
 
 
-          let trayIcon = nativeImage.createFromBuffer(newImage);
+          trayIcon = nativeImage.createFromBuffer(newImage);
 
           // set linux taskbar image same as tray
           if (isLinux) {
             win.setIcon(trayIcon)
           }
 
-          trayIcon = trayIcon.resize({width:16});
+          if (isMac) {
+            trayIcon = trayIcon.resize({width:16});
+          }
 
           appIcon.setImage(trayIcon);
           // apply theme to the tray icon - don't apply 
           //trayIcon.setTemplateImage(true);
           // tray icon title
           appIcon.setToolTip(app.getName()+ " - " + store.get('server_url') + " - Непрочитанных сообщений: " + unread);
+          win.setTitle(app.getName() + " - " + store.get('server_url') + " - Непрочитанных сообщений: " + unread)
           return;
         }
 
@@ -691,9 +687,9 @@ async function main() {
             //app.dock.setIcon(icon);
             app.dock.setBadge('');
             icon_bw = await bw_icon_process(icon);
-            var trayIcon = icon_bw.resize({width:16});
+            trayIcon = icon_bw.resize({width:16});
           } else {
-            var trayIcon = icon.resize({width:16});
+            trayIcon = icon/*.resize({width:16});*/
             
           }
           appIcon.setImage(trayIcon);
@@ -752,7 +748,7 @@ async function main() {
         }
       }*/
 
-      function block_gui_loading(state) {
+      /*function block_gui_loading(state) {
         if (state) {
           gui_blocked = true
           //win.setProgressBar(2, { mode: 'indeterminate' })
@@ -784,7 +780,7 @@ async function main() {
           //  appIcon.setToolTip(app.getName() + " - " + store.get('server_url'));
           //}
         }
-      }
+      }*/
 
       async function createWindow () {
         
@@ -851,7 +847,7 @@ async function main() {
         })
 
         // as linux don't respect  win.setEnabled(false) for minimize operations
-        win.on("minimize", function () {
+        /*win.on("minimize", function () {
           if ((isLinux) && (gui_blocked)) {
             win_loading.hide();
           }
@@ -861,7 +857,7 @@ async function main() {
           if ((isLinux) && (gui_blocked)) {
             win_loading.show();
           }
-        })
+        })*/
 
         //Do debounce with 500 ms
         let debounce;
@@ -917,9 +913,6 @@ async function main() {
           if (isMac) app.dock.setIcon(icon);
           //if (is_notification) {
           if (unread != 0) {
-            if (!gui_blocked) {
-              win.setTitle(app.getName() + " - " + store.get('server_url') + " - Непрочитанных сообщений: " + unread)
-            }
             createBadge(unread,"taskbar");
             //win.setOverlayIcon(icon_notification, 'Есть непрочитанные уведомления');
             if (isMac) {
@@ -954,10 +947,10 @@ async function main() {
               // set mac dock icon
               if (isMac) {
                 icon_bw = await bw_icon_process(icon);
-                var trayIcon = icon_bw.resize({width:16});
+                trayIcon = icon_bw.resize({width:16});
                 app.dock.setIcon(icon);
               } else {
-                var trayIcon = icon.resize({width:16});
+                trayIcon = icon/*.resize({width:16});*/
               }
               appIcon.setImage(trayIcon);
               
@@ -972,7 +965,7 @@ async function main() {
 
         })
 
-        block_gui_loading(true);
+        //block_gui_loading(true);
 
         win.loadURL(url);
 
@@ -1015,10 +1008,10 @@ async function main() {
           // check nc and talk status and version and run pinger
           win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'nextcloud_check.js')),true)
 
-          if (gui_blocked) {
+          /*if (gui_blocked) {
             block_gui_loading(false);
-          }
-          initialized = true;
+          }*/
+
         });
 
         /*win.webContents.on('unresponsive', function(e) {
@@ -1043,20 +1036,47 @@ async function main() {
               removed = JSON.parse(message).action.removed
               UnreadTray(unread,removed);
               // update title with unread on load
-              block_gui_loading(false);
+              if (unread != 0) {
+                // set linux taskbar image same as tray
+                if (isLinux) {
+                  win.setIcon(trayIcon)
+                }
+                win.setTitle(app.getName() + " - " + store.get('server_url') + " - Непрочитанных сообщений: " + unread);
+              } else {
+                // set linux taskbar image same as tray
+                if (isLinux) {
+                  win.setIcon(trayIcon)
+                }
+                win.setTitle(app.getName() + " - " + store.get('server_url'));
+              }
+              //block_gui_loading(false);
             }
             if (JSON.parse(message).action == 'not_alive') {
-              if (!gui_blocked) {
-                block_gui_loading(true);
-                win.setTitle(app.getName() + ' - Сервер не отвечает. Ожидание...');
-              }
+              /*if (!gui_blocked) {
+                block_gui_loading(true);*/
+                win.setTitle(app.getName() + " - " + store.get('server_url') + ' - Сервер не отвечает. Ожидание...');
+              //}
             }
             if (JSON.parse(message).action == 'alive') {
-              if (gui_blocked) {
+              /*if (gui_blocked) {
                 block_gui_loading(false);
                 //win.reload();
+              }*/
+              if (unread != 0) {
+                // set linux taskbar image same as tray
+                if (isLinux) {
+                  win.setIcon(trayIcon)
+                }
+                win.setTitle(app.getName() + " - " + store.get('server_url') + " - Непрочитанных сообщений: " + unread);
+              } else {
+                // set linux taskbar image same as tray
+                if (isLinux) {
+                  win.setIcon(trayIcon)
+                }
+                win.setTitle(app.getName() + " - " + store.get('server_url'));
               }
             }
+
             if (JSON.parse(message).action == 'redirect_to_spreed') {
               // dirty but it works
               win.webContents.executeJavaScript('window.location.replace("/apps/spreed")')
@@ -1092,9 +1112,9 @@ async function main() {
           url = this.details.getURL();
           //console.log("\nCurrent URL: " + url)
           //console.log("Redirect URL: " + redirectUrl + "\n")
-          if (!gui_blocked) {
+          /*if (!gui_blocked) {
             block_gui_loading(true);
-          }
+          }*/
 
           //event.preventDefault();
 
@@ -1154,7 +1174,7 @@ async function main() {
 
       function guiInit() {
         // process logo icon for Mac
-        let trayIcon = icon.resize({width:16});
+        trayIcon = icon/*.resize({width:16});*/
         // apply theme to the tray icon - don't apply
         //trayIcon.setTemplateImage(true);
         // set mac dock icon
@@ -1176,11 +1196,11 @@ async function main() {
           if (!isMac) {
             if (win.isVisible() && !win.isMinimized()) {
               win.hide()
-              win_loading.hide();
+              //win_loading.hide();
             } else {
-              if (gui_blocked) {
+              /*if (gui_blocked) {
                 win_loading.show();
-              }
+              }*/
               win.show()
             }
           } else {

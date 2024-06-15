@@ -1,5 +1,6 @@
 // try to find Nextcloud scripts and do observing (tested on Nextcloud since 28)
 
+
 async function pingUrl(url){
 
   try{
@@ -15,19 +16,63 @@ async function pingUrl(url){
     //console.log(`result.ok: ${result.ok}`);
     if (result.ok) {
       console.log(JSON.stringify({action: "alive"}));
+      $('.loading-state').css({'display': 'none'});
       //checkURL();
     } else {
       console.log(JSON.stringify({action: "not_alive"}));
+      $('.loading-state').css({'display': 'flex'});
     }
     return result.ok;
   }
   catch(err){
       //console.log(err);
       console.log(JSON.stringify({action: "not_alive"}));
+      $('.loading-state').css({'display': 'flex'});
   }
   return 'error';
 }
 
+function create_spinner() {
+  let div = document.createElement('div');
+  let div2 = document.createElement('div');
+  div.classList.add("loading-state");
+  div2.classList.add("loading");
+  $(div).append(div2);
+  $('body').append(div);
+  let css =`
+  <style>
+    /*.loading {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        border: 10px solid black;
+        border-top-color: white;
+        animation: loading 1s linear infinite;
+      }
+      @keyframes loading {
+        to {
+          transform: rotate(360deg);
+        }
+      }*/
+
+      .loading-state {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          background-color: rgba(0, 0, 0, 0.7);
+          backdrop-filter: blur(4px);
+          z-index: 9999;
+          display: none;
+          justify-content: center;
+          align-items: center;
+      }
+    </style>
+  `;
+
+  $('head').append(css);
+}
 
 function checkURL(){
   // check current page is spreed
@@ -46,6 +91,9 @@ if (typeof _oc_config === "undefined") {
   if (_oc_config.version.localeCompare("28.0.0.0", undefined, { numeric: true, sensitivity: 'base' }) == '-1') {
     console.log(JSON.stringify({action: "not_found"}));
   } else {
+
+    create_spinner();
+
     // check current page is spreed
     checkURL();
 
