@@ -2,22 +2,18 @@
 
 - [x] BUG: broken context menu (right-click double click) with Nexctloud 29
 - [x] BUG: no white unread counter in tray, only empty red badge (linux)
-- [x] BUG: respect win.setEnabled(false) for minimize operations (linux) 
-- [x] add badged app icon to taskbar (linux)
-- [x] BUG: loading window top offset +29px for the first run (linux) 
-- [x] BUG: loading window don't restore position after main window move, but resize works (linux)
-- [x] BUG: loading window is not semi-transparent (linux)
+- [x] add badged app icon to taskbar (linux, test on VM at work)
 - [x] BUG: memory leak due to multiple loading windows
 - [x] BUG: force open Talk after logout and login fix
 - [x] add server address to app windows title and tray title
 - [x] BUG: delayed page refresh after reload loader disappear (macos only?)
-- [x] error hadle if no connection with NC or Talk (pinger) - add spinner as semitransparent modal window
+- [x] error hadle if no connection with NC or Talk (pinger) - add spinner
 - [x] always on the top option
 - [x] BUG: fix light/dark nextcloud style "Open Nextcloud" link in user menu
 - [x] BUG: fix macos theme taskbar icon (make sure to [turn off macos taskbar transparency](https://discussions.apple.com/thread/254896301?answerId=259117195022#259117195022) to proper usage)
 - [x] show number of notifications on icon
-- [x] BUG: double reload after login only apperas in case of non-cookie session login (SSO for example) - leave this behaviour!
-- [x] BUG: if show\_on\_new_message is true - show on every new message
+- [x] BUG: double reload after login only apperas in case of non-cookie session login (SSO for example)
+- [x] BUG: if show_on_new_message is true - show on every new message
 - [x] electron promts for server and allow domains input
 - [x] replace notification process by the number of unread messages
 - [x] BUG: no notifications in hidden app after dismissed notifications
