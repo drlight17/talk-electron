@@ -1,3 +1,11 @@
+0.2.6-alpha
+
+- [x] show NC version in about, window title and tray title
+- [x] localization support 
+- [x] close navi menu when narrow width window (< 512 px) and focus is lost
+- [x] GUI: show app window if not logged in at startup    
+- [x] BUG: close navi menu when upload file
+
 0.2.5-alpha
 
 - [x] BUG: broken context menu (right-click double click) with Nexctloud 29
@@ -19,11 +27,13 @@
 - [x] BUG: no notifications in hidden app after dismissed notifications
 
 0.2.4-alpha
+
 - [x] BUG: close navi menu when create new conference or settings clicked (maybe add auto close navi on every non navi click or action?)
 - [x] BUG: on pinned/maximized main window hide (not close) it opens again (windows)
 - [x] ia32 win version
 
 0.2.3-alpha
+
 - [x] BUG: process no spreed app found (404) in nextcloud_check.js
 - [x] add access to user settings of NC from the app user-menu
 - [x] BUG: make all new windows only one instance (single)
