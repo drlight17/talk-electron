@@ -1,7 +1,8 @@
 # talk-electron
 Simple electron wrapper app for Nextcloud Talk. Learning some nodejs and electron basics while building simple Nextcloud Talk Desktop app for easy enterprise deployment.
 
-![Screenshot of NC Talk Electron UI](https://raw.githubusercontent.com/drlight17/talk-electron/master/screenshot1.png)
+![Screenshot](https://github.com/user-attachments/assets/2eab2590-9782-4c2f-b4f1-2805c7b4d4b9)
+
 
 Sources are mess but it works =)
 
