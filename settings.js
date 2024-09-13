@@ -1,6 +1,24 @@
-function loadSettings(settings) {
+function localize_setting(setting_id,setting_loc) {
+  // localize settings.html
+  if (setting_id == 'allow_domain_title') {
+    // localization of allow_domain_id title
+    document.getElementById(setting_id.replace('_title','_id')).title = setting_loc;
+  } else {
+    document.getElementById(setting_id).innerHTML = setting_loc;
+  }
+}
 
-  //let settings_json = JSON.stringify(settings);
+function get_all_ids () {
+  var objs = [];
+  document.querySelectorAll('label[id], button[id]').forEach( obj => {
+    if(obj.id)
+     objs.push(obj.id);
+  });
+  console.log(JSON.stringify({action: "return_localize_ids", localization_ids: JSON.stringify(objs)}));
+}
+
+
+function loadSettings(settings,locales) {
 
   if (settings.server_url !== undefined) {
     document.getElementById('server_url').value = settings.server_url;
@@ -10,6 +28,21 @@ function loadSettings(settings) {
 
   if (settings.allow_domain !== undefined) {
     document.getElementById('allow_domain').value = settings.allow_domain;
+  }
+
+  var select = document.getElementById('lang');
+  //select.value = settings.locale;
+  locales.forEach((locale) => {
+    //console.log(locale)
+    var regionNames = new Intl.DisplayNames([locale], { type: 'language' });
+    var opt = document.createElement('option');
+    opt.value = locale;
+    opt.innerHTML = regionNames.of(locale);
+    select.appendChild(opt);
+  })
+
+  if (settings.locale !== undefined) {
+    document.getElementById('lang').value = settings.locale;
   }
 
   if (settings.run_at_startup !== undefined) {
@@ -57,5 +90,7 @@ function saveSettings() {
           settings[key] = value;
       }
   }
+  // add locale workaround
+  settings['locale'] = document.getElementById('lang').value;
   console.log(JSON.stringify({action: "save_settings", settings: JSON.stringify(settings)}));
 }

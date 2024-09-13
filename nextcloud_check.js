@@ -82,6 +82,13 @@ function checkURL(){
       console.log(JSON.stringify({action: "redirect_to_spreed"}));
       //window.location.replace("/apps/spreed")
     }
+  } else {
+    // to force show app window if not logged in
+    // 5s timeout to pass SSO procedure
+    setTimeout(function() {
+      console.log(JSON.stringify({action: "force_show_app_win"}));
+    }, 5000);
+
   }
 }
 
@@ -99,6 +106,7 @@ if (typeof _oc_config === "undefined") {
 
     // add open user settings menu link instead of default to prevent default behaviour
     if ( !$('#user_settings_link').length ) {
+
       let li = document.createElement( "li" );
       li.classList.add("menu-entry");
       li.setAttribute('id','user_settings_link');
@@ -106,7 +114,7 @@ if (typeof _oc_config === "undefined") {
       let a = document.createElement( "a" );
 
       a.setAttribute('href','/settings/user');
-      a.textContent += "Настройки пользователя";
+      a.textContent += user_settings_link_loc;
       let img = document.createElement( "img" );
       img.setAttribute('src','/apps/settings/img/admin.svg');
       $(a).prepend($(img));
@@ -125,7 +133,7 @@ if (typeof _oc_config === "undefined") {
 
       a.setAttribute('href','/');
       a.setAttribute('target','_blank');
-      a.textContent += "Открыть Nextcloud";
+      a.textContent += nc_link_loc;
       let img = document.createElement( "img" );
       img.setAttribute('src','/core/img/favicon-mask.svg');
       $(a).prepend($(img));

@@ -61,7 +61,10 @@ waitForElm('#body-user').then((elm) => {
           // to prevent multiple clicking
           clearTimeout(debounce);
           debounce = setTimeout(function() {
-            $('.app-navigation-toggle-wrapper button').click();
+            // to not open navi menu when upload file
+            if ($('.app-navigation-toggle-wrapper button').attr('aria-expanded') === "true") {
+              $('.app-navigation-toggle-wrapper button').click();
+            }
           }, 300);
         //}
       }
@@ -74,5 +77,34 @@ waitForElm('#body-user').then((elm) => {
     subtree: true,
     attributeFilter: ['class']
   });
+})
+
+
+
+waitForElm('#content-vue > div').then((elm) => {
+  var block_navi_hide = false;
+  $(window).resize(function() {
+    // block if window is not narrow
+    if ($(this).width() > 1023) {
+        block_navi_hide = true;
+    }
+    else {
+        block_navi_hide = false;
+    }
+  })
+
+  var object_under_cursor = "";
+  document.addEventListener('mousemove', function(e) {
+    object_under_cursor = $(document.elementFromPoint(e.pageX, e.pageY));
+  })
+  $(elm).on("focusout", function() {
+    //console.log('Navi lost focus!');
+    if (($(object_under_cursor.closest('.app-navigation')).length<1) && !(block_navi_hide)) {
+      if ($('.app-navigation-toggle-wrapper button').attr('aria-expanded') === "true") {
+              $('.app-navigation-toggle-wrapper button').click();
+      }
+    }
+  });
+
 })
 
