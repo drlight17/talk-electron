@@ -28,6 +28,7 @@ Supported setting arguments (see example.config.json):
 - `show_on_new_message` - true\false value means to show app main window on every new message received (default is false)
 - `use_server_icon` - boolean true\false value means to use Nextcloud Server logo icon in GUI (dock, taskbar and so on, default is false
 - `run_at_startup` - boolean true\false value means to start on system user logon (default is false)
+- `locale` - locale country code of app language (default is en)
 - `allow_domain` - comma-separated string with the list of SSO allowed domains, * wildcard supported (use "*" only for all domains, but it maybe insecure)
 - `always_on_top` - true\false value means to show app main window on top of every other windows (default is false)
 
