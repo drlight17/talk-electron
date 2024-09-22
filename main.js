@@ -90,19 +90,23 @@ try {
 
 
         //const icon = './icon.png';
-
         // set run at startup
         if (store.get('run_at_startup')) {
-          
           app.setLoginItemSettings({
               openAtLogin: true,
               name: app.getName() + " v."+app.getVersion()
           })
           if (isLinux) {
+            let executable = "talk-electron";
+            if (process.env.APPIMAGE) {
+              executable = process.env.APPIMAGE;
+            } else {
+              executable = app.getPath('exe');
+            }
             let shortcut_contents = `[Desktop Entry]
 Categories=Utility;
 Comment=Talk web embedded app
-Exec=talk-electron %U
+Exec="`+executable+`"
 Icon=talk-electron
 Name=NC Talk Electron
 StartupWMClass=NC Talk Electron
