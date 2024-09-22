@@ -1,3 +1,11 @@
+0.2.7-alpha (last single profile release)
+
+- [x] SSO NC openid call from app observer instead of server side js script (with option to try auto login)
+- [x] add new auto_login setting in README
+- [x] BUG: settings css GUI fix
+- [x] IMPROVE: close navi menu when narrow width window (<= 1024 px) and focus is lost
+- [x] BUG: (linux) openAtLogin as creation/deletion of talk-electron.desktop file with the following content in ~/.config/autostart:
+
 0.2.6-alpha
 
 - [x] show NC version in about, window title and tray title
