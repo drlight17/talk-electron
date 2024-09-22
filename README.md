@@ -31,6 +31,7 @@ Supported setting arguments (see example.config.json):
 - `locale` - locale country code of app language (default is en)
 - `allow_domain` - comma-separated string with the list of SSO allowed domains, * wildcard supported (use "*" only for all domains, but it maybe insecure)
 - `always_on_top` - true\false value means to show app main window on top of every other windows (default is false)
+- `auto_login` - true\false value means to try auto login (make sure you have configured allow_domain and SSO in NC)
 
 # For developers
 It as simple as 1,2,3:
