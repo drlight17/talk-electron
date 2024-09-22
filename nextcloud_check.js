@@ -74,7 +74,8 @@ function create_spinner() {
   $('head').append(css);
 }
 
-function checkURL(){
+function checkURL(auto_login){
+
   // check current page is spreed
   //console.log($('form.login-form').length < 1)
   if ($('form.login-form').length < 1) {
@@ -85,16 +86,28 @@ function checkURL(){
   } else {
     // to force show app window if not logged in
     // 5s timeout to pass SSO procedure
-    setTimeout(function() {
-      console.log(JSON.stringify({action: "force_show_app_win"}));
-    }, 5000);
+    if (!(auto_login)) {
+      // hide autologin buttons
+      if ($("#alternative-logins > a").length > 0) {
+        $("#alternative-logins > a").hide();
+      }
+      setTimeout(function() {
+        console.log(JSON.stringify({action: "force_show_app_win"}));
+      }, 5000);
+    } else {
+      if ($("#alternative-logins > a").length > 0) {
+        $("#alternative-logins > a")[0].click();
+      }
+      //window.location.href = "/apps/oidc_login/oidc";
+    }
 
   }
 }
 
 if (typeof _oc_config === "undefined") {
-  console.log(JSON.stringify({action: "not_found"}));
+    console.log(JSON.stringify({action: "not_found"}));
 } else {
+
   if (_oc_config.version.localeCompare("28.0.0.0", undefined, { numeric: true, sensitivity: 'base' }) == '-1') {
     console.log(JSON.stringify({action: "not_found"}));
   } else {

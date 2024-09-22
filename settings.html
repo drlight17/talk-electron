@@ -9,13 +9,18 @@
 <body>
 	<div id="app">
 		<form id="settings_form" onsubmit="return false">
+			<label id="lang_id" for="lang"></label>
+		    <select id="lang">
+			</select>
+			<br>
+			<br>
 		    <label id="server_url_id" for="server_url"></label>
 		    <input type="text" name="server_url" id="server_url"><br><br>
 		    <label id="allow_domain_id" title="Несколько значений через запятую, * - wildcard (может обозначать любой поддомен)" for="allow_domain"></label>
 		    <input type="text" name="allow_domain" id="allow_domain"><br><br>
-		    <label id="lang_id" for="lang"></label>
-		    <select id="lang">
-			</select>
+		    <input type='hidden' value=false name='auto_login'>
+		    <input type="checkbox" value=true name="auto_login" id="auto_login">
+		    <label id="auto_login_id" for="auto_login"></label>
 			<br>
 		    <input type='hidden' value=false name='run_at_startup'>
 		    <input type="checkbox" value=true name="run_at_startup" id="run_at_startup">

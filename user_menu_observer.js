@@ -85,7 +85,7 @@ waitForElm('#content-vue > div').then((elm) => {
   var block_navi_hide = false;
   $(window).resize(function() {
     // block if window is not narrow
-    if ($(this).width() > 1023) {
+    if ($(this).width() > 1024) {
         block_navi_hide = true;
     }
     else {

@@ -54,6 +54,7 @@ try {
         const store = new Store();
         // to check prompted status for dialogs
         let prompted = false
+        let auto_login_error = false
         // to check gui_blocked status
         //let gui_blocked = false
         //let is_notification = false;
@@ -73,19 +74,6 @@ try {
           url = store.get('server_url');
         }
 
-
-        // set run at startup
-        if (store.get('run_at_startup')) {
-          app.setLoginItemSettings({
-              openAtLogin: true,
-              name: app.getName() + " v."+app.getVersion()
-          })
-        } else {
-          app.setLoginItemSettings({
-              openAtLogin: false,
-              name: app.getName() + " v."+app.getVersion()
-          })
-        }
         let iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
         let icon = nativeImage.createFromPath(iconPath); // template with center transparency
         let trayIcon = icon
@@ -103,7 +91,40 @@ try {
 
         //const icon = './icon.png';
 
-
+        // set run at startup
+        if (store.get('run_at_startup')) {
+          
+          app.setLoginItemSettings({
+              openAtLogin: true,
+              name: app.getName() + " v."+app.getVersion()
+          })
+          if (isLinux) {
+            let shortcut_contents = `[Desktop Entry]
+Categories=Utility;
+Comment=Talk web embedded app
+Exec=talk-electron %U
+Icon=talk-electron
+Name=NC Talk Electron
+StartupWMClass=NC Talk Electron
+Terminal=false
+Type=Application
+Icon=talk-electron`;
+            fs.writeFileSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop",shortcut_contents, 'utf-8');
+          }
+        } else {
+          app.setLoginItemSettings({
+              openAtLogin: false,
+              name: app.getName() + " v."+app.getVersion()
+          })
+          if (isLinux) {
+            try {
+              fs.unlinkSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop")
+            }
+            catch (e) {
+              //console.log(No shortcut!);
+            }
+          }
+        }
 
         var win = null;
         //var win_loading = null;
@@ -488,7 +509,7 @@ try {
               icon:icon,
               title:i18n.__('preferences'),
               width: 500,
-              height: 300,
+              height: 350,
               resizable:false,
               parent: win
             })
@@ -1045,6 +1066,15 @@ try {
             // check nc and talk status and version and run pinger
             win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'nextcloud_check.js')),true)
 
+
+            // try autologin in case os SSO enabled
+            if (!auto_login_error) {
+              if (store.get('auto_login')) {
+                win.webContents.executeJavaScript(`
+                  checkURL(true);
+                `);
+              }
+            }
             /*if (gui_blocked) {
               block_gui_loading(false);
             }*/
@@ -1129,7 +1159,9 @@ try {
               // to force show app window if not logged in
               if (JSON.parse(message).action == 'force_show_app_win') {
                 // dirty but it works
-                win.show();
+                if (!win.isVisible()) { 
+                  win.show();
+                }
                 //win.webContents.executeJavaScript('window.location.replace("/apps/spreed")')
               }
               /*if (JSON.parse(message).action == 'added') {
@@ -1139,16 +1171,25 @@ try {
                 removeNotificationFromTray();
               }*/
               if (JSON.parse(message).action == 'not_found') {
-                win.close();
-                appIcon.destroy();
-                if (!prompted) {
-                  dialog.showErrorBox(i18n.__('error'),i18n.__('message1'));
-                  //app.exit(0);
-                  setServerUrl (store.get('server_url')||url_example);
+                if (store.get('auto_login')) {
+                  if (!auto_login_error) {
+                    dialog.showErrorBox(i18n.__('error'),i18n.__('message6'));
+                    win.webContents.executeJavaScript('window.location.replace("'+store.get('server_url')+'")')
+                    auto_login_error = true;
+                  } else {
+
+                  }
+                } else {
+                  win.close();
+                  appIcon.destroy();
+                  if (!prompted) {
+                    dialog.showErrorBox(i18n.__('error'),i18n.__('message1'));
+                    //app.exit(0);
+                    setServerUrl (store.get('server_url')||url_example);
+                  }
                 }
 
               }
-
             }
             catch (err) {
               //console.log(err)
@@ -1301,6 +1342,7 @@ try {
           .then((result) => {
               // if no
               if (result.response !== 0) {
+                store.set('auto_login',false)
                 createWindow();
                 guiInit();
                 prompted = false;
@@ -1310,6 +1352,7 @@ try {
               if (result.response === 0) {
                 //console.log('The "Yes" button was pressed (main process)');
                 // show input box for allow domains
+                store.set('auto_login',true)
                 prompt({
                   title: i18n.__('title2'),
                   label: i18n.__('message3'),

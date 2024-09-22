@@ -30,6 +30,12 @@ function loadSettings(settings,locales) {
     document.getElementById('allow_domain').value = settings.allow_domain;
   }
 
+  if (settings.auto_login !== undefined) {
+    document.getElementById('auto_login').checked = settings.auto_login;
+  } else {
+    document.getElementById('auto_login').checked = false;
+  }
+
   var select = document.getElementById('lang');
   //select.value = settings.locale;
   locales.forEach((locale) => {
@@ -44,6 +50,7 @@ function loadSettings(settings,locales) {
   if (settings.locale !== undefined) {
     document.getElementById('lang').value = settings.locale;
   }
+
 
   if (settings.run_at_startup !== undefined) {
     document.getElementById('run_at_startup').checked = settings.run_at_startup;
