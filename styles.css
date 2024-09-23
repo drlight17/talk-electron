@@ -34,4 +34,11 @@
 	min-width: 100px
 }
 
+/*to fix main_menu auto hide in 1024 width */
+
+@media all and (max-width: 1024px) {
+	.app-navigation {
+		position:relative!important;
+	}
+}
 /* Add styles here to customize the appearance of your app */

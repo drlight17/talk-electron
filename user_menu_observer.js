@@ -99,12 +99,13 @@ waitForElm('#content-vue > div').then((elm) => {
   })
   $(elm).on("focusout", function() {
     //console.log('Navi lost focus!');
-    if (($(object_under_cursor.closest('.app-navigation')).length<1) && !(block_navi_hide)) {
-      if ($('.app-navigation-toggle-wrapper button').attr('aria-expanded') === "true") {
-              $('.app-navigation-toggle-wrapper button').click();
+    if (!block_navi_hide) {
+      if ($(object_under_cursor.closest('.app-navigation')).length<1) {
+        if ($('.app-navigation-toggle-wrapper button').attr('aria-expanded') === "true") {
+                $('.app-navigation-toggle-wrapper button').click();
+        }
       }
     }
   });
-
 })
 
