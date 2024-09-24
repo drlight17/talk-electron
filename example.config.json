@@ -7,5 +7,7 @@
   "show_on_new_message": false,
   "use_server_icon": true,
   "run_at_startup": true,
-  "always_on_top": false
+  "always_on_top": false,
+  "auto_login": false,
+  "locale": "en"
 }
