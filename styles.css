@@ -1,6 +1,6 @@
 /* styles.css */
 /*hide some elements*/
-.side-menu-opener, #nextcloud, .toast-error,#header > div.header-right > div:nth-child(1), /*#header > div.header-right > div:nth-child(2),*/ #header > div.header-right > div:nth-child(3),/*#profile,*/#accessibility_settings, #settings,#admin_settings, #core_apps, #core_users,#help, #body-login > footer,#header > div.header-left > nav {
+.side-menu-opener, #nextcloud, .toast-error,/*#header > div.header-right > div:nth-child(1), #header > div.header-right > div:nth-child(2), #header > div.header-right > div:nth-child(3),#profile,#notifications,*/#accessibility_settings, #settings,#admin_settings, #core_apps, #core_users,#help, #body-login > footer,#header > div.header-left > nav {
 	display:none!important;
 }
 

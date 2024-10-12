@@ -32,6 +32,15 @@ const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 
 const gotTheLock = app.requestSingleInstanceLock();
 
+// if dev mode then use different userData folder
+if (!app.isPackaged) {
+    console.log('App is in dev mode');
+    let current_app_dir = app.getPath('userData')
+    app.setPath ('userData', current_app_dir+"-dev");
+} else {
+    console.log('App is in production mode');
+}
+
 try {
   var i18n = new(require('./translations/i18n'));
 
@@ -64,7 +73,7 @@ try {
         let settings_opened = false;
 
         let url = "";
-        const url_example = 'http://cloud.example.com';
+        const url_example = 'https://cloud.example.com';
 
         if (!((app.commandLine.getSwitchValue("server_url") == undefined) || (app.commandLine.getSwitchValue("server_url") == ""))) {
           // overwrite server_url if arg is given
@@ -106,14 +115,16 @@ try {
             let shortcut_contents = `[Desktop Entry]
 Categories=Utility;
 Comment=Talk web embedded app
-Exec="`+executable+`"
+Exec=sleep 15 && "`+executable+`"
 Icon=talk-electron
 Name=NC Talk Electron
 StartupWMClass=NC Talk Electron
 Terminal=false
 Type=Application
 Icon=talk-electron`;
-            fs.writeFileSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop",shortcut_contents, 'utf-8');
+            if (!fs.existsSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop")) {
+              fs.writeFileSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop",shortcut_contents, 'utf-8');
+            }
           }
         } else {
           app.setLoginItemSettings({
@@ -121,11 +132,8 @@ Icon=talk-electron`;
               name: app.getName() + " v."+app.getVersion()
           })
           if (isLinux) {
-            try {
+            if (fs.existsSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop")) {
               fs.unlinkSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop")
-            }
-            catch (e) {
-              //console.log(No shortcut!);
             }
           }
         }
@@ -557,6 +565,7 @@ Icon=talk-electron`;
             title = i18n.__("user_settings") + " - " + store.get('server_url');
             allow_navi = true;
           } else if (url.includes('/u/'))  {
+            allow_navi = true;
             title =  i18n.__("profile") + " - " + store.get('server_url')
           } else {
             title =  i18n.__("help") + " - " + store.get('server_url')
@@ -585,7 +594,12 @@ Icon=talk-electron`;
           // add app styling override for cloud
           win_popup.on('ready-to-show', () => {
             win_popup.show();
-            win_popup.webContents.insertCSS('#app-content div.admin.access__section, #app-content div.shared.access__section, #app-content .social-button, #header, div.profile__wrapper div.profile__sidebar div.user-actions,#app-content-vue a[href*="/settings/user"] {display:none!important;}');
+            if (url.includes('/u/')) {
+              win_popup.webContents.insertCSS('#app-content div.admin.access__section, #app-content div.shared.access__section, #app-content .social-button, #header, #app-content-vue div.profile__sidebar a.user-actions__primary {display:none!important;}');
+              win_popup.webContents.insertCSS('.profile__header__container {justify-items:end}');
+            } else {
+              win_popup.webContents.insertCSS('#app-content div.admin.access__section, #app-content div.shared.access__section, #app-content .social-button, #header, div.profile__wrapper div.profile__sidebar div.user-actions,#app-content-vue a[href*="/settings/user"] {display:none!important;}');
+            }
             win_popup.webContents.insertCSS('#content-vue { margin-top: 0px!important; height: 100% !important;}');
           })
 
@@ -597,6 +611,7 @@ Icon=talk-electron`;
 
           // prevent navigation away from help pages
           win_popup.webContents.on('will-navigate', (event,redirectUrl) => {
+
             if (!(allow_navi)) {
               // check for nextcloud help urls
               if (!(redirectUrl.includes('docs.nextcloud.com')))  {
@@ -767,8 +782,11 @@ Icon=talk-electron`;
             }
             //is_notification = true;
             if (store.get('show_on_new_message')) {
-              win.show();
-              if (isMac) app.dock.show();
+              // check if win is in not hidden
+              if (!win.isVisible()) {
+                win.show();
+                if (isMac) app.dock.show();
+              }
             }
             if ((!removed)&&(!win.isFocused())) {
               win.flashFrame(true);
@@ -1222,18 +1240,22 @@ Icon=talk-electron`;
               win.webContents.insertCSS('#side-menu-loader-bar { width:0!important;}');
 
               openPopup(redirectUrl);
+              return { action: 'deny' };
             }
-            // open profile settings
+            // open settings process
             if (redirectUrl.includes('/settings/user')) {
               event.preventDefault();
               // dirty prevent PageLoaders appear
               win.webContents.insertCSS('#side-menu-loader-bar { width:0!important;}');
 
               openPopup(redirectUrl);
+              return { action: 'deny' };
             }
 
+            // open files, contacts and others process
+            if (redirectUrl.includes('/f/')||redirectUrl.includes('calendar')||redirectUrl.includes('contacts')) {
             // open files process
-            if (redirectUrl.includes('/f/')) {
+            //if (redirectUrl.includes('/f/')) {
               event.preventDefault();
               // dirty prevent PageLoaders appear
               win.webContents.insertCSS('#side-menu-loader-bar { width:0!important;}');
@@ -1241,6 +1263,15 @@ Icon=talk-electron`;
               shell.openExternal(redirectUrl);
               return { action: 'deny' };
             }
+            // open others process
+            /* if (!redirectUrl.includes('/spreed/')&&!redirectUrl.includes('/call/')&&!redirectUrl.includes('/login')&&!redirectUrl.includes('logout')) {
+              event.preventDefault();
+              // dirty prevent PageLoaders appear
+              win.webContents.insertCSS('#side-menu-loader-bar { width:0!important;}');
+
+              shell.openExternal(redirectUrl);
+              return { action: 'deny' };
+            }*/
           });
 
 

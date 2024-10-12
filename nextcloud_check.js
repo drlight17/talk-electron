@@ -155,7 +155,7 @@ if (typeof _oc_config === "undefined") {
       $('#firstrunwizard_about').before( $(li) );
       //console.log($('#profile'));
     }
-    // add pinger every 5 seconds to check NC alive
-    var interval = setInterval(function () { pingUrl(location.protocol + '//' + location.host/* + location.pathname*/) }, 5000);
+    // add pinger every 10 seconds to check NC alive
+    var interval = setInterval(function () { pingUrl(location.protocol + '//' + location.host/* + location.pathname*/) }, 10000);
   }
 }
