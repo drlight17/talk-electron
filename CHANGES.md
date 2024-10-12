@@ -7,6 +7,7 @@
 - [x] BUG: slow down alive check (to 10s?)
 - [x] BUG: unread counter drops when dialog icons with counter is not visible in gui
 - [x] add dev separate conf folder
+- [x] BUG: remove version from autorun (Mac/Win)
 
 0.2.7-alpha
 
