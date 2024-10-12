@@ -103,7 +103,8 @@ try {
         if (store.get('run_at_startup')) {
           app.setLoginItemSettings({
               openAtLogin: true,
-              name: app.getName() + " v."+app.getVersion()
+              //name: app.getName() + " v."+app.getVersion() // to fix version in registry autorun
+              name: app.getName()
           })
           if (isLinux) {
             let executable = "talk-electron";
@@ -129,7 +130,8 @@ Icon=talk-electron`;
         } else {
           app.setLoginItemSettings({
               openAtLogin: false,
-              name: app.getName() + " v."+app.getVersion()
+              //name: app.getName() + " v."+app.getVersion()  // to fix version in registry autorun
+              name: app.getName()
           })
           if (isLinux) {
             if (fs.existsSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop")) {
