@@ -1,4 +1,14 @@
-0.2.7-alpha (last single profile release)
+0.2.8-alpha (last single profile release)
+
+- [x] BUG: do not hide search
+- [x] do not hide #contactsmenu
+- [x] BUG: in popup window check already opened window before open it again (show_on_new_message func)
+- [x] BUG: profile browserWindow - show tel and other info
+- [x] BUG: slow down alive check (to 10s?)
+- [x] BUG: unread counter drops when dialog icons with counter is now visible in gui
+- [x] add dev separate conf folder
+
+0.2.7-alpha
 
 - [x] SSO NC openid call from app observer instead of server side js script (with option to try auto login)
 - [x] BUG (linux): try to create autostart + check if there is autostart created
