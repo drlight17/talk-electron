@@ -5,7 +5,7 @@
 - [x] BUG: in popup window check already opened window before open it again (show_on_new_message func)
 - [x] BUG: profile browserWindow - show tel and other info
 - [x] BUG: slow down alive check (to 10s?)
-- [x] BUG: unread counter drops when dialog icons with counter is now visible in gui
+- [x] BUG: unread counter drops when dialog icons with counter is not visible in gui
 - [x] add dev separate conf folder
 
 0.2.7-alpha
