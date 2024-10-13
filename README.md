@@ -44,6 +44,8 @@ To run dev app use:
 ```
 npm start 
 ```
+In dev mode config path includes '-dev'
+
 To build distributive use:
 ```
 npm run dist
