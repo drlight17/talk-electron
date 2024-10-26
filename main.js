@@ -1,4 +1,4 @@
-// Modules to control application life and create native browser window
+ // Modules to control application life and create native browser window
 
 const prompt = require('electron-prompt');
 
@@ -21,6 +21,11 @@ if (isWindows) {
   var { BrowserWindow } = require('electron-acrylic-window') // return BrowserWindows to electron in case of not using electron-acrylic-window
 }*/
 const { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor, nativeTheme } = require('electron')
+const { exec } = require('child_process');
+
+//const SystemIdleTime = require('@paulcbetts/system-idle-time');
+const SystemIdleTime = require('desktop-idle');
+
 
 const fs = require("fs");
 const { join } = require('path');
@@ -47,30 +52,42 @@ try {
   main();
 
   async function main() {
+
+    const store = new Store();
+    // TODO check allow_multiple in newer version
+    let allow_multiple = false/*store.get('allow_multiple') ? JSON.parse(store.get('allow_multiple')) : false;*/
     // prevent multiple instances, focus on the existed app instead
     if (!gotTheLock) {
-      app.exit(0);
+      if (!allow_multiple) {
+        app.exit(0);
+      }
     } else {
+      if (!allow_multiple) {
         app.on('second-instance', (event) => {
-        if (win) {
-          //if (win.isMinimized()) win.restore();
-          win.show();
-          win.focus();
-        }
-      })
+          if (win) {
+            //if (win.isMinimized()) win.restore();
+            win.show();
+            win.focus();
+            if (isMac) app.dock.show();
+          }
+        })
+      }
 
       try {
-        const store = new Store();
         // to check prompted status for dialogs
         let prompted = false
         let auto_login_error = false
+        let idleTime_non_active = 0;
         // to check gui_blocked status
         //let gui_blocked = false
         //let is_notification = false;
         // for storing unread counter
         let unread = false;
+        let unread_prev = false;
         // to store settings menu opened status
         let settings_opened = false;
+
+        setTimeout(function() {checkNewVersion(app.getVersion())},3000);
 
         let url = "";
         const url_example = 'https://cloud.example.com';
@@ -86,6 +103,7 @@ try {
         let iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
         let icon = nativeImage.createFromPath(iconPath); // template with center transparency
         let trayIcon = icon
+        let dockIcon = icon
 
         if (isMac) {
           var icon_bw = await bw_icon_process(icon);
@@ -94,7 +112,7 @@ try {
         }
         //icon = icon_bw
 
-        const icon_notification = nativeImage.createFromPath(path.join(__dirname,store.get('notification_icon_name')||'notification.png'));
+        //const icon_notification = nativeImage.createFromPath(path.join(__dirname,store.get('notification_icon_name')||'notification.png'));
         //const icon_red_dot = nativeImage.createFromPath(path.join(__dirname,'red_dot.png'));
 
 
@@ -167,6 +185,8 @@ Icon=talk-electron`;
                   accelerator: isMac ? 'Cmd+Q' : 'Alt+X',
                   click: () => {
                     store.set('bounds', win.getBounds());
+                    store.delete('latestVersion');
+                    store.delete('releaseUrl');
                     app.exit(0);
                   },
                 }
@@ -189,7 +209,7 @@ Icon=talk-electron`;
                 { label: i18n.__('hide'),
                   click: () => {
                     if (isMac) app.dock.hide();
-                    win.hide()
+                    /*if (!isMac)*/ win.hide();
                   },
                   accelerator: isMac ? 'Cmd+H' : 'Ctrl+H',
                   role : "hide"
@@ -240,14 +260,17 @@ Icon=talk-electron`;
                   win_loading.show();
                 }*/
                 win.show()
-                if (isMac) { /*app.dock.setIcon(icon);*/ app.dock.show();};
+
+                if (isMac) { //app.dock.setIcon(dockIcon); 
+                  app.dock.show(); addBadgeMac();
+                };
               },
             },
             {
               label: i18n.__('hide'),
               click: () => {
                 if (isMac) app.dock.hide();
-                win.hide()
+                /*if (!isMac)*/ win.hide();
                 //win_loading.hide();
               },
               role : "hide"
@@ -265,15 +288,60 @@ Icon=talk-electron`;
                 openSettings();
               },
             },
+            {
+              label : i18n.__('about'),
+              // for linux compatibility
+              click: () => {
+                app.showAboutPanel();
+              }
+            },
             { type: 'separator' },
             {
               label: i18n.__('exit'),
               click: () => {
                 store.set('bounds', win.getBounds());
+                store.delete('latestVersion');
+                store.delete('releaseUrl');
                 app.exit(0);
               },
             }
         ];
+
+        /*function checkInactivity() {
+            const idleTime = SystemIdleTime.getIdleTime();
+            console.log('Idle time is:'+idleTime+' s');
+            //const idleTime = Date.now() - lastActivityTime;
+            if (idleTime > 4 * 60 ) {
+              console.log("User is not active for 4 minutes...");
+            } else {
+              //simulateActivity();
+              if (!win.isVisible() || !win.isFocused()) {
+                console.log("User is active for the last 4 minutes so reloading window to simulate activity...");
+                win.reload();
+              }
+            }
+        }*/
+
+          function checkInactivity(activity_check_interval) {
+            let idleTime = SystemIdleTime.getIdleTime();
+
+            if (!win.isVisible() || !win.isFocused()) {
+              idleTime_non_active = idleTime_non_active + activity_check_interval;
+            } else {
+              idleTime_non_active = 0;
+            }
+
+            //console.log('Current idle time is:'+idleTime+' s');
+            //console.log('Current hidden or unfocused time is:'+idleTime_non_active+' s');
+
+            if (idleTime_non_active > 4 * 60) {
+              if (idleTime <= 4 * 60) {
+                console.log("Window is hidden or unfocused for more than 4 minutes, but user was active - reloading the page...");
+                idleTime_non_active = 0;
+                win.reload();
+              }
+            }
+        }
 
         function checkMaximize(click) {
           if (win.isMaximized()) {
@@ -294,6 +362,7 @@ Icon=talk-electron`;
 
           MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
           Menu.setApplicationMenu(MainMenu);
+          checkNewVersion(app.getVersion());
         }
 
         function isInternalLink(url) {
@@ -410,6 +479,104 @@ Icon=talk-electron`;
               win.webContents.executeJavaScript(`loadSettings(`+JSON.stringify(store.store)+`,`+lang_files+`);`);
         }
 
+        function addNewVersionLink(releaseUrl,latestVersion) {
+
+          const separator = { type: 'separator' };
+
+          const menu = Menu.getApplicationMenu();
+          const newVersionLabel = i18n.__('new_version')+latestVersion;
+
+          const newVersionMenuItem = {
+              label: newVersionLabel,
+              click: () => {
+                  shell.openExternal(releaseUrl);
+              }
+          };
+
+          const menuItems = menu.items.map(item => item);
+          const exists = menuItems.some(item => item.label === newVersionLabel);
+
+          if (!exists) {
+
+            menuItems.push(separator);
+            menuItems.push(newVersionMenuItem);
+
+
+            const updatedMenu = Menu.buildFromTemplate(menuItems);
+            Menu.setApplicationMenu(updatedMenu);
+          }
+        }
+
+        async function checkNewVersion(currentVersion) {
+            const cachedVersion = store.get('latestVersion');
+            const cachedUrl = store.get('releaseUrl');
+
+            const apiUrl = `https://api.github.com/repos/drlight17/talk-electron/releases/latest`;
+
+            try {
+                let latestVersion;
+                let releaseUrl;
+                if (!cachedVersion && !cachedUrl) {
+                  //console.log("Fetch new version info from github.")
+                  const response = await fetch(apiUrl);
+                  const data = await response.json();
+
+                  // Извлекаем версию последнего релиза (tag name)
+                  latestVersion = data.tag_name;
+                  releaseUrl = data.html_url;
+
+                  store.set('latestVersion', latestVersion);
+                  store.set('releaseUrl', releaseUrl);
+
+                  //console.log(`Current version: ${currentVersion}`);
+                  //console.log(`Latest version: ${latestVersion}`);
+
+
+                } else {
+                  //console.log("Using version info from cache.")
+                  latestVersion = cachedVersion;
+                  releaseUrl = cachedUrl;
+                }
+
+                const comparison = compareVersions(currentVersion, latestVersion);
+                if (comparison === 0) {
+                    //console.log("You are using the latest version.");
+                } else if (comparison < 0) {
+                    //console.log("A new version is available: " + latestVersion);
+
+                    addNewVersionLink(releaseUrl,latestVersion);
+                } else {
+                    //console.log("You are using a newer version.");
+                }
+
+            } catch (error) {
+                console.error('Error fetching the latest release:', error);
+            }
+        }
+        function compareVersions(version1, version2) {
+
+            const cleanVersion1 = version1.replace(/^v/, '');
+            const cleanVersion2 = version2.replace(/^v/, '');
+
+
+            const parts1 = cleanVersion1.split('.');
+            const parts2 = cleanVersion2.split('.');
+
+
+            for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
+                const part1 = parts1[i] || '0';
+                const part2 = parts2[i] || '0';
+
+
+                const comparison = part1.localeCompare(part2, undefined, { numeric: true });
+
+                if (comparison !== 0) {
+                    return comparison;
+                }
+            }
+            return 0;
+        }
+
         function localizeSettings(win) {
           //win.webContents.toggleDevTools();
           win.webContents.executeJavaScript(`get_all_ids();`);
@@ -435,6 +602,21 @@ Icon=talk-electron`;
               //dialog.showErrorBox('Ошибка', "Подробнее: "+JSON.stringify(err));
             }
           });
+        }
+
+        // dirty function to apply unread badge to dock icon on Mac with 1s timeout
+        function addBadgeMac () {
+          //console.log(app.dock.getBadge());
+          //setTimeout (function() {
+            // force dockIcon!
+            app.dock.setIcon(dockIcon);
+            if (unread!=0) {
+              app.dock.setBadge('');
+              app.dock.setBadge(unread.toString());
+            } else {
+              app.dock.setBadge('');
+            }
+          //}, 1000);
         }
 
         function setSettings(message,win) {
@@ -523,7 +705,7 @@ Icon=talk-electron`;
               icon:icon,
               title:i18n.__('preferences'),
               width: 500,
-              height: 350,
+              height: 400,
               resizable:false,
               parent: win
             })
@@ -531,6 +713,14 @@ Icon=talk-electron`;
             win_settings.loadFile('settings.html');
             win_settings.setMenu(null);
 
+            // override fonts to Arial to fix any app startup errors
+            win_settings.webContents.on('did-finish-load', () => {
+              win_settings.webContents.insertCSS(`
+                * {
+                  font-family: 'Arial', sans-serif !important;
+                }
+              `);
+            });
 
             // save app name title
             win_settings.on('page-title-updated', function(e) {
@@ -585,6 +775,15 @@ Icon=talk-electron`;
 
           win_popup.loadURL(theUrl);
           win_popup.setMenu(null);
+
+          // override fonts to Arial to fix any app startup errors
+          win_popup.webContents.on('did-finish-load', () => {
+            win_popup.webContents.insertCSS(`
+              * {
+                font-family: 'Arial', sans-serif !important;
+              }
+            `);
+          });
 
           //block_gui_loading(false);
 
@@ -680,6 +879,7 @@ Icon=talk-electron`;
             var linear = 0 // for black color
           }
           var newImage = await sharp(icon.toPNG()).greyscale().linear(linear, 0).png({colors:2}).toBuffer();
+
           return nativeImage.createFromBuffer(newImage);
         }
 
@@ -690,8 +890,8 @@ Icon=talk-electron`;
             // process icon for macos to black and white colors
             if (isMac) {
               icon = await bw_icon_process(icon)
-            }
-
+            } 
+            
             // var newImage = await sharp(Buffer.from(badge)).toBuffer();
 
 
@@ -760,7 +960,7 @@ Icon=talk-electron`;
             // set mac dock icon
             if (isMac) {
               //app.dock.setIcon(icon);
-              app.dock.setBadge('');
+              addBadgeMac();
               icon_bw = await bw_icon_process(icon);
               trayIcon = icon_bw.resize({width:16});
             } else {
@@ -780,18 +980,22 @@ Icon=talk-electron`;
             // set mac dock icon
             if (isMac) {
               //app.dock.setIcon(icon_notification);
-              app.dock.setBadge(unread.toString());
+              addBadgeMac();
             }
             //is_notification = true;
             if (store.get('show_on_new_message')) {
-              // check if win is in not hidden
-              if (!win.isVisible()) {
-                win.show();
-                if (isMac) app.dock.show();
+              if (unread_prev != unread) {
+                // check if win is in not hidden
+                if (!win.isVisible()) {
+                  win.show();
+                  if (isMac) app.dock.show();
+                }
               }
             }
             if ((!removed)&&(!win.isFocused())) {
-              win.flashFrame(true);
+              if (unread_prev != unread) {
+                win.flashFrame(true);
+              }
             }
           }
         }
@@ -873,15 +1077,17 @@ Icon=talk-electron`;
             center: true,
             show: store.get('start_hidden') ? !JSON.parse(store.get('start_hidden')) : true,
             resizable: true,
+            minimizable: (isMac) ? false : true,
             minWidth: 512, // temporary restrict min window width by 512px,
             // see issues https://github.com/nextcloud/spreed/issues/12236
             // https://github.com/nextcloud/spreed/issues/11454
-            icon:icon,
+            //icon:icon,
             useContentSize: true,
             webPreferences: {
               enableRemoteModule: true,
               backgroundThrottling: false,
               //preload: path.join(__dirname, 'preload.js'),
+              contextIsolation: true,
               nodeIntegration: true,
             }
           });
@@ -988,20 +1194,17 @@ Icon=talk-electron`;
           win.on('show', function () {
             win.setBounds(store.get('bounds'));
 
-            if (isMac) app.dock.setIcon(icon);
+            //if (isMac) app.dock.setIcon(dockIcon);
             //if (is_notification) {
             if (unread != 0) {
               createBadge(unread,"taskbar");
               //win.setOverlayIcon(icon_notification, 'Есть непрочитанные уведомления');
               if (isMac) {
-                // remove badge prior to set new badge!
-                app.dock.setBadge('');
-                //console.log(unread)
-                app.dock.setBadge(unread.toString());
+                addBadgeMac();
               }
             } else {
               win.setOverlayIcon(null, '');
-              if (isMac) app.dock.setBadge('');
+              if (isMac) addBadgeMac();
             }
           })
 
@@ -1018,6 +1221,7 @@ Icon=talk-electron`;
                 const buffer = await response.arrayBuffer();
                 const nodebuffer = Buffer.from(buffer);
                 icon = nativeImage.createFromBuffer(nodebuffer)
+                dockIcon = icon
 
 
                 // apply theme to the tray icon - don't apply
@@ -1026,7 +1230,8 @@ Icon=talk-electron`;
                 if (isMac) {
                   icon_bw = await bw_icon_process(icon);
                   trayIcon = icon_bw.resize({width:16});
-                  app.dock.setIcon(icon);
+                  //app.dock.setIcon(dockIcon);
+                  addBadgeMac();
                 } else {
                   trayIcon = icon/*.resize({width:16});*/
                 }
@@ -1046,6 +1251,9 @@ Icon=talk-electron`;
           //block_gui_loading(true);
 
           win.loadURL(url);
+          let activity_check_interval = 5;
+
+          setInterval(function () { checkInactivity(activity_check_interval) }, activity_check_interval*1000);
 
           preventUnsupportedBrowser(win);
 
@@ -1069,6 +1277,13 @@ Icon=talk-electron`;
 
           // check cloud
           win.webContents.on('did-finish-load', function(e) {
+
+            // override fonts to Arial to fix any app startup errors
+            win.webContents.insertCSS(`
+              * {
+                font-family: 'Arial', sans-serif !important;
+              }
+            `);
 
             /*if (!store.get('start_hidden')) {
               win.show()
@@ -1119,6 +1334,7 @@ Icon=talk-electron`;
           })*/
 
           win.webContents.on('console-message', (event, level, message, line, sourceId) => {
+
             try {
               //console.log(JSON.parse(message))
               // get current nextcloud lang
@@ -1131,9 +1347,19 @@ Icon=talk-electron`;
 
               if (JSON.parse(message).action.unread || (JSON.parse(message).action.unread === 0)) {
                 //console.log(JSON.parse(message).action.unread)
-                unread = JSON.parse(message).action.unread
+
+                if (unread_prev == unread) {
+                  unread = JSON.parse(message).action.unread
+                } else {
+                  if (unread!==false){
+                    unread_prev = unread;
+                  }
+                  //unread = JSON.parse(message).action.unread
+                }
+                
                 removed = JSON.parse(message).action.removed
                 UnreadTray(unread,removed);
+                unread_prev = unread
                 // update title with unread on load
                 if (unread != 0) {
                   // set linux taskbar image same as tray
@@ -1150,6 +1376,7 @@ Icon=talk-electron`;
                 }
                 //block_gui_loading(false);
               }
+
               if (JSON.parse(message).action == 'not_alive') {
                 /*if (!gui_blocked) {
                   block_gui_loading(true);*/
@@ -1185,6 +1412,8 @@ Icon=talk-electron`;
                 // dirty but it works
                 if (!win.isVisible()) { 
                   win.show();
+                  if (isMac) app.dock.show();
+
                 }
                 //win.webContents.executeJavaScript('window.location.replace("/apps/spreed")')
               }
@@ -1281,12 +1510,15 @@ Icon=talk-electron`;
             mainMenuTemplate[2].submenu[1].label = i18n.__("open_devtools");
             MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
             Menu.setApplicationMenu(MainMenu);
+            checkNewVersion(app.getVersion());
           })
 
           win.webContents.on('devtools-opened', () => {
+            checkNewVersion(app.getVersion());
             mainMenuTemplate[2].submenu[1].label = i18n.__("close_devtools");
             MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
             Menu.setApplicationMenu(MainMenu);
+            checkNewVersion(app.getVersion());
           })
 
           // Open the DevTools.
@@ -1321,7 +1553,7 @@ Icon=talk-electron`;
           //trayIcon.setTemplateImage(true);
           // set mac dock icon
           if (isMac) {
-            app.dock.setIcon(icon);
+            app.dock.setIcon(dockIcon);
             appIcon = new Tray(icon_bw)
           } else {
             appIcon = new Tray(trayIcon)
@@ -1355,7 +1587,10 @@ Icon=talk-electron`;
 
 
           app.on('activate', function () {
-            if (isMac) app.dock.setIcon(icon);
+            if (isMac) {
+              //app.dock.setIcon(dockIcon);
+              addBadgeMac();
+            }
             // On macOS it's common to re-create a window in the app when the
             // dock icon is clicked and there are no other windows open.
             //if (win.getAllWindows().length === 0) createWindow()
@@ -1425,12 +1660,24 @@ Icon=talk-electron`;
                 .catch((err) => {
                   console.log(err)
                   dialog.showErrorBox(i18n.__('error'), i18n.__("more")+JSON.stringify(err));
+                  store.delete('latestVersion');
+                  store.delete('releaseUrl');
                   app.exit(0);
                 });
               }
           })
         }
 
+
+        function openNotificationsSettings() {
+            exec('open x-apple.systempreferences:com.apple.preference.notifications', (error) => {
+                if (error) {
+                    console.error('Error while opeing notification settings:', error);
+                } else {
+                    console.log('Notification settings are opened for macOS.');
+                }
+            });
+        }
 
         // set server_url prompt
         function setServerUrl (server_url) {
@@ -1451,6 +1698,8 @@ Icon=talk-electron`;
           }, win)
           .then((input) => {
             if(input === null) {
+              store.delete('latestVersion');
+              store.delete('releaseUrl');
               app.exit(0);
             } else {
               let address = input
@@ -1466,6 +1715,8 @@ Icon=talk-electron`;
           .catch((err) => {
             console.log(err)
             dialog.showErrorBox(i18n.__('error'), i18n.__("more")+JSON.stringify(err));
+            store.delete('latestVersion');
+            store.delete('releaseUrl');
             app.exit(0);
           });
         }
@@ -1484,7 +1735,7 @@ Icon=talk-electron`;
         }
 
         app.whenReady().then((event) => {
-
+        //app.on('ready', async () => {
           console.log('PID =', process.pid);
 
           if (url == "") {
@@ -1503,6 +1754,8 @@ Icon=talk-electron`;
               ShutdownHandler.on('shutdown', () => {
                 console.log('Shutdown/logout is detected! Exiting app!');
                 ShutdownHandler.releaseShutdown();
+                store.delete('latestVersion');
+                store.delete('releaseUrl');
                 app.exit(0);
               })
             }
@@ -1515,6 +1768,7 @@ Icon=talk-electron`;
         // for applications and their menu bar to stay active until the user quits
         // explicitly with Cmd + Q.
         app.on('window-all-closed', function () {
+
           // 08.06.2024 due to bug in case of new config recreation
           //if (!isMac) app.quit()
         })
@@ -1535,6 +1789,8 @@ Icon=talk-electron`;
 }
 catch (err) {
   console.log(err);
+  store.delete('latestVersion');
+  store.delete('releaseUrl');
   app.exit(0);
 }
 

@@ -84,6 +84,7 @@ function checkURL(auto_login){
       //window.location.replace("/apps/spreed")
     }
   } else {
+
     // to force show app window if not logged in
     // 5s timeout to pass SSO procedure
     if (!(auto_login)) {
@@ -92,6 +93,8 @@ function checkURL(auto_login){
         $("#alternative-logins > a").hide();
       }
       setTimeout(function() {
+        // check localStorage to drop unread counter
+        recalc_counters_summary(true);
         console.log(JSON.stringify({action: "force_show_app_win"}));
       }, 5000);
     } else {

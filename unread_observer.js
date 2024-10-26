@@ -18,6 +18,7 @@ function getItemsByPartialKey(partialKey) {
 }
 
 function recalc_counters_summary (removed) {
+
     let totalUnreadMessages = 0;
     try {
         // Шаг 1: Извлечение данных из localStorage
@@ -59,13 +60,18 @@ function recalc_counters_summary (removed) {
 
         // Шаг 5: Вывод результата
         //console.log(`Общее количество непрочитанных сообщений: ${totalUnreadMessages}`);
+        if (removed) {
+            localStorage.removeItem(found_key);
+        }
         console.log(JSON.stringify({'action': {'unread': totalUnreadMessages, 'removed': removed}}));
         return found_key;
 
     } catch (error) {
+        console.log(JSON.stringify({'action': {'unread': 0, 'removed': removed}}));
         //console.error('Произошла ошибка при обработке "_cachedConversations":', error);
     }
 }
+
 
 // Сохраняем оригинальные методы localStorage
 const originalSetItem = localStorage.setItem;

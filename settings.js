@@ -81,6 +81,12 @@ function loadSettings(settings,locales) {
   } else {
     document.getElementById('start_hidden').checked = false;
   }
+
+  /*if (settings.allow_multiple !== undefined) {
+    document.getElementById('allow_multiple').checked = settings.allow_multiple;
+  } else {
+    document.getElementById('allow_multiple').checked = false;
+  }*/
 }
 
 function saveSettings() {
