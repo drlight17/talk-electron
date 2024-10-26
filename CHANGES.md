@@ -1,4 +1,16 @@
-0.2.8-alpha (last single profile release)
+0.2.9-alpha
+
+- [x] NEW: system-idle-time for away status prevent in hidden and unfocused app
+- [x] BUG: clear localstorage cachedConversations if logged out to clear unread counter
+- [x] BUG: remove seguibli.ttf (Segoe UI Black Italic (TrueType)) font requrement from app (force sans-serif font ?)
+- [x] GUI: check new version (show in about menu)
+- [x] cache new version in store
+- [x] BUG: (macos) turn off minimize window button to prevent unpredictable behaviour
+- [x] BUG: (macos) white server icon on restore and unread
+- [x] (macos) no unread counter badge in dock - check OS permissions for badge and notifications
+- [x] BUG: waiting for 2nd unread console message to update unread in app places
+
+0.2.8-alpha
 
 - [x] BUG: do not hide search
 - [x] do not hide #contactsmenu
