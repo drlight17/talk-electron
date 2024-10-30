@@ -34,22 +34,38 @@ Supported setting arguments (see example.config.json):
 - `auto_login` - true\false value means to try auto login (make sure you have configured allow_domain and SSO in NC)
 
 # For developers
-It as simple as 1,2,3:
+Build depends on the platform since 0.2.9-alpha version as it brings support of the system idle detect function.
+
+For Windows:
+```
+choco install python312 visualstudio2019community visualstudio2019-workload-nativedesktop visualstudio2019buildtools windows-sdk-10.0
+pip install setuptools
+```
+For Linux:
+```
+apt install libxss-dev pkg-config
+```
+Platform independent steps:
 ```
 git clone https://github.com/drlight17/talk-electron
 cd ./talk-electron
-npm install
+npm install -g node-gyp
+npm install --save-dev electron-rebuild
+npx electron-rebuild
 ```
 To run dev app use:
 ```
 npm start 
 ```
+
 In dev mode config path includes '-dev'
 
 To build distributive use:
 ```
 npm run dist
 ```
+If there are any module errors try to `npx electron-rebuild` before every `npm start` or `npm run dist`.
+
 For more details see [package.json](package.json)
 
 
