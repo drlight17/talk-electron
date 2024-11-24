@@ -52,19 +52,19 @@
         {
           "target": "nsis",
           "arch": [
-            "x64"
+            "ia32"
           ]
         },
         {
           "target": "zip",
           "arch": [
-            "x64"
+            "ia32"
           ]
         },
         {
           "target": "msi",
           "arch": [
-            "x64"
+            "ia32"
           ]
         }
       ]
@@ -81,7 +81,7 @@
     "electron-fetch": "^1.9.1",
     "electron-prompt": "latest",
     "electron-store": "^8.2.0",
-    "sharp": "^0.31"
+    "sharp": "^0.31.3"
   },
   "devDependencies": {
     "@paymoapp/electron-shutdown-handler": "latest",
