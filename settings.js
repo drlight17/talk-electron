@@ -89,6 +89,10 @@ function loadSettings(settings,locales) {
   }*/
 }
 
+function disableRunAtStartup() {
+  document.getElementById('run_at_startup').setAttribute("disabled","disabled");
+}
+
 function saveSettings() {
   var formEl = document.forms.settings_form;
   var formData = new FormData(formEl);

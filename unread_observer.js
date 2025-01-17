@@ -3,25 +3,22 @@
 function getItemsByPartialKey(partialKey) {
     const matchingItems = [];
 
-    // Проходим по всем ключам в localStorage
     for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i); // Получаем ключ по индексу
+        const key = localStorage.key(i);
 
-        // Проверяем, содержит ли ключ искомую часть
         if (key.includes(partialKey)) {
-            const value = localStorage.getItem(key); // Получаем значение ключа
-            matchingItems.push({ key, value }); // Сохраняем ключ и значение в массив
+            const value = localStorage.getItem(key);
+            matchingItems.push({ key, value });
         }
     }
 
-    return matchingItems; // Возвращаем массив найденных элементов
+    return matchingItems;
 }
 
 function recalc_counters_summary (removed) {
 
     let totalUnreadMessages = 0;
     try {
-        // Шаг 1: Извлечение данных из localStorage
         let found_key = getItemsByPartialKey('_cachedConversations')[0].key
         const cachedConversationsStr = localStorage.getItem(found_key);
         if (!cachedConversationsStr) {
@@ -29,8 +26,6 @@ function recalc_counters_summary (removed) {
             return;
         }
 
-
-        // Шаг 2: Парсинг JSON
         let cachedConversations;
         try {
             cachedConversations = JSON.parse(cachedConversationsStr);
@@ -39,26 +34,26 @@ function recalc_counters_summary (removed) {
             return;
         }
 
-        // Шаг 3: Проверка структуры данных
         if (!Array.isArray(cachedConversations)) {
             //console.warn('Ожидается, что "_cachedConversations" будет массивом.');
             return;
         }
-
-        // Шаг 4: Итерация по чатам и суммирование unreadMessages
         
-
         cachedConversations.forEach((conversation, index) => {
-            // Предполагается, что каждая беседа имеет поле unreadMessages
-            // Возможно, структура данных отличается, поэтому нужно проверить
+
             if (conversation && typeof conversation.unreadMessages === 'number') {
                 totalUnreadMessages += conversation.unreadMessages;
             } else {
                 //console.warn(`Чат под индексом ${index} не содержит поля "unreadMessages" или оно не является числом.`);
             }
+
+            // incoming call hook
+            if (conversation && conversation.hasCall) {
+                //console.log(conversation.name + " is calling!")
+                console.log(JSON.stringify({'action': {'call': conversation}}));
+            }
         });
 
-        // Шаг 5: Вывод результата
         //console.log(`Общее количество непрочитанных сообщений: ${totalUnreadMessages}`);
         if (removed) {
             localStorage.removeItem(found_key);
@@ -72,35 +67,27 @@ function recalc_counters_summary (removed) {
     }
 }
 
-
-// Сохраняем оригинальные методы localStorage
 const originalSetItem = localStorage.setItem;
 const originalRemoveItem = localStorage.removeItem;
 
-// Обертка для localStorage.setItem
 localStorage.setItem = function(key, value) {
     const event = new Event('localStorageChange');
     event.key = key;
     event.newValue = value;
     event.oldValue = localStorage.getItem(key);
 
-    // Вызов оригинального метода
     originalSetItem.apply(this, arguments);
 
-    // Генерация события для отслеживания изменений
     window.dispatchEvent(event);
 };
 
-// Обертка для localStorage.removeItem
 localStorage.removeItem = function(key) {
     const event = new Event('localStorageChange');
     event.key = key;
     event.oldValue = localStorage.getItem(key);
 
-    // Вызов оригинального метода
     originalRemoveItem.apply(this, arguments);
 
-    // Генерация события для отслеживания изменений
     window.dispatchEvent(event);
 };
 

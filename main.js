@@ -20,7 +20,7 @@ if (isWindows) {
   var { app, clipboard, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor, nativeTheme } = require('electron')
   var { BrowserWindow } = require('electron-acrylic-window') // return BrowserWindows to electron in case of not using electron-acrylic-window
 }*/
-const { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor, nativeTheme } = require('electron')
+const { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor, nativeTheme, desktopCapturer } = require('electron')
 const { exec } = require('child_process');
 
 //const SystemIdleTime = require('@paulcbetts/system-idle-time');
@@ -31,20 +31,40 @@ const fs = require("fs");
 const { join } = require('path');
 const path = require('node:path');
 
+
 const Store = require('electron-store');
 
 const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 
 const gotTheLock = app.requestSingleInstanceLock();
 
+const packageJsonPath = path.join(app.getAppPath(), 'package.json');
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
+
+const appNameLC = packageJson.name;
+
+const getResourceDirectory = () => {
+  //return process.env.NODE_ENV === "development"
+  if (!app.isPackaged) {
+    console.log('App is in dev mode');
+    let current_app_dir = app.getPath('userData')
+    //fs.rm(current_app_dir, { recursive: true, force: true });
+    app.setPath ('userData', current_app_dir+"-dev");
+    return path.join(process.cwd())
+  } else {
+    console.log('App is in production mode');
+    return path.join(process.resourcesPath, "app.asar.unpacked");
+  }
+};
+
 // if dev mode then use different userData folder
-if (!app.isPackaged) {
+/*if (!app.isPackaged) {
     console.log('App is in dev mode');
     let current_app_dir = app.getPath('userData')
     app.setPath ('userData', current_app_dir+"-dev");
 } else {
     console.log('App is in production mode');
-}
+}*/
 
 try {
   var i18n = new(require('./translations/i18n'));
@@ -84,6 +104,8 @@ try {
         // for storing unread counter
         let unread = false;
         let unread_prev = false;
+        let call = false;
+        let call_prev = false;
         // to store settings menu opened status
         let settings_opened = false;
 
@@ -100,7 +122,13 @@ try {
           url = store.get('server_url');
         }
 
-        let iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
+        // 
+        if (!isMac) {
+          var iconPath = path.resolve(getResourceDirectory(), "icon.png");
+        } else {
+          var iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
+        }
+        
         let icon = nativeImage.createFromPath(iconPath); // template with center transparency
         let trayIcon = icon
         let dockIcon = icon
@@ -119,41 +147,78 @@ try {
         //const icon = './icon.png';
         // set run at startup
         if (store.get('run_at_startup')) {
-          app.setLoginItemSettings({
-              openAtLogin: true,
-              //name: app.getName() + " v."+app.getVersion() // to fix version in registry autorun
-              name: app.getName()
-          })
+          if (isWindows) {
+            app.setLoginItemSettings({
+                openAtLogin: true,
+                //name: app.getName() + " v."+app.getVersion() // to fix version in registry autorun
+                name: app.getName()
+            })
+          }
           if (isLinux) {
-            let executable = "talk-electron";
+            let executable = appNameLC;
             if (process.env.APPIMAGE) {
-              executable = process.env.APPIMAGE;
+              executable = `"`+process.env.APPIMAGE+`"`;
             } else {
-              executable = app.getPath('exe');
+              executable = `"`+app.getPath('exe')+`"`;
+            }
+            const isKDE = process.env.KDE_SESSION_VERSION !== undefined;
+            if (isKDE) {
+              executable = `sleep 15 && ` + executable;
             }
             let shortcut_contents = `[Desktop Entry]
 Categories=Utility;
 Comment=Talk web embedded app
-Exec=sleep 15 && "`+executable+`"
+Exec=`+executable+`
 Icon=talk-electron
 Name=NC Talk Electron
 StartupWMClass=NC Talk Electron
 Terminal=false
 Type=Application
-Icon=talk-electron`;
-            if (!fs.existsSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop")) {
-              fs.writeFileSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop",shortcut_contents, 'utf-8');
+Icon=`+appNameLC+`
+X-GNOME-Autostart-Delay=15`;
+            if (!fs.existsSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")) {
+              fs.writeFileSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop",shortcut_contents, 'utf-8');
+            }
+          }
+          if (isMac) {
+            let plist_contents =`
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.electron.`+appNameLC+`</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Applications/NC Talk Electron.app/Contents/MacOS/NC Talk Electron</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>
+`;
+            if (!fs.existsSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist")) {
+              fs.writeFileSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist",plist_contents, 'utf-8');
+              exec('launchctl bootstrap enable '+app.getPath('home')+'/Library/LaunchAgents/com.electron.'+appNameLC+'.plist');
             }
           }
         } else {
-          app.setLoginItemSettings({
-              openAtLogin: false,
-              //name: app.getName() + " v."+app.getVersion()  // to fix version in registry autorun
-              name: app.getName()
-          })
+          if (isWindows) {
+            app.setLoginItemSettings({
+                openAtLogin: false,
+                //name: app.getName() + " v."+app.getVersion()  // to fix version in registry autorun
+                name: app.getName()
+            })
+          }
           if (isLinux) {
-            if (fs.existsSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop")) {
-              fs.unlinkSync(app.getPath('home')+"/.config/autostart/talk-electron.desktop")
+            if (fs.existsSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")) {
+              fs.unlinkSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")
+            }
+          }
+          if (isMac) {
+            if (fs.existsSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist")) {
+              fs.unlinkSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist");
+              exec('launchctl bootstrap disable com.electron.'+appNameLC);
             }
           }
         }
@@ -477,6 +542,10 @@ Icon=talk-electron`;
         function getSettings(win) {
               var lang_files = JSON.stringify(i18n.___("get_locales"));
               win.webContents.executeJavaScript(`loadSettings(`+JSON.stringify(store.store)+`,`+lang_files+`);`);
+              if (!app.isPackaged) {
+                win.webContents.executeJavaScript(`disableRunAtStartup();`);
+                //win.webContents.toggleDevTools();
+              }
         }
 
         function addNewVersionLink(releaseUrl,latestVersion) {
@@ -985,8 +1054,8 @@ Icon=talk-electron`;
             //is_notification = true;
             if (store.get('show_on_new_message')) {
               if (unread_prev != unread) {
-                // check if win is in not hidden
-                if (!win.isVisible()) {
+                // check if win is in not hidden of minimized
+                if (!win.isVisible() || win.isMinimized() /*|| !win.isFocused()*/) {
                   win.show();
                   if (isMac) app.dock.show();
                 }
@@ -1249,6 +1318,13 @@ Icon=talk-electron`;
           })
 
           //block_gui_loading(true);
+          // TODO: implement html screen source picker
+          session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
+          desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
+            // Grant access to the first screen found.
+            callback({ video: sources[0] })
+            })
+          })  
 
           win.loadURL(url);
           let activity_check_interval = 5;
@@ -1375,6 +1451,44 @@ Icon=talk-electron`;
                   win.setTitle(app.getName() + " v."+app.getVersion() + " - " + store.get('server_url'));
                 }
                 //block_gui_loading(false);
+              }
+
+              // incoming call process
+              if (JSON.parse(message).action.call) {
+
+                call = JSON.parse(message).action.call
+
+                if (call_prev.token == call.token) {
+                  //call = JSON.parse(message).action.call
+                  return;
+                } else {
+                  if (call!==false){
+                    call_prev = call;
+
+                  }
+                  //unread = JSON.parse(message).action.unread
+                }
+                dialog.showMessageBox(win, {
+                    //'type': 'question',
+                    'title': i18n.__('call_title'),
+                    'message': i18n.__("call_message")+call.displayName,
+                    'buttons': [
+                        i18n.__('answer_button'),
+                        i18n.__('cancel_button')
+                    ]
+                })
+                .then((result) => {
+                  // if no
+                  /*if (result.response !== 0) {
+                    call_prev = false;
+                  }*/
+
+                  // if yes
+                  if (result.response === 0) {
+                    win.loadURL(store.get('server_url')+'/call/'+call.token+'#direct-call')
+                  }
+                });
+                win.show();
               }
 
               if (JSON.parse(message).action == 'not_alive') {
@@ -1568,13 +1682,10 @@ Icon=talk-electron`;
 
           appIcon.on('click', (event) => {
             if (!isMac) {
-              if (win.isVisible() && !win.isMinimized()) {
+              //if (win.isVisible() && !win.isMinimized()) {
+              if (win.isVisible() && win.isFocused()) {
                 win.hide()
-                //win_loading.hide();
               } else {
-                /*if (gui_blocked) {
-                  win_loading.show();
-                }*/
                 win.show()
               }
             } else {

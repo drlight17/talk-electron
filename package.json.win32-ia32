@@ -11,7 +11,7 @@
   ],
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "0.2.9-alpha",
+  "version": "0.3.0-alpha",
   "author": "drlight17",
   "build": {
     "appId": "com.electron.talk-electron",
@@ -44,7 +44,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "asarUnpack": "./icon.png"
     },
     "win": {
       "icon": "icon.ico",
@@ -67,7 +68,8 @@
             "ia32"
           ]
         }
-      ]
+      ],
+      "asarUnpack": "./icon.png"
     }
   },
   "scripts": {
