@@ -1,3 +1,12 @@
+0.3.0-alpha
+
+- [x] BUG: show\_on\_new_message in hidden to taskbar window state
+- [x] NEW: incoming call hook with dialog to answer
+- [x] BUG: appIcon click closes unfocused win
+- [x] BUG: screenshare cause DOM error in console and not working
+- [x] BUG: (macos) new run\_at\_startup function
+- [x] BUG: iconPath fix for about menu
+
 0.2.9-alpha
 
 - [x] NEW: system-idle-time for away status prevent in hidden and unfocused app
