@@ -11,7 +11,30 @@ Planning to use some things from this project as PRs to the [official Nextcloud 
 # Minimum OS requirements
 MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x)
 
-# Works with Nextcloud since v.28.x.x and since Talk v.18.x
+## Works with Nextcloud since v.28.x.x and since Talk v.18.x
+
+# 📦 Download
+
+| Platform   | Type | Download link                               | File size   |
+|-------------|--------------|---------------------------------------------------|----------------|
+| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.0.3.0-alpha.msi)   | 87.08 MB          |
+| 🖥 Windows x86   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.0.3.0-alpha.ia32.msi)   | 83.76 MB          |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_0.3.0-alpha_amd64.deb)     | 73.6 MB          |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.3.0-alpha.x86_64.rpm)    | 73.78 MB          |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.3.0-alpha.AppImage)     | 104.07 MB          |
+| 🐧 Linux FlatPak x64   | `.flatpak`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.3.0-alpha-x86_64.flatpak)     | 75.09 MB          |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.3.0-alpha.tar.gz)      | 100.87 MB          |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.3.0-alpha-win.zip)       | 112.04 MB          |
+| 🌐 Windows Archive x86      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.3.0-alpha-ia32-win.zip)       | 106.53 MB          |
+| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.3.0-alpha.dmg)     | 99.71 MB          |
+| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.3.0-alpha-arm64.dmg)     | 95.36 MB          |
+
+
+---
+## 📂 How to install?
+1. Choose your platform distrib.
+2. Click download.
+3. Follow installation.
 
 # Supported settings
 All app settings are saved in the local user folder in file config.json:
@@ -40,15 +63,25 @@ For Windows:
 ```
 choco install python312 visualstudio2019community visualstudio2019-workload-nativedesktop visualstudio2019buildtools windows-sdk-10.0
 pip install setuptools
+git clone https://github.com/drlight17/talk-electron
+cd ./talk-electron
+cp ./package.json.windows ./package.json
 ```
 For Linux:
 ```
 apt install libxss-dev pkg-config
+git clone https://github.com/drlight17/talk-electron
+cd ./talk-electron
+cp ./package.json.linux ./package.json
 ```
-Platform independent steps:
+For Macos:
 ```
 git clone https://github.com/drlight17/talk-electron
 cd ./talk-electron
+cp ./package.json.windows ./package.json
+```
+Platform independent steps:
+```
 npm install -g node-gyp
 npm install --save-dev electron-rebuild
 npx electron-rebuild
@@ -70,7 +103,7 @@ npm run dist
 ```
 If there are any module errors try to `npx electron-rebuild` before every `npm start` or `npm run dist`.
 
-For more details see [package.json](package.json)
+Also check [package.json.linux](package.json.linux) and [package.json.windows](package.json.windows). Pay attention: [package.json.windows](package.json.windows) should be used for macos development and build.
 
 
 
