@@ -70,7 +70,7 @@
     "electron-fetch": "^1.9.1",
     "electron-prompt": "latest",
     "electron-store": "^8.2.0",
-    "sharp": "^0.31"
+    "sharp": "^0.32"
   },
   "devDependencies": {
     "@paymoapp/electron-shutdown-handler": "latest",
