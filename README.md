@@ -44,8 +44,6 @@ All app settings are saved in the local user folder in file config.json:
 
 Supported setting arguments (see example.config.json):
 - `server_url` - Nextcloud Server URL with installed Talk application (it is also supported as app CLI argument, use it as <br />`--server_url=http:\\nextcloud.address.com` )
-- `app_icon_name` - default application icon path name to use in GUI (dock, taskbar and so on, default is icon.png)
-- `notification_icon_name` - notification icon path name to use in app (default is notification.png)
 - `start_hidden` - boolean true\false value means to hide app in tray on startup (default is false)
 - `show_on_notify` - true\false value means to show app main window on every notification (default is false) (*deprecated since v.0.2.5-alpha, check* `show_on_new_message` *instead boolean*)
 - `show_on_new_message` - true\false value means to show app main window on every new message received (default is false)
