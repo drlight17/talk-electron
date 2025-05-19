@@ -1,3 +1,22 @@
+0.4.0-alpha
+
+- [x] NEW: authentication via NC flow v2 with access token (keytar node module to save access token)
+- [x] BUG: force logged out to main menu and tray menu if no credentials
+- [x] BUG: force http to https rewrite in saved server_url
+- [x] NEW: AppImage restart app with forced EPIPE error prevention (updated ribbons-electron fix for talk-electron)
+- [x] NEW: logging function
+- [x] NEW: implement screenshare object picking html menu
+- [x] BUG: call dialog with the name of someone you call appears in case of calling this someone
+- [x] BUG: wrong call join appear in case of refresh after call without chat change
+- [x] BUG: hide logout button in NC and add logout button in file and taskbar menu (it deletes saved token and restart app)
+- [x] BUG: sometimes unread counter don't show anything if logged in using token in hidden or if logged out present old unread values (need to clear localStorage on every logout flow)
+- [x] BUG: force openClientAuth in case of revoked token and refreshed app (ctrl+R or activity triggered)
+- [x] BUG: check new version with period in running app
+- [x] BUG: show left panel button doesn't work after Talk upgrade 20.1.6
+- [x] BUG: user menu is broken after Talk upgrade 20.1.6
+- [x] BUG (macos): fix sharp module error (package version sould be. "^0.32" )
+- [x] BUG (linux): new kde (5.27.x) startup wrong line parse
+
 0.3.0-alpha
 
 - [x] BUG: show\_on\_new_message in hidden to taskbar window state
