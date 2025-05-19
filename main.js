@@ -4,6 +4,9 @@ const prompt = require('electron-prompt');
 
 const sharp = require('sharp');
 
+// for password save function
+const keytar = require('keytar');
+
 const ShutdownHandler = require('@paymoapp/electron-shutdown-handler').default;
 const fetch = require('electron-fetch').default
 
@@ -21,7 +24,9 @@ if (isWindows) {
   var { BrowserWindow } = require('electron-acrylic-window') // return BrowserWindows to electron in case of not using electron-acrylic-window
 }*/
 const { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor, nativeTheme, desktopCapturer } = require('electron')
+const os = require('os');
 const { exec } = require('child_process');
+const { execFile } = require('child_process');
 
 //const SystemIdleTime = require('@paulcbetts/system-idle-time');
 const SystemIdleTime = require('desktop-idle');
@@ -36,26 +41,11 @@ const Store = require('electron-store');
 
 const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 
-const gotTheLock = app.requestSingleInstanceLock();
-
 const packageJsonPath = path.join(app.getAppPath(), 'package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 
 const appNameLC = packageJson.name;
 
-const getResourceDirectory = () => {
-  //return process.env.NODE_ENV === "development"
-  if (!app.isPackaged) {
-    console.log('App is in dev mode');
-    let current_app_dir = app.getPath('userData')
-    //fs.rm(current_app_dir, { recursive: true, force: true });
-    app.setPath ('userData', current_app_dir+"-dev");
-    return path.join(process.cwd())
-  } else {
-    console.log('App is in production mode');
-    return path.join(process.resourcesPath, "app.asar.unpacked");
-  }
-};
 
 // if dev mode then use different userData folder
 /*if (!app.isPackaged) {
@@ -67,13 +57,97 @@ const getResourceDirectory = () => {
 }*/
 
 try {
-  var i18n = new(require('./translations/i18n'));
 
   main();
 
   async function main() {
 
-    const store = new Store();
+    //const store = new Store();
+
+    function writeLog(message) {
+
+      const logFilePath = path.join(app.getPath('userData'), 'app.log');
+      const timestamp = new Date().toLocaleString();
+      const logMessage = `[${timestamp}] ${message}\n`;
+      console.log( `[${timestamp}] ${message}`);
+      if (store.get('logging')) {
+        fs.appendFile(logFilePath, logMessage, (err) => {
+          if (err) {
+            console.error(`[${timestamp}] 'Error when tring to write log:'`, err);
+          }
+        });
+      }
+    }
+    async function openLog(filePath) {
+
+      try {
+        // Check if file exists
+        if (!fs.existsSync(filePath)) {
+          await dialog.showMessageBox({
+            type: 'error',
+            message: 'File not found',
+            detail: `The file ${filePath} does not exist.`
+          });
+          return;
+        }
+
+        // Try to open the file
+        const error = await shell.openPath(filePath);
+        if (error) {
+          await dialog.showMessageBox({
+            type: 'error',
+            message: `Failed to open file ${filePath}`,
+            detail: `No application is associated with this file type. Error: ${error}`
+          });
+        }
+      } catch (err) {
+        writeLog('Unexpected error:', err);
+        await dialog.showMessageBox({
+          type: 'error',
+          message: 'Unexpected error',
+          detail: err.message
+        });
+      }
+    }
+
+    function getResourceDirectory () {
+      //return process.env.NODE_ENV === "development"
+      if (!app.isPackaged) {
+
+        let current_app_dir = app.getPath('userData')
+        // don't delete if already not empty userData folder from prod app
+        if (fs.readdirSync(current_app_dir).length === 0) {
+          fs.rmSync(current_app_dir, { recursive: true, force: true });
+        }
+        app.setPath ('userData', current_app_dir+"-dev");
+
+        return path.join(process.cwd())
+      } else {
+        return path.join(process.resourcesPath, "app.asar.unpacked");
+      }
+    };
+
+    if (!isMac) {
+      var iconPath = path.resolve(getResourceDirectory(), "icon.png");
+      store = new Store();
+    } else {
+      getResourceDirectory();
+      store = new Store();
+      var iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
+
+
+    }
+
+    var i18n = new(require('./translations/i18n'));
+
+    const gotTheLock = app.requestSingleInstanceLock();
+
+    if (!app.isPackaged) {
+      writeLog(app.getName() + " v."+app.getVersion() + ' is started in dev mode');
+    } else {
+      writeLog(app.getName() + " v."+app.getVersion() + ' is started in production mode');
+    }
+
     // TODO check allow_multiple in newer version
     let allow_multiple = false/*store.get('allow_multiple') ? JSON.parse(store.get('allow_multiple')) : false;*/
     // prevent multiple instances, focus on the existed app instead
@@ -94,6 +168,20 @@ try {
       }
 
       try {
+
+        
+        /*process.stdout.on('error', (err) => {
+          if (err.code === 'EPIPE') {
+          } else {
+            writeLog(err);
+          }
+        });*/
+
+        //  turn off console.log errors in case of app.exit(0) in AppImage
+        process.on('uncaughtException', (error) => {
+          //writeLog(error)
+        });
+
         // to check prompted status for dialogs
         let prompted = false
         let auto_login_error = false
@@ -109,26 +197,32 @@ try {
         // to store settings menu opened status
         let settings_opened = false;
 
-        setTimeout(function() {checkNewVersion(app.getVersion())},3000);
+        setTimeout(() => { setInterval(function() {checkNewVersion(app.getVersion())},60*60*1000);}, 3000); // check version in every hour with 3 sec delay for the first time
 
         let url = "";
         const url_example = 'https://cloud.example.com';
 
         if (!((app.commandLine.getSwitchValue("server_url") == undefined) || (app.commandLine.getSwitchValue("server_url") == ""))) {
           // overwrite server_url if arg is given
-          store.set('server_url',app.commandLine.getSwitchValue("server_url"))
-          url = app.commandLine.getSwitchValue("server_url");
+          if (app.commandLine.getSwitchValue("server_url").startsWith("http://")) {
+              url = app.commandLine.getSwitchValue("server_url").replace("http://", "https://");
+          }
+          store.set('server_url',url)
+          //url = app.commandLine.getSwitchValue("server_url");
         } else if (!((store.get('server_url') == undefined) || (store.get('server_url') == ""))) {
           url = store.get('server_url');
         }
 
-        // 
-        if (!isMac) {
-          var iconPath = path.resolve(getResourceDirectory(), "icon.png");
-        } else {
-          var iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
+        // save current app exec path in config file
+        if (!store.get('exec_path')) {
+          store.set('exec_path',app.getPath('exe'));
         }
-        
+
+        // check if logging is configured and set default false if not
+        if (store.get('logging') === undefined) {
+          store.set('logging', false);
+        }
+
         let icon = nativeImage.createFromPath(iconPath); // template with center transparency
         let trayIcon = icon
         let dockIcon = icon
@@ -147,37 +241,81 @@ try {
         //const icon = './icon.png';
         // set run at startup
         if (store.get('run_at_startup')) {
+
+          let executable = appNameLC;
+          let Path = '';
+          let exec_changed = false;
+
+          if (isLinux) {
+            if (process.env.APPIMAGE) {
+              executable = process.env.APPIMAGE;
+            } else {
+              executable = app.getPath('exe');
+            }
+
+            if (executable != store.get('exec_path')) {
+              writeLog("Exec path were changed! Force change of systemd service ExecStart.")
+              store.set('exec_path', executable)
+              exec_changed = true;
+            }
+          }
+
           if (isWindows) {
             app.setLoginItemSettings({
                 openAtLogin: true,
                 //name: app.getName() + " v."+app.getVersion() // to fix version in registry autorun
                 name: app.getName()
             })
+            writeLog("Application was set to autostart")
           }
+
           if (isLinux) {
-            let executable = appNameLC;
             if (process.env.APPIMAGE) {
+              Path = process.env.APPIMAGE.replace(/\/[^\/]*$/, '/');
               executable = `"`+process.env.APPIMAGE+`"`;
             } else {
+              Path = app.getPath('exe').replace(/\/[^\/]*$/, '/');
               executable = `"`+app.getPath('exe')+`"`;
             }
-            const isKDE = process.env.KDE_SESSION_VERSION !== undefined;
+            /*const isKDE = process.env.KDE_SESSION_VERSION !== undefined;
             if (isKDE) {
               executable = `sleep 15 && ` + executable;
-            }
+            }*/
             let shortcut_contents = `[Desktop Entry]
-Categories=Utility;
+Categories=Network;
 Comment=Talk web embedded app
-Exec=`+executable+`
-Icon=talk-electron
+Exec=bash -c 'systemctl --user start `+appNameLC+`.service'
 Name=NC Talk Electron
 StartupWMClass=NC Talk Electron
 Terminal=false
 Type=Application
 Icon=`+appNameLC+`
 X-GNOME-Autostart-Delay=15`;
+          let systemd_contents = `[Unit]
+Description=Talk web embedded app
+After=graphical-session.target
+Requires=graphical-session.target
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=`+Path+`
+ExecStart=bash -c '`+executable+` --systemd'
+Environment="NODE_ENV=production"
+
+[Install]
+WantedBy=graphical-session.target`;
+
             if (!fs.existsSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")) {
+              //fs.unlinkSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")
               fs.writeFileSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop",shortcut_contents, 'utf-8');
+            }
+            if ((!fs.existsSync(app.getPath('home')+"/.config/systemd/user/"+appNameLC+".service")) || exec_changed) {
+              fs.writeFileSync(app.getPath('home')+"/.config/systemd/user/"+appNameLC+".service",systemd_contents, 'utf-8');
+              exec(`systemctl --user daemon-reload`);
+              exec(`systemctl --user enable `+appNameLC+`.service`);
+              writeLog("Application was set to autostart as user systemd service")
             }
           }
           if (isMac) {
@@ -200,6 +338,7 @@ X-GNOME-Autostart-Delay=15`;
             if (!fs.existsSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist")) {
               fs.writeFileSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist",plist_contents, 'utf-8');
               exec('launchctl bootstrap enable '+app.getPath('home')+'/Library/LaunchAgents/com.electron.'+appNameLC+'.plist');
+              writeLog("Application was set to autostart as service")
             }
           }
         } else {
@@ -209,16 +348,24 @@ X-GNOME-Autostart-Delay=15`;
                 //name: app.getName() + " v."+app.getVersion()  // to fix version in registry autorun
                 name: app.getName()
             })
+            writeLog("Application was removed from autostart")
           }
           if (isLinux) {
             if (fs.existsSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")) {
               fs.unlinkSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")
+            }
+            if (fs.existsSync(app.getPath('home')+"/.config/systemd/user/"+appNameLC+".service")) {
+              exec(`systemctl --user disable `+appNameLC+`.service`);
+              fs.unlinkSync(app.getPath('home')+"/.config/systemd/user/"+appNameLC+".service")
+              exec(`systemctl --user daemon-reload`);
+              writeLog("Application was removed from autostart")
             }
           }
           if (isMac) {
             if (fs.existsSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist")) {
               fs.unlinkSync(app.getPath('home')+"/Library/LaunchAgents/com.electron."+appNameLC+".plist");
               exec('launchctl bootstrap disable com.electron.'+appNameLC);
+              writeLog("Application was removed from autostart")
             }
           }
         }
@@ -246,12 +393,31 @@ X-GNOME-Autostart-Delay=15`;
                 },
                 { type: 'separator' },
                 {
+                  label: (store.get('saved_login')) ? i18n.__('logged_in')+' '+store.get('saved_login') : i18n.__('logged_out'),
+                  enabled: (store.get('saved_login'))  ? true : false,
+                  submenu: [
+                    {
+                      label: i18n.__('logout'),
+                      click: () => {
+                        deleteCredentials(store.get('saved_login'))
+                        store.delete('saved_login');
+                        session.defaultSession.clearStorageData([], (data) => {});
+                        restartApp();
+                      },
+                    }
+                  ]
+                },
+                { type: 'separator' },
+                {
                   label: i18n.__('exit'),
                   accelerator: isMac ? 'Cmd+Q' : 'Alt+X',
                   click: () => {
                     store.set('bounds', win.getBounds());
                     store.delete('latestVersion');
                     store.delete('releaseUrl');
+                    if (isMac) {
+                      exec('launchctl bootout gui/"$(id -u)"/com.electron.'+appNameLC);
+                    }
                     app.exit(0);
                   },
                 }
@@ -353,6 +519,30 @@ X-GNOME-Autostart-Delay=15`;
                 openSettings();
               },
             },
+            // set logging to file
+            {
+              label: i18n.__('logging'),
+              submenu: [
+                {
+                  label: i18n.__('logging_sw'),
+                  type: 'checkbox',
+                  checked: store.get('logging'),
+                  click: (option) => {
+                      store.set('logging', option.checked);
+                      restartApp();
+                  }
+                },
+                {
+                  label: i18n.__('logging_open'),
+                  //type: 'checkbox',
+                  enabled: store.get('logging'),
+                  click: () => {
+                    writeLog('Opening log file...');
+                    openLog(path.join(app.getPath('userData'), 'app.log'));
+                  }
+                },
+              ]
+            },
             {
               label : i18n.__('about'),
               // for linux compatibility
@@ -362,11 +552,30 @@ X-GNOME-Autostart-Delay=15`;
             },
             { type: 'separator' },
             {
+              label: (store.get('saved_login')) ? i18n.__('logged_in')+' '+store.get('saved_login') : i18n.__('logged_out'),
+              enabled: (store.get('saved_login'))  ? true : false,
+              submenu: [
+                {
+                  label: i18n.__('logout'),
+                  click: () => {
+                    deleteCredentials(store.get('saved_login'))
+                    store.delete('saved_login');
+                    session.defaultSession.clearStorageData([], (data) => {});
+                    restartApp();
+                  },
+                }
+              ]
+            },
+            { type: 'separator' },
+            {
               label: i18n.__('exit'),
               click: () => {
                 store.set('bounds', win.getBounds());
                 store.delete('latestVersion');
                 store.delete('releaseUrl');
+                if (isMac) {
+                  exec('launchctl bootout gui/"$(id -u)"/com.electron.'+appNameLC);
+                }
                 app.exit(0);
               },
             }
@@ -401,7 +610,7 @@ X-GNOME-Autostart-Delay=15`;
 
             if (idleTime_non_active > 4 * 60) {
               if (idleTime <= 4 * 60) {
-                console.log("Window is hidden or unfocused for more than 4 minutes, but user was active - reloading the page...");
+                writeLog("Window is hidden or unfocused for more than 4 minutes, but user was active - reloading the page...");
                 idleTime_non_active = 0;
                 win.reload();
               }
@@ -585,20 +794,20 @@ X-GNOME-Autostart-Delay=15`;
             try {
                 let latestVersion;
                 let releaseUrl;
+                //writeLog("Checking new version.")
                 if (!cachedVersion && !cachedUrl) {
-                  //console.log("Fetch new version info from github.")
+                  writeLog("Fetch new version info from github.")
                   const response = await fetch(apiUrl);
                   const data = await response.json();
 
-                  // Извлекаем версию последнего релиза (tag name)
                   latestVersion = data.tag_name;
                   releaseUrl = data.html_url;
 
                   store.set('latestVersion', latestVersion);
                   store.set('releaseUrl', releaseUrl);
 
-                  //console.log(`Current version: ${currentVersion}`);
-                  //console.log(`Latest version: ${latestVersion}`);
+                  //writeLog(`Running version: ${currentVersion}`);
+                  //writeLog(`Latest version: ${latestVersion}`);
 
 
                 } else {
@@ -609,13 +818,13 @@ X-GNOME-Autostart-Delay=15`;
 
                 const comparison = compareVersions(currentVersion, latestVersion);
                 if (comparison === 0) {
-                    //console.log("You are using the latest version.");
+                    //writeLog("You are using the latest version.");
                 } else if (comparison < 0) {
-                    //console.log("A new version is available: " + latestVersion);
+                    writeLog("A new version is available: " + latestVersion);
 
                     addNewVersionLink(releaseUrl,latestVersion);
                 } else {
-                    //console.log("You are using a newer version.");
+                    writeLog("You are using a newer version.");
                 }
 
             } catch (error) {
@@ -646,7 +855,7 @@ X-GNOME-Autostart-Delay=15`;
             return 0;
         }
 
-        function localizeSettings(win) {
+        function localize(win) {
           //win.webContents.toggleDevTools();
           win.webContents.executeJavaScript(`get_all_ids();`);
           win.webContents.on('console-message', (event, level, message, line, sourceId) => {
@@ -655,13 +864,13 @@ X-GNOME-Autostart-Delay=15`;
                 obj = JSON.parse(JSON.parse(message).localization_ids);
                 obj.forEach( id => {
                   let setting_loc= i18n.__(id.replace('_id',''))
-                  win.webContents.executeJavaScript(`localize_setting("`+id+`","`+setting_loc+`");`);
+                  win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`");`);
 
                   // localization of allow_domain_id title
                   if (id == 'allow_domain_id') {
                     id = id.replace('_id','_title')
                     let setting_loc= i18n.__(id.replace('_id','_title'))
-                    win.webContents.executeJavaScript(`localize_setting("`+id+`","`+setting_loc+`");`);
+                    win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`");`);
                   }
                 });
               }
@@ -688,16 +897,29 @@ X-GNOME-Autostart-Delay=15`;
           //}, 1000);
         }
 
-        function setSettings(message,win) {
+        async function setSettings(message,win) {
               try {
                 if (JSON.parse(message).action == 'save_settings') {
                   obj = JSON.parse(JSON.parse(message).settings);
+                  //let block_relaunch = false;
                   for (var key in obj){
-                    store.set(key, obj[key]);
+                    // if saved_login is changed then call saveCredentials
+                    /*if ((key == "saved_login") && (obj[key] != "")) {
+                      let saved_password = await getCredentials(obj[key]);
+                      if (!(saved_password)) {
+                        writeLog("Call save credentials")
+                        block_relaunch = true;
+                        savePassword(obj[key],win);
+                      }
+                    } else {*/
+                      store.set(key, obj[key]);
+                    //}
+                    
                   }
-                  //win.close();
-                  app.relaunch();
-                  app.exit(0);
+                  //if (!block_relaunch) {
+                    //win.close();
+                    restartApp();
+                  //}
                 }
               }
               catch (err) {
@@ -766,6 +988,87 @@ X-GNOME-Autostart-Delay=15`;
           //win_loading.webContents.openDevTools()
         }*/
 
+        async function saveCredentials(username, password) {
+            try {
+                await keytar.setPassword("NC_Talk_Electron", username, password);
+                writeLog('✅ Creds are saved!');
+            } catch (error) {
+                writeLog('❌ Error during cred save: ', error);
+            }
+        }
+
+        async function getCredentials(username) {
+            try {
+                const password = await keytar.getPassword("NC_Talk_Electron", username);
+                if (password) {
+                    //writeLog('✅ Password for '+username+' is found: '+password);
+                    return password;
+                } else {
+                    writeLog('❌ No such saved user');
+                    return null;
+                }
+            } catch (error) {
+                writeLog('❌ Error fetching creds: ', error);
+                return null;
+            }
+        }
+
+        async function deleteCredentials(username) {
+            try {
+                await keytar.deletePassword("NC_Talk_Electron", username);
+                writeLog('🗑️ Credentials are removed');
+            } catch (error) {
+                writeLog('❌ Error removing creds: ', error);
+            }
+        }
+
+
+        async function restartApp(removed) {
+          let options = [];
+
+          // check if app is in autostart and run as linux systemd service
+          if (process.argv.includes('--systemd')) {
+            let executable = `"`+app.getPath('exe')+`"`;
+            if (!removed) {
+              writeLog('Application was run as service. Trying to restart systemd service...');
+              exec(`systemctl --user restart `+appNameLC+`.service`);
+              return;
+            }
+          }
+
+          if (app.isPackaged && process.env.APPIMAGE) {
+            options.args = process.argv;
+            //options.args.unshift({ windowsHide: false });
+            execFile(process.execPath, options.args);
+            app.exit(0);
+            return;
+          }
+
+          app.relaunch();
+          app.exit(0);
+        }
+
+        function parseCookieString(rawCookie, baseUrl) {
+          const [raw] = rawCookie.split(';');
+          const [name, value] = raw.split('=');
+
+          const url = new URL(baseUrl);
+          const domain = url.hostname;
+          const pathStart = rawCookie.includes('Path=') ?
+            rawCookie.split('Path=')[1].split(',')[0].split(';')[0] :
+            '/';
+
+          return {
+            url: baseUrl,
+            name: name.trim(),
+            value: value.trim(),
+            domain,
+            path: pathStart,
+            secure: true,
+            httpOnly: rawCookie.toLowerCase().includes('httponly'),
+            expirationDate: null
+          };
+        }
 
         function openSettings() {
           if (!(settings_opened)) {
@@ -801,7 +1104,7 @@ X-GNOME-Autostart-Delay=15`;
                 win.show();
                 app.dock.show();
               }
-              localizeSettings(win_settings);
+              localize(win_settings);
               win_settings.show();
               settings_opened = true;
               getSettings(win_settings);
@@ -818,6 +1121,287 @@ X-GNOME-Autostart-Delay=15`;
             //win_settings.webContents.openDevTools()
           }
         }
+        async function checkAuth(win,saved_password) {
+          ses = win.webContents.session;
+
+          try {
+            const testResponse = await fetch(`${store.get('server_url')}/ocs/v1.php/cloud/user`, {
+              headers: {
+                'Authorization': `Bearer ${saved_password}`,
+                'OCS-APIRequest': 'true'
+              }
+            });
+
+            if (testResponse.status !== 200) {
+              deleteCredentials(store.get('saved_login'))
+              store.delete('saved_login');
+              session.defaultSession.clearStorageData([], (data) => {});
+              writeLog("Token is not found, invalid, expired or revoked")
+              return false;
+            } else {
+              return ses;
+            }
+          } catch (error) {
+            writeLog(error);
+            return false;
+          }
+        }
+
+        async function tryLogin(ses,win,saved_password) {
+          let response = undefined
+          try {
+            response = await fetch(`${store.get('server_url')}/login`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${saved_password}`
+              },
+              redirect: 'manual'
+            });
+          }
+          catch (err) {
+            writeLog(err)
+          }
+
+          const cookiesHeader = response.headers.raw()['set-cookie'];
+
+          if (cookiesHeader && cookiesHeader.length > 0) {
+            for (const rawCookie of cookiesHeader) {
+              const cookie = parseCookieString(rawCookie, store.get('server_url'));
+              cookie.name = cookie.name.replace(/^__(Secure|Host)-/, '');
+              try {
+                await ses.cookies.set(cookie);
+              }
+              catch(err){
+                writeLog(err)
+                // try to fix http to https
+                if (store.get('server_url').startsWith("http://")) {
+                  writeLog('Found insecure http in saved server url. Fixing it and restart app.')
+                  store.set('server_url',store.get('server_url').replace("http://", "https://"));
+                  restartApp();
+                }
+              }
+            }
+          }
+
+          win.loadURL(store.get('server_url'))
+        }
+        async function openClientAuth(win) {
+          // force unread counter recalc
+          win.webContents.executeJavaScript(`
+            setTimeout(function() {
+              // check localStorage to drop unread counter
+              localStorage.clear();
+              recalc_counters_summary ();
+            }, 2000);
+          `);
+
+          // force logged out
+          mainMenuTemplate[0].submenu[3].label = i18n.__('logged_out')
+          mainMenuTemplate[0].submenu[3].enabled = false;
+          MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+          Menu.setApplicationMenu(MainMenu);
+
+          appIconMenuTemplate[7].label = i18n.__('logged_out')
+          appIconMenuTemplate[7].enabled = false
+          const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
+          try {
+            appIcon.setContextMenu(contextMenu)
+          }
+          catch(err) {
+            //writeLog(err)
+          }
+          
+
+          return new Promise((resolve) => {
+
+            win.loadURL(`${store.get('server_url')}/index.php/login/flow`, {
+              userAgent: `${os.hostname()} (NC Talk Electron v. ${app.getVersion()})`,
+              extraHeaders: [
+                'OCS-APIRequest: true',
+                `Accept-Language: ${app.getPreferredSystemLanguages().join(',')}`,
+              ].join('\n'),
+            })
+
+            /*win.webContents.on('did-start-loading', () => {
+              win.setTitle(`${i18n.__('login_auth')} [Loading...]`)
+              win.setProgressBar(2, { mode: 'indeterminate' })
+            })
+
+            win.webContents.on('did-stop-loading', () => {
+              win.setTitle(i18n.__('login_auth'))
+              win.setProgressBar(-1)
+            })*/
+
+            win.webContents.on('will-redirect', (event, url) => {
+                if (url.startsWith('nc://')) {
+                  // Stop redirect to nc:// app protocol
+                  event.preventDefault()
+                  try {
+                    let credentials = parseLoginRedirectUrl(url)
+                    resolve(credentials)
+                    //writeLog(JSON.stringify(credentials))
+                    store.set("saved_login",credentials.user)
+                    saveCredentials(credentials.user,credentials.password)
+                  } catch {
+                    resolve(new Error('Unexpected server error'))
+                  } finally {
+                    // Anyway close the window
+                    //tryLogin(ses,win)
+                    //win.close()
+                    //win.reload();
+                    restartApp();
+                  }
+                }
+              })
+          })
+        }
+
+
+        function parseLoginRedirectUrl(url) {
+          // nc://login/server:URL&user:USER&password:PASSWORD
+          const re = /^nc:\/\/login\/server:(.*)&user:(.*)&password:(.*)$/
+          const parsed = url.match(re)
+          if (parsed.length < 4) {
+            throw new Error('Error on parsing login redirect URL')
+          }
+          return {
+            server: parsed[1],
+            user: decodeURIComponent(parsed[2].replaceAll('+', ' ')),
+            password: decodeURIComponent(parsed[3].replaceAll('+', ' ')),
+          }
+        }
+
+        /*function showSources1() {
+          desktopCapturer.getSources({ types:['window', 'screen'] }).then(async sources => {
+            for (let source of sources) {
+              writeLog("Id: " + source.id);
+              writeLog("Name: " + source.name);
+              writeLog("Thumbnail: " + source?.thumbnail
+                  ?.resize({ height: 160 })
+                  .toDataURL())
+              //addSource(source);
+            }
+          });
+        }*/
+
+        function showSources(callback) {
+          desktopCapturer.getSources({ types:['window', 'screen'] }).then(async sources => {
+
+            let sourcesArray = sources.map(source => ({
+              name: source.name,
+              id: source.id,
+              thumbnail: source?.thumbnail?.resize({ height: 160 }).toDataURL()
+            }));
+
+            //writeLog(JSON.stringify(sourcesArray));
+
+            /*for (let [key, value] of Object.entries(Object.entries(sources))) {
+              console.log(`${key} = ${value}`);
+            }*/
+
+            //writeLog(JSON.stringify(selectOptions));
+
+            // custom media source picker
+
+            let win_picker = new BrowserWindow({
+                width: 600,
+                minWidth: 300,
+                height: 350,
+                minHeight: 200,
+                resizable:true,
+                modal: !isMac,
+                icon:icon,
+                title:i18n.__('title5'),
+                parent: win,
+                webPreferences: {
+                    //devTools: true,
+                    //sandbox: false,
+                    contextIsolation: true
+                }
+            });
+
+
+            win_picker.loadFile('media_picker.html');
+            win_picker.setMenu(null);
+
+            // override fonts to Arial to fix any app startup errors
+            win_picker.webContents.on('did-finish-load', () => {
+              win_picker.webContents.insertCSS(`
+                * {
+                  font-family: 'Arial', sans-serif !important;
+                }
+              `);
+            });
+
+            // save app name title
+            win_picker.on('page-title-updated', function(e) {
+              e.preventDefault()
+            });
+
+            win_picker.on('close', function(e) {
+              return callback(null);
+            });
+
+            win_picker.on('ready-to-show', () => {
+
+              localize(win_picker);
+
+              win_picker.setPosition(Math.floor(store.get('bounds').x + (store.get('bounds').width - win_picker.getBounds().width)/2),Math.floor(store.get('bounds').y + (store.get('bounds').height - win_picker.getBounds().height)/2));
+
+              win_picker.show();
+
+              win_picker.webContents.executeJavaScript(`showSources(`+JSON.stringify(sourcesArray)+`);`);
+
+              win_picker.webContents.on('console-message', (event, level, message, line, sourceId) => {
+                try {
+                  if (JSON.parse(message).action === 'media_picked' ) {
+                    callback({ video: sources.find(media => media.id === JSON.parse(message).media_id) })
+                    win_picker.destroy();
+                  }
+                  if (JSON.parse(message).action === 'media_picker_quit' ) {
+                    win_picker.close();
+                  }
+                }
+                catch (err) {
+                  //console.log(err)
+                  //dialog.showErrorBox('Ошибка', "Подробнее: "+JSON.stringify(err));
+                  //app.exit(0);
+                }
+              });
+            })
+
+            //win_picker.webContents.openDevTools()
+
+            // simple prompt media source picker
+            /*prompt({
+              title: i18n.__('title5'),
+              label: i18n.__('message8'),
+              useHtmlLabel: true,
+              //value: server_url,
+              type: 'select',
+              buttonLabels: {
+                ok: i18n.__('save_button'),
+                cancel: i18n.__('cancel_button')
+              },
+              selectOptions: selectOptions,
+              icon: icon,
+              height : 200
+            }, win)
+            .then((select) => {
+              if(select !== null) {
+                //writeLog (JSON.stringify(sources.find(media => media.id === input)))
+                callback({ video: sources.find(media => media.id === select) })
+              } else {
+                return callback(null);
+              }
+            })
+            .catch((err) => {
+              writeLog(err)
+              dialog.showErrorBox(i18n.__('error'), i18n.__("more")+JSON.stringify(err));
+            });*/
+          })
+        }
+
 
         function openPopup(url) {
           // check for cloud profile link
@@ -1134,11 +1718,19 @@ X-GNOME-Autostart-Delay=15`;
         }*/
 
         async function createWindow () {
+          let blockAuthCall = false;
 
-          // for SSO setting, allowed domains
-          if (store.get('allow_domain')) {
-            session.defaultSession.allowNTLMCredentialsForDomains(store.get('allow_domain'));
+          // for SSO setting, allowed domains. set * as default to allow any
+          if (!store.get('allow_domain')) {
+            store.set('allow_domain','*')
           }
+          session.defaultSession.allowNTLMCredentialsForDomains(store.get('allow_domain'));
+          
+          // try to unlock credentials or set not logged in file menu
+          /*let auth_test = getCredentials('test');
+          if (!auth_test){
+            writeLog('Not unlocked wallet')
+          }*/
 
           // Create the browser window.
           win = new BrowserWindow({
@@ -1160,6 +1752,11 @@ X-GNOME-Autostart-Delay=15`;
               nodeIntegration: true,
             }
           });
+        
+          // async get saved password if any        
+          /*if (store.get('saved_login')) {
+            saved_password = await getCredentials(store.get('saved_login'));
+          }*/
 
           // set always on top
           if (store.get('always_on_top') ) {
@@ -1319,14 +1916,45 @@ X-GNOME-Autostart-Delay=15`;
 
           //block_gui_loading(true);
           // TODO: implement html screen source picker
-          session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
-          desktopCapturer.getSources({ types: ['screen'] }).then((sources) => {
-            // Grant access to the first screen found.
-            callback({ video: sources[0] })
-            })
-          })  
+          //showSources();
+          //getDesktopSources();
+          session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
+            showSources(callback);
+          })
+          
+          let authenticated = false;
+          let saved_password = undefined;
+          let ses = undefined;
 
-          win.loadURL(url);
+          if (!store.get('auto_login')) {
+            if (store.get('saved_login')) {
+              saved_password = await getCredentials(store.get('saved_login'))
+              authenticated = await checkAuth(win,saved_password);
+
+              if (authenticated){
+                writeLog("Token is valid. Logging in")
+                tryLogin(authenticated,win,saved_password)
+              } else {
+                //writeLog("Not authenticated!");
+                if (!blockAuthCall) {
+                  blockAuthCall = true;
+                  openClientAuth(win);
+                }
+                
+              }
+            } else {
+              if (!blockAuthCall) {
+                blockAuthCall = true;
+                openClientAuth(win);
+              }
+            }
+          } else {
+            writeLog("Autologin is enabled. Loggin in using SSO.")
+            win.loadURL(url)
+          }
+
+          
+
           let activity_check_interval = 5;
 
           setInterval(function () { checkInactivity(activity_check_interval) }, activity_check_interval*1000);
@@ -1346,10 +1974,18 @@ X-GNOME-Autostart-Delay=15`;
           })*/
 
           /*win.webContents.on('did-start-loading', () => {
-            if (!gui_blocked) {
-              block_gui_loading(true);
-            }
+            win.setTitle(app.getName() + " v."+app.getVersion() + " - " + store.get('server_url') + " - " + i18n.__("loading"));
+            appIcon.setToolTip(app.getName() + " v."+app.getVersion() + " - " + store.get('server_url') + " - " + i18n.__("loading"));
+            win.setProgressBar(2, { mode: 'indeterminate' })
+          });
+
+          win.webContents.on('did-stop-loading', () => {
+            win.setTitle(app.getName() + " v."+app.getVersion() + " - " + store.get('server_url'));
+            appIcon.setToolTip(app.getName() + " v."+app.getVersion() + " - " + store.get('server_url'));
+             win.setProgressBar(-1)
           });*/
+
+
 
           // check cloud
           win.webContents.on('did-finish-load', function(e) {
@@ -1382,32 +2018,33 @@ X-GNOME-Autostart-Delay=15`;
             win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'nextcloud_check.js')),true)
 
 
-            // try autologin in case os SSO enabled
+            // try autologin in case of SSO enabled
             if (!auto_login_error) {
               if (store.get('auto_login')) {
                 win.webContents.executeJavaScript(`
                   checkURL(true);
                 `);
+              } else {
+                // check auth
+                if (!authenticated){
+                  win.show();
+                }
               }
             }
-            /*if (gui_blocked) {
-              block_gui_loading(false);
+
+            //try autologin in case there is a saved credential
+            // get saved credential if any
+            /*if (store.get('saved_login')) {
+              if (saved_password) {
+                writeLog("Let's try to login with found "+store.get('saved_login')+" credentials");
+                win.webContents.executeJavaScript(`
+                  checkURL(false,'`+store.get('saved_login')+`','`+saved_password+`');
+                `);
+              }
             }*/
 
-          });
 
-          /*win.webContents.on('unresponsive', function(e) {
-            if (!gui_blocked) {
-              block_gui_loading(true);
-              win.setTitle(app.getName() + ' - Приложение не отвечает...');
-            }
-          })
-          win.webContents.on('responsive', function(e) {
-            if (gui_blocked) {
-              block_gui_loading(false);
-              win.reload();
-            }
-          })*/
+          });
 
           win.webContents.on('console-message', (event, level, message, line, sourceId) => {
 
@@ -1418,7 +2055,7 @@ X-GNOME-Autostart-Delay=15`;
                 //console.log(JSON.parse(message).cur_nc_lang)
                 let user_settings_link = i18n.__('user_settings_link',JSON.parse(message).cur_nc_lang)
 
-                win.webContents.executeJavaScript(`localize_setting("`+id+`","`+setting_loc+`");`);
+                win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`");`);
               }*/
 
               if (JSON.parse(message).action.unread || (JSON.parse(message).action.unread === 0)) {
@@ -1455,38 +2092,51 @@ X-GNOME-Autostart-Delay=15`;
 
               // incoming call process
               if (JSON.parse(message).action.call) {
-
+                
                 call = JSON.parse(message).action.call
+                //writeLog(call.lastMessage.systemMessage)
+                
+                //let controller = new AbortController();
 
-                if (call_prev.token == call.token) {
-                  //call = JSON.parse(message).action.call
-                  return;
-                } else {
-                  if (call!==false){
-                    call_prev = call;
-
+                // check call status
+                if (call.lastMessage.systemMessage == 'call_started') {
+                //if (call.hasCall) {
+                  if (call_prev.token == call.token) {
+                    return;
+                  } else {
+                    if (call!==false){
+                      call_prev = call;
+                    }
                   }
-                  //unread = JSON.parse(message).action.unread
+                } else {
+                  //writeLog('Missed call')
+                  call_prev = false;
+                  //controller.abort();
                 }
+
                 dialog.showMessageBox(win, {
-                    //'type': 'question',
+                    //'type': 'warning',
                     'title': i18n.__('call_title'),
                     'message': i18n.__("call_message")+call.displayName,
+                    'defaultId':1,
                     'buttons': [
-                        i18n.__('answer_button'),
-                        i18n.__('cancel_button')
-                    ]
+                        i18n.__('cancel_button'),
+                        i18n.__('answer_button')
+                    ]/*,
+                    'icon': icon,*/
+                    //'signal': controller.signal
                 })
                 .then((result) => {
                   // if no
                   /*if (result.response !== 0) {
                     call_prev = false;
                   }*/
-
+                  // if no
+                  /*if (result.response === 0) {
+                    return;
+                  }*/
                   // if yes
-                  if (result.response === 0) {
-                    win.loadURL(store.get('server_url')+'/call/'+call.token+'#direct-call')
-                  }
+                  if (result.response === 1) win.loadURL(store.get('server_url')+'/call/'+call.token+'#direct-call')
                 });
                 win.show();
               }
@@ -1523,12 +2173,23 @@ X-GNOME-Autostart-Delay=15`;
               }
               // to force show app window if not logged in
               if (JSON.parse(message).action == 'force_show_app_win') {
+
+
                 // dirty but it works
                 if (!win.isVisible()) { 
                   win.show();
                   if (isMac) app.dock.show();
 
                 }
+                // if app is not logged in fallback to login in
+                //win.webContents.executeJavaScript('window.location.replace("/apps/spreed")')
+                if (!blockAuthCall) {
+                  blockAuthCall = true;
+                  checkAuth(win,saved_password);
+                  openClientAuth(win);
+                }
+                
+
                 //win.webContents.executeJavaScript('window.location.replace("/apps/spreed")')
               }
               /*if (JSON.parse(message).action == 'added') {
@@ -1709,6 +2370,8 @@ X-GNOME-Autostart-Delay=15`;
           })
         }
 
+
+
         // set allow domain prompt
         function setAllowDomains () {
           prompted = true;
@@ -1740,7 +2403,10 @@ X-GNOME-Autostart-Delay=15`;
                   title: i18n.__('title2'),
                   label: i18n.__('message3'),
                   useHtmlLabel: true,
-                  buttonLabels: '',
+                  buttonLabels: {
+                    ok: i18n.__('yes_button'),
+                    cancel: i18n.__('no_button')
+                  },
                   value: store.get('allow_domain')||'*, *.domain.com, domain.com',
                   type: 'input',
                   inputAttrs: {
@@ -1769,7 +2435,7 @@ X-GNOME-Autostart-Delay=15`;
                   }
                 })
                 .catch((err) => {
-                  console.log(err)
+                  writeLog(err)
                   dialog.showErrorBox(i18n.__('error'), i18n.__("more")+JSON.stringify(err));
                   store.delete('latestVersion');
                   store.delete('releaseUrl');
@@ -1797,9 +2463,12 @@ X-GNOME-Autostart-Delay=15`;
           prompt({
             title: i18n.__('title3'),
             label: i18n.__('message4'),
-            buttonLabels: '',
             value: server_url,
             type: 'input',
+            buttonLabels: {
+              ok: i18n.__('save_button'),
+              cancel: i18n.__('cancel_button')
+            },
             inputAttrs: {
               type: 'url',
               required: true
@@ -1814,6 +2483,9 @@ X-GNOME-Autostart-Delay=15`;
               app.exit(0);
             } else {
               let address = input
+              if (address.startsWith("http://")) {
+                  address = address.replace("http://", "https://");
+              }
               store.set('server_url',address)
               url = address+"/apps/spreed"
               setAllowDomains();
@@ -1824,13 +2496,45 @@ X-GNOME-Autostart-Delay=15`;
             }
           })
           .catch((err) => {
-            console.log(err)
+            writeLog(err)
             dialog.showErrorBox(i18n.__('error'), i18n.__("more")+JSON.stringify(err));
             store.delete('latestVersion');
             store.delete('releaseUrl');
             app.exit(0);
           });
         }
+
+        // save password prompt
+        /*async function savePassword (login,win) {
+          //prompted = true;
+          // show input box for server address
+          prompt({
+            title: i18n.__('title4'),
+            label: i18n.__('message7')+'<br><strong>'+login+':</strong>',
+            useHtmlLabel: true,
+            buttonLabels: {
+              ok: i18n.__('save_button'),
+              cancel: i18n.__('cancel_button')
+            },
+            type: 'input',
+            inputAttrs: {
+              type: 'password',
+              required: true
+            },
+            height : 200
+          }, win)
+          .then((input) => {
+            if(input === null) {
+            } else {
+              //saveCredentials(login,input);
+              //store.set("saved_login", login);
+            }
+          })
+          .catch((err) => {
+            writeLog(err)
+            dialog.showErrorBox(i18n.__('error'), i18n.__("more")+JSON.stringify(err));
+          });
+        }*/
 
         /******************** startup app block *********************/
 
@@ -1847,7 +2551,14 @@ X-GNOME-Autostart-Delay=15`;
 
         app.whenReady().then((event) => {
         //app.on('ready', async () => {
-          console.log('PID =', process.pid);
+          writeLog('PID = '+process.pid);
+
+          /*process.on('SIGTERM', () => {
+            app.exit(0);
+          })
+          process.on('SIGINT', () => {
+            app.exit(0);
+          })*/
 
           if (url == "") {
             setServerUrl(url_example);
@@ -1863,7 +2574,7 @@ X-GNOME-Autostart-Delay=15`;
               ShutdownHandler.setWindowHandle(win.getNativeWindowHandle());
               ShutdownHandler.blockShutdown('');
               ShutdownHandler.on('shutdown', () => {
-                console.log('Shutdown/logout is detected! Exiting app!');
+                writeLog('Shutdown/logout is detected! Exiting app!');
                 ShutdownHandler.releaseShutdown();
                 store.delete('latestVersion');
                 store.delete('releaseUrl');
@@ -1889,17 +2600,16 @@ X-GNOME-Autostart-Delay=15`;
 
       }
       catch (err) {
-        console.log(err)
+        writeLog(err)
         dialog.showErrorBox(i18n.__('error'), i18n.__('message5'));
         fs.unlinkSync(app.getPath('userData')+"/config.json")
-        app.relaunch();
-        app.exit()
+        restartApp();
       }
     }
   }
 }
 catch (err) {
-  console.log(err);
+  writeLog(err);
   store.delete('latestVersion');
   store.delete('releaseUrl');
   app.exit(0);

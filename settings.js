@@ -1,10 +1,10 @@
-function localize_setting(setting_id,setting_loc) {
+function localize(id,loc) {
   // localize settings.html
-  if (setting_id == 'allow_domain_title') {
+  if (id == 'allow_domain_title') {
     // localization of allow_domain_id title
-    document.getElementById(setting_id.replace('_title','_id')).title = setting_loc;
+    document.getElementById(id.replace('_title','_id')).title = loc;
   } else {
-    document.getElementById(setting_id).innerHTML = setting_loc;
+    document.getElementById(id).innerHTML = loc;
   }
 }
 
@@ -37,9 +37,7 @@ function loadSettings(settings,locales) {
   }
 
   var select = document.getElementById('lang');
-  //select.value = settings.locale;
   locales.forEach((locale) => {
-    //console.log(locale)
     var regionNames = new Intl.DisplayNames([locale], { type: 'language' });
     var opt = document.createElement('option');
     opt.value = locale;

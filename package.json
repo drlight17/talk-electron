@@ -27,12 +27,6 @@
       "category": "Network",
       "target": [
         {
-          "target": "flatpak",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
           "target": "AppImage",
           "arch": [
             "x64"
@@ -76,7 +70,7 @@
         }
       ],
       "asarUnpack": "./icon.png"
-    },
+    }
   },
   "scripts": {
     "dist": "electron-builder",

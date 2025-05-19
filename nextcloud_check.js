@@ -74,7 +74,7 @@ function create_spinner() {
   $('head').append(css);
 }
 
-function checkURL(auto_login){
+function checkURL(auto_login/*,login,password*/){
 
   // check current page is spreed
   //console.log($('form.login-form').length < 1)
@@ -86,7 +86,7 @@ function checkURL(auto_login){
   } else {
 
     // to force show app window if not logged in
-    // 5s timeout to pass SSO procedure
+    // 2s timeout to pass SSO procedure
     if (!(auto_login)) {
       // hide autologin buttons
       if ($("#alternative-logins > a").length > 0) {
@@ -96,13 +96,19 @@ function checkURL(auto_login){
         // check localStorage to drop unread counter
         recalc_counters_summary(true);
         console.log(JSON.stringify({action: "force_show_app_win"}));
-      }, 5000);
+      }, 2000);
     } else {
       if ($("#alternative-logins > a").length > 0) {
         $("#alternative-logins > a")[0].click();
       }
       //window.location.href = "/apps/oidc_login/oidc";
     }
+
+    // to try login with saved credentials
+    /*if (login && password) {
+      console.log("Received login "+login)
+      console.log("Received password "+password)
+    }*/
 
   }
 }
@@ -111,7 +117,8 @@ if (typeof _oc_config === "undefined") {
     console.log(JSON.stringify({action: "not_found"}));
 } else {
 
-  if (_oc_config.version.localeCompare("28.0.0.0", undefined, { numeric: true, sensitivity: 'base' }) == '-1') {
+  if ((parseInt(_oc_config.version.split('.')[0], 10)) < 28) {
+
     console.log(JSON.stringify({action: "not_found"}));
   } else {
 
@@ -130,6 +137,7 @@ if (typeof _oc_config === "undefined") {
       let a = document.createElement( "a" );
 
       a.setAttribute('href','/settings/user');
+
       a.textContent += user_settings_link_loc;
       let img = document.createElement( "img" );
       img.setAttribute('src','/apps/settings/img/admin.svg');
@@ -158,7 +166,21 @@ if (typeof _oc_config === "undefined") {
       $('#firstrunwizard_about').before( $(li) );
       //console.log($('#profile'));
     }
+
+    // hide so user_menu elements (css won't work anymore after NC 29)
+    if ((parseInt(_oc_config.version.split('.')[0], 10)) > 29) {
+      $('#accessibility_settings').parent().hide();
+      $('#settings').parent().hide();
+      $('#admin_settings').parent().hide();
+      $('#core_apps').parent().hide();
+      $('#core_users').parent().hide();
+      $('#help').parent().hide();
+    }
+
+
     // add pinger every 10 seconds to check NC alive
-    var interval = setInterval(function () { pingUrl(location.protocol + '//' + location.host/* + location.pathname*/) }, 10000);
+    var interval = setInterval(function () { 
+      pingUrl(location.protocol + '//' + location.host/* + location.pathname*/);
+      recalc_counters_summary();  }, 10000);
   }
 }

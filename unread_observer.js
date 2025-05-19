@@ -48,10 +48,19 @@ function recalc_counters_summary (removed) {
             }
 
             // incoming call hook
-            if (conversation && conversation.hasCall) {
+            /*if ((conversation) && (conversation.hasCall) && (conversation.participantFlags != 7)) {
+                //console.log(conversation)
+                console.log(JSON.stringify({'action': {'call': conversation}}));
+            }*/
+
+            // statuses are: call_ended, call_missed, call_started
+            // participantFlags == 7 means you're the caller, participantFlags == 0 - someone calls you
+
+            if ((conversation) && (conversation.lastMessage.systemMessage == 'call_started') && (conversation.participantFlags != 7)) {
                 //console.log(conversation.name + " is calling!")
                 console.log(JSON.stringify({'action': {'call': conversation}}));
             }
+
         });
 
         //console.log(`Общее количество непрочитанных сообщений: ${totalUnreadMessages}`);

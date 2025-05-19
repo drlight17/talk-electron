@@ -1,17 +1,15 @@
 /* styles.css */
 /*hide some elements*/
-.side-menu-opener, #nextcloud, .toast-error,/*#header > div.header-right > div:nth-child(1), #header > div.header-right > div:nth-child(2), #header > div.header-right > div:nth-child(3),#profile,#notifications,*/#accessibility_settings, #settings,#admin_settings, #core_apps, #core_users,#help, #body-login > footer,#header > div.header-left > nav {
+.side-menu-opener, #nextcloud, .toast-error, #accessibility_settings, #settings,#admin_settings, #core_apps, #core_users,#help,#logout, #body-login > footer,#header > div.header-left > nav {
 	display:none!important;
 }
+
+#header-menu-user-menu > div > ul > li:nth-child(3)
 
 /*center vertically login form*/
 #body-login .wrapper {
 	margin-block:initial!important;
 }
-
-/*#nc_link img{
-	filter:inherit!important;
-}*/
 
 /*settings styling*/
 
@@ -41,4 +39,137 @@
 		position:relative!important;
 	}
 }
+
+/*to fix NC talk 20.1+ changes */
+
+#user_settings_link, #nc_link {
+	display: flex;
+	position: relative;
+	width: 100%;
+	padding: 2px 4px;
+}
+
+#user_settings_link img, #nc_link img {
+	height: 16px;
+	width: 16px;
+	margin: calc((var(--default-clickable-area) - 16px)/2);
+	filter: var(--background-invert-if-dark);
+}
+
+#user_settings_link a, #nc_link a {
+	width: 100%;
+    --list-item-padding: var(--default-grid-baseline);
+    display: flex;
+    padding: var(--list-item-padding);
+    align-items: center;
+	transition: background-color var(--animation-quick) ease-in-out;
+}
+
+#user_settings_link a:hover, #nc_link a:hover {
+	background-color: var(--color-background-hover);
+	border-radius: var(--border-radius-element, 32px);
+}
+
+.new-message-form .rich-contenteditable__input {
+	padding-left: 30px!important;
+    padding-top: 0.5vh!important;
+}
+
+/* picker styling */
+body.picker {
+  margin: 0;
+  padding-bottom: 60px;
+  padding-top: 80px;
+  font-family: Arial, sans-serif;
+}
+
+body.picker .buttons {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  padding: 10px 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+}
+
+button {
+  padding: 12px 24px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  
+}
+
+button:not([disabled]) {
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+button:hover:not([disabled]) {
+  background-color: #ddd;
+}
+body.picker h2 {
+  position: fixed;
+  width: 100%;
+  margin-top: -80px;
+  background-color: rgba(255, 255, 255, 0.8);
+  box-shadow: 0px 2px 10px rgb(0 0 0 / 10%);
+  backdrop-filter: blur(5px);
+  z-index: 1000;
+  padding: 10px 10px;
+  text-align: center;
+}
+
+body.picker .source {
+  width: 150px;
+  margin: 10px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  display: inline-block;
+  text-align: center;
+  opacity: .8;
+  transition: 0.2s ease;
+}
+
+body.picker .source:hover,
+body.picker .source.selected {
+  border-color: #0078d4;
+  opacity: 1;
+  transition: 0.2s ease;
+}
+
+body.picker .source.window {
+  background-color: #f0f8ff;
+  border-color: #add8e6;
+}
+
+body.picker .source.screen {
+  background-color: #fff5e4;
+  border-color: #ffdab9;
+}
+
+body.picker .source img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+body.picker .source .type-label {
+  font-size: 0.75em;
+  color: gray;
+  margin-top: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+body.picker .source.selected {
+  border-width: 4px !important; /* Жирная рамка */
+  border-style: solid;
+
 /* Add styles here to customize the appearance of your app */
