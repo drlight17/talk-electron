@@ -5,7 +5,7 @@
 - [x] BUG(macos): make "hide" menu button unavailable in main
 - [x] BUG: sso login form appears if there was page reload due to user activity and  there were network issues (cloud wasn't reachable)
 - [x] NEW: force online status through OCS API instead of page reload every 4 minutes
-- [ ] BUG(macos): app shows NC login page after sleep/long lock (check ribbons - force restart app on unlock mac?)
+- [x] BUG(macos): app shows NC login page after sleep/long lock (check ribbons - force restart app on unlock mac?)
 - [x] NEW: if there is no way to SSO login ask user instead of just redirect to server_url (retry, exit, open config) - find "message6"
 - [x] NEW: move logging to preferences
 
