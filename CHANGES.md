@@ -1,3 +1,13 @@
+0.4.1-alpha
+
+- [x] NEW: save and process credentials for different server_urls to prevent token loose in case of change server_url
+- [x] NEW: open corresponding chat when show_on_new_message if true (use localStorage unreadMessages !=0 -> cachedConversations -> lastMessage -> **id** and **token** to form link
+- [x] BUG(macos): make "hide" menu button unavailable in main
+- [x] BUG: sso login form appears if there was page reload due to user activity and  there were network issues (cloud wasn't reachable)
+- [x] NEW: force online status through OCS API instead of page reload every 4 minutesBUG(macos): app shows NC login page after sleep/long lock (check ribbons - force restart app on unlock mac?)
+- [x] NEW: if there is no way to SSO login ask user instead of just redirect to server_url (retry, exit, open config) - find "message6"
+- [x] NEW: move logging to preferences
+
 0.4.0-alpha
 
 - [x] NEW: authentication via NC flow v2 with access token (keytar node module to save access token)
