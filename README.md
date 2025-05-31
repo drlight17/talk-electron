@@ -54,6 +54,7 @@ Supported setting arguments (see example.config.json):
 - `allow_domain` - comma-separated string with the list of SSO allowed domains, * wildcard supported (use "*" only for all domains, but it maybe insecure)
 - `always_on_top` - true\false value means to show app main window on top of every other windows (default is false)
 - `auto_login` - true\false value means to try auto login (make sure you have configured allow_domain and SSO in NC)
+- `logging` - boolean true\false value means to save application logs to the file app.log in local user folder (nearby config.json)
 
 # For developers
 Build depends on the platform since 0.2.9-alpha version as it brings support of the system idle detect function.
