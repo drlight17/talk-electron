@@ -61,6 +61,11 @@ function recalc_counters_summary (removed) {
                 console.log(JSON.stringify({'action': {'call': conversation}}));
             }
 
+            // last message chat id and token fetch
+            if ((conversation.unreadMessages != 0) && (typeof conversation.unreadMessages === 'number')) {
+                console.log(JSON.stringify({'action': {'token': conversation.lastMessage.token, 'id':conversation.lastMessage.id}}));
+            }
+
         });
 
         //console.log(`Общее количество непрочитанных сообщений: ${totalUnreadMessages}`);

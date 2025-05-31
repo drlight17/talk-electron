@@ -32,6 +32,39 @@ async function pingUrl(url){
   return 'error';
 }
 
+function open_message(link) {
+  setTimeout(function() {
+    window.location.replace(link)
+  }, 1000)
+}
+
+function force_online() {
+
+    fetch('/ocs/v2.php/apps/user_status/api/v1/user_status/status?format=json', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: {
+        'OCS-APIRequest': 'true',
+        'requesttoken': OC.requestToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ statusType: 'online' })
+    })
+    /*.then(response => response.json())
+    .then(data => {
+      if (data && data.ocs && data.ocs.data) {
+        console.log("User: "+JSON.stringify(data.ocs.data.userId))
+        console.log("Status: "+JSON.stringify(data.ocs.data.status))
+        console.log("Icon: "+JSON.stringify(data.ocs.data.icon))
+      }
+    })*/
+    .catch(error => {
+      console.error('Error status set:', error);
+    });
+
+    // statuses online -> away -> offline
+}
+
 function create_spinner() {
   let div = document.createElement('div');
   let div2 = document.createElement('div');

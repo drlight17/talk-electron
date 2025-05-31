@@ -47,6 +47,7 @@ const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const appNameLC = packageJson.name;
 
 
+
 // if dev mode then use different userData folder
 /*if (!app.isPackaged) {
     console.log('App is in dev mode');
@@ -70,12 +71,17 @@ try {
       const timestamp = new Date().toLocaleString();
       const logMessage = `[${timestamp}] ${message}\n`;
       console.log( `[${timestamp}] ${message}`);
-      if (store.get('logging')) {
-        fs.appendFile(logFilePath, logMessage, (err) => {
-          if (err) {
-            console.error(`[${timestamp}] 'Error when tring to write log:'`, err);
-          }
-        });
+      try {
+        if (store.get('logging')) {
+          fs.appendFile(logFilePath, logMessage, (err) => {
+            if (err) {
+              console.error(`[${timestamp}] 'Error when tring to write log:'`, err);
+            }
+          });
+        }
+      }
+      catch(err) {
+        //console.log( `[${timestamp}] `+err);
       }
     }
     async function openLog(filePath) {
@@ -127,15 +133,48 @@ try {
       }
     };
 
-    if (!isMac) {
-      var iconPath = path.resolve(getResourceDirectory(), "icon.png");
-      store = new Store();
-    } else {
-      getResourceDirectory();
-      store = new Store();
-      var iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
+    async function restartApp(removed) {
+      let options = [];
 
+      // check if app is in autostart and run as linux systemd service
+      if (process.argv.includes('--systemd')) {
+        let executable = `"`+app.getPath('exe')+`"`;
+        if (!removed) {
+          writeLog('Application was run as service. Trying to restart systemd service...');
+          exec(`systemctl --user restart `+appNameLC+`.service`);
+          return;
+        }
+      }
 
+      if (app.isPackaged && process.env.APPIMAGE) {
+        options.args = process.argv;
+        //options.args.unshift({ windowsHide: false });
+        execFile(process.execPath, options.args);
+        app.exit(0);
+        return;
+      }
+
+      app.relaunch();
+      app.exit(0);
+    }
+
+    //check if config is not empty
+    try {
+      if (!isMac) {
+        var iconPath = path.resolve(getResourceDirectory(), "icon.png");
+        store = new Store();
+      } else {
+        getResourceDirectory();
+        store = new Store();
+        var iconPath = path.join(__dirname,store.get('app_icon_name')||'iconTemplate.png');
+      }
+    }
+    catch(err) {
+      writeLog("Empty config.json file. Recreating user app home folder.")
+      //dialog.showErrorBox(i18n.__('error'), i18n.__('message5'));
+      //fs.unlinkSync(app.getPath('userData')+"/config.json")
+      fs.rmSync(app.getPath('userData'), { recursive: true, force: true });
+      restartApp();
     }
 
     var i18n = new(require('./translations/i18n'));
@@ -192,10 +231,12 @@ try {
         // for storing unread counter
         let unread = false;
         let unread_prev = false;
+        let message_link = '';
         let call = false;
         let call_prev = false;
         // to store settings menu opened status
         let settings_opened = false;
+        let isLocked_suspend = false;
 
         setTimeout(() => { setInterval(function() {checkNewVersion(app.getVersion())},60*60*1000);}, 3000); // check version in every hour with 3 sec delay for the first time
 
@@ -221,6 +262,9 @@ try {
         // check if logging is configured and set default false if not
         if (store.get('logging') === undefined) {
           store.set('logging', false);
+        }
+        if (store.get('logging')) {
+           writeLog("Writing app log to file "+path.join(app.getPath('userData'), 'app.log'))
         }
 
         let icon = nativeImage.createFromPath(iconPath); // template with center transparency
@@ -374,6 +418,15 @@ WantedBy=graphical-session.target`;
         //var win_loading = null;
         var appIcon = null;
         var MainMenu = null;
+        var saved_login = false;
+
+        //writeLog(JSON.parse(store.get('saved_login')).server[store.get("server_url")].user)
+        try {
+          saved_login = JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user
+        }
+        catch (err) {
+          saved_login = false;
+        }
 
         let mainMenuTemplate = [
             {
@@ -391,16 +444,27 @@ WantedBy=graphical-session.target`;
                     openSettings();
                   },
                 },
+                // set logging to file
+                {
+                  label: i18n.__('logging_open'),
+                  //type: 'checkbox',
+                  enabled: store.get('logging'),
+                  click: () => {
+                    writeLog('Opening log file...');
+                    openLog(path.join(app.getPath('userData'), 'app.log'));
+                  }
+                },
                 { type: 'separator' },
                 {
-                  label: (store.get('saved_login')) ? i18n.__('logged_in')+' '+store.get('saved_login') : i18n.__('logged_out'),
-                  enabled: (store.get('saved_login'))  ? true : false,
+                  label: ((saved_login)&&(!store.get('auto_login'))) ? i18n.__('logged_in')+' '+saved_login : i18n.__('logged_out'),
+                  enabled: ((saved_login)&&(!store.get('auto_login')))  ? true : false,
                   submenu: [
                     {
                       label: i18n.__('logout'),
                       click: () => {
-                        deleteCredentials(store.get('saved_login'))
-                        store.delete('saved_login');
+                        deleteCredentials(JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user)
+                        //store.delete('saved_login');
+                        removeServerFromLoginData(store.get('server_url'))
                         session.defaultSession.clearStorageData([], (data) => {});
                         restartApp();
                       },
@@ -442,8 +506,9 @@ WantedBy=graphical-session.target`;
                     if (isMac) app.dock.hide();
                     /*if (!isMac)*/ win.hide();
                   },
+                  enabled: isMac ? false : true,
                   accelerator: isMac ? 'Cmd+H' : 'Ctrl+H',
-                  role : "hide"
+                  //role : "hide"
                 },
                 { label: i18n.__('fullscreen'),
                   accelerator: isMac ? 'Cmd+M' : 'Ctrl+M',
@@ -504,7 +569,8 @@ WantedBy=graphical-session.target`;
                 /*if (!isMac)*/ win.hide();
                 //win_loading.hide();
               },
-              role : "hide"
+              enabled: isMac ? false : true,
+              //role : "hide"
             },
             { type: 'separator' },
             {
@@ -521,27 +587,13 @@ WantedBy=graphical-session.target`;
             },
             // set logging to file
             {
-              label: i18n.__('logging'),
-              submenu: [
-                {
-                  label: i18n.__('logging_sw'),
-                  type: 'checkbox',
-                  checked: store.get('logging'),
-                  click: (option) => {
-                      store.set('logging', option.checked);
-                      restartApp();
-                  }
-                },
-                {
-                  label: i18n.__('logging_open'),
-                  //type: 'checkbox',
-                  enabled: store.get('logging'),
-                  click: () => {
-                    writeLog('Opening log file...');
-                    openLog(path.join(app.getPath('userData'), 'app.log'));
-                  }
-                },
-              ]
+              label: i18n.__('logging_open'),
+              //type: 'checkbox',
+              enabled: store.get('logging'),
+              click: () => {
+                writeLog('Opening log file...');
+                openLog(path.join(app.getPath('userData'), 'app.log'));
+              }
             },
             {
               label : i18n.__('about'),
@@ -552,14 +604,15 @@ WantedBy=graphical-session.target`;
             },
             { type: 'separator' },
             {
-              label: (store.get('saved_login')) ? i18n.__('logged_in')+' '+store.get('saved_login') : i18n.__('logged_out'),
-              enabled: (store.get('saved_login'))  ? true : false,
+              label: ((saved_login)&&(!store.get('auto_login'))) ? i18n.__('logged_in')+' '+saved_login : i18n.__('logged_out'),
+              enabled: ((saved_login)&&(!store.get('auto_login')))  ? true : false,
               submenu: [
                 {
                   label: i18n.__('logout'),
                   click: () => {
-                    deleteCredentials(store.get('saved_login'))
-                    store.delete('saved_login');
+                    deleteCredentials(JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user)
+                    //store.delete('saved_login');
+                    removeServerFromLoginData(store.get('server_url'))
                     session.defaultSession.clearStorageData([], (data) => {});
                     restartApp();
                   },
@@ -604,15 +657,16 @@ WantedBy=graphical-session.target`;
             } else {
               idleTime_non_active = 0;
             }
-
             //console.log('Current idle time is:'+idleTime+' s');
             //console.log('Current hidden or unfocused time is:'+idleTime_non_active+' s');
 
-            if (idleTime_non_active > 4 * 60) {
+            if ((idleTime_non_active > 4 * 60) && (!isLocked_suspend)) {
               if (idleTime <= 4 * 60) {
-                writeLog("Window is hidden or unfocused for more than 4 minutes, but user was active - reloading the page...");
+                //writeLog("Window is hidden or unfocused for more than 4 minutes, but user was active - reloading the page...");
                 idleTime_non_active = 0;
-                win.reload();
+                writeLog("Window is hidden or unfocused for more than 4 minutes, but user was active - forcing online status");
+                //win.reload();
+                win.webContents.executeJavaScript(`force_online();`);
               }
             }
         }
@@ -748,9 +802,9 @@ WantedBy=graphical-session.target`;
             }
           })
         }
-        function getSettings(win) {
+        function getSettings(win,flag) {
               var lang_files = JSON.stringify(i18n.___("get_locales"));
-              win.webContents.executeJavaScript(`loadSettings(`+JSON.stringify(store.store)+`,`+lang_files+`);`);
+              win.webContents.executeJavaScript(`loadSettings(`+JSON.stringify(store.store)+`,`+lang_files+`,`+flag+`);`);
               if (!app.isPackaged) {
                 win.webContents.executeJavaScript(`disableRunAtStartup();`);
                 //win.webContents.toggleDevTools();
@@ -921,6 +975,9 @@ WantedBy=graphical-session.target`;
                     restartApp();
                   //}
                 }
+                if (JSON.parse(message).action == 'restart_app') {
+                  restartApp();
+                }
               }
               catch (err) {
                 //console.log(err);
@@ -988,9 +1045,26 @@ WantedBy=graphical-session.target`;
           //win_loading.webContents.openDevTools()
         }*/
 
+
+        function removeServerFromLoginData(serverUrl) {
+          const savedLogin = store.get("saved_login");
+          if (savedLogin) {
+            try {
+              const loginData = JSON.parse(savedLogin);
+              if (loginData.server && loginData.server[serverUrl]) {
+                delete loginData.server[serverUrl];
+                store.set("saved_login", JSON.stringify(loginData));
+                console.log(`Сервер ${serverUrl} удалён`);
+              }
+            } catch (e) {
+              console.error("Ошибка при удалении сервера:", e);
+            }
+          }
+        }
+
         async function saveCredentials(username, password) {
             try {
-                await keytar.setPassword("NC_Talk_Electron", username, password);
+                await keytar.setPassword("NC_Talk_Electron/"+store.get("server_url"), username, password);
                 writeLog('✅ Creds are saved!');
             } catch (error) {
                 writeLog('❌ Error during cred save: ', error);
@@ -999,7 +1073,7 @@ WantedBy=graphical-session.target`;
 
         async function getCredentials(username) {
             try {
-                const password = await keytar.getPassword("NC_Talk_Electron", username);
+                const password = await keytar.getPassword("NC_Talk_Electron/"+store.get("server_url"), username);
                 if (password) {
                     //writeLog('✅ Password for '+username+' is found: '+password);
                     return password;
@@ -1015,37 +1089,11 @@ WantedBy=graphical-session.target`;
 
         async function deleteCredentials(username) {
             try {
-                await keytar.deletePassword("NC_Talk_Electron", username);
+                await keytar.deletePassword("NC_Talk_Electron/"+store.get("server_url"), username);
                 writeLog('🗑️ Credentials are removed');
             } catch (error) {
                 writeLog('❌ Error removing creds: ', error);
             }
-        }
-
-
-        async function restartApp(removed) {
-          let options = [];
-
-          // check if app is in autostart and run as linux systemd service
-          if (process.argv.includes('--systemd')) {
-            let executable = `"`+app.getPath('exe')+`"`;
-            if (!removed) {
-              writeLog('Application was run as service. Trying to restart systemd service...');
-              exec(`systemctl --user restart `+appNameLC+`.service`);
-              return;
-            }
-          }
-
-          if (app.isPackaged && process.env.APPIMAGE) {
-            options.args = process.argv;
-            //options.args.unshift({ windowsHide: false });
-            execFile(process.execPath, options.args);
-            app.exit(0);
-            return;
-          }
-
-          app.relaunch();
-          app.exit(0);
         }
 
         function parseCookieString(rawCookie, baseUrl) {
@@ -1070,14 +1118,14 @@ WantedBy=graphical-session.target`;
           };
         }
 
-        function openSettings() {
+        function openSettings(flag) {
           if (!(settings_opened)) {
             let win_settings = new BrowserWindow({
               modal: !isMac,
               icon:icon,
               title:i18n.__('preferences'),
               width: 500,
-              height: 400,
+              height: 420,
               resizable:false,
               parent: win
             })
@@ -1107,7 +1155,7 @@ WantedBy=graphical-session.target`;
               localize(win_settings);
               win_settings.show();
               settings_opened = true;
-              getSettings(win_settings);
+              getSettings(win_settings,flag);
               win_settings.webContents.on('console-message', (event, level, message, line, sourceId) => {
                 setSettings(message,win_settings);
               });
@@ -1115,6 +1163,9 @@ WantedBy=graphical-session.target`;
 
             win_settings.on('closed', function(e) {
               settings_opened = false;
+              if (flag) {
+                restartApp();
+              }
             });
 
 
@@ -1133,8 +1184,9 @@ WantedBy=graphical-session.target`;
             });
 
             if (testResponse.status !== 200) {
-              deleteCredentials(store.get('saved_login'))
-              store.delete('saved_login');
+              deleteCredentials(JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user)
+              //store.delete('saved_login');
+              removeServerFromLoginData(store.get('server_url'))
               session.defaultSession.clearStorageData([], (data) => {});
               writeLog("Token is not found, invalid, expired or revoked")
               return false;
@@ -1236,15 +1288,51 @@ WantedBy=graphical-session.target`;
                 if (url.startsWith('nc://')) {
                   // Stop redirect to nc:// app protocol
                   event.preventDefault()
+                
+
+                try {
+                  let credentials = parseLoginRedirectUrl(url);
+                  resolve(credentials);
+
+                  const serverUrl = store.get("server_url");
+
+                  if (!store.get("server_url")) {
+                    writeLog("server_url is not set");
+                    return;
+                  }
+
+                  let loginData = { server: {} };
+                  let savedLogin = false;
+
                   try {
-                    let credentials = parseLoginRedirectUrl(url)
-                    resolve(credentials)
-                    //writeLog(JSON.stringify(credentials))
-                    store.set("saved_login",credentials.user)
-                    saveCredentials(credentials.user,credentials.password)
-                  } catch {
+                    savedLogin = JSON.parse(store.get("saved_login"));
+                  }
+                  catch (err) {
+                    //savedLogin = false;
+                  } 
+
+                  if (savedLogin) {
+                    try {
+                      loginData = savedLogin;
+                      if (!loginData.server) {
+                        loginData.server = {};
+                      }
+                    } catch (e) {
+                      writeLog("Error parsing saved_login, create new structure");
+                      loginData = { server: {} };
+                    }
+                  }
+
+                  loginData.server[store.get("server_url")] = {
+                    user: credentials.user
+                  };
+
+                  store.set("saved_login", JSON.stringify(loginData));
+                  saveCredentials(credentials.user, credentials.password);
+                } catch {
                     resolve(new Error('Unexpected server error'))
                   } finally {
+
                     // Anyway close the window
                     //tryLogin(ses,win)
                     //win.close()
@@ -1642,6 +1730,9 @@ WantedBy=graphical-session.target`;
                 if (!win.isVisible() || win.isMinimized() /*|| !win.isFocused()*/) {
                   win.show();
                   if (isMac) app.dock.show();
+                  // open corresponding message
+                  //writeLog(message_link)
+                  win.webContents.executeJavaScript(`open_message("`+message_link+`");`);
                 }
               }
             }
@@ -1927,21 +2018,37 @@ WantedBy=graphical-session.target`;
           let ses = undefined;
 
           if (!store.get('auto_login')) {
+            //console.log(JSON.parse(store.get('saved_login')))
             if (store.get('saved_login')) {
-              saved_password = await getCredentials(store.get('saved_login'))
-              authenticated = await checkAuth(win,saved_password);
-
-              if (authenticated){
-                writeLog("Token is valid. Logging in")
-                tryLogin(authenticated,win,saved_password)
-              } else {
-                //writeLog("Not authenticated!");
-                if (!blockAuthCall) {
-                  blockAuthCall = true;
-                  openClientAuth(win);
+              try {
+                if (JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user !== undefined) {
+                  saved_password = await getCredentials(JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user)
+                  authenticated = await checkAuth(win,saved_password);
+                  if (authenticated){
+                    writeLog("Token is valid. Log in")
+                    tryLogin(authenticated,win,saved_password)
+                  } else {
+                    //writeLog("Not authenticated!");
+                    if (!blockAuthCall) {
+                      blockAuthCall = true;
+                      openClientAuth(win);
+                    }
+                  }
+                } else {
+                  if (!blockAuthCall) {
+                    blockAuthCall = true;
+                    openClientAuth(win);
+                  }
                 }
-                
               }
+              catch (err) {
+                writeLog(err)
+                dialog.showErrorBox(i18n.__('error'), i18n.__('message5'));
+                fs.rmSync(app.getPath('userData'), { recursive: true, force: true });
+                restartApp();
+              }
+              //console.log(JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user)
+
             } else {
               if (!blockAuthCall) {
                 blockAuthCall = true;
@@ -1949,7 +2056,7 @@ WantedBy=graphical-session.target`;
               }
             }
           } else {
-            writeLog("Autologin is enabled. Loggin in using SSO.")
+            writeLog("Autologin is enabled. Log in using SSO.")
             win.loadURL(url)
           }
 
@@ -1985,7 +2092,34 @@ WantedBy=graphical-session.target`;
              win.setProgressBar(-1)
           });*/
 
+          // to detect lock screen and suspend (mac)
+          if (isMac) {
+            powerMonitor.on('lock-screen', () => {
+              isLocked_suspend = true;
+              //writeLog('The screen is locked');
+            });
+            powerMonitor.on('unlock-screen', () => {
+              sLocked_suspend = false;
+              writeLog('The screen of Mac is unlocked. Force restart app...');
+              restartApp();
+            });
+            powerMonitor.on('suspend', () => {
+              sLocked_suspend = true;
+              //writeLog('The system is suspended');
+            });
+            powerMonitor.on('resume', () => {
+              sLocked_suspend = false;
+              writeLog('The Mac system is resumed. Force restart app...');
+              restartApp();
+            });
+          }
 
+          // fallback if cloud can't be loaded
+          win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
+            //writeLog(`Failed to load ${validatedURL}: ${errorDescription} (${errorCode})`);
+            win.close();
+            appIcon.destroy();
+          });
 
           // check cloud
           win.webContents.on('did-finish-load', function(e) {
@@ -2088,6 +2222,15 @@ WantedBy=graphical-session.target`;
                   win.setTitle(app.getName() + " v."+app.getVersion() + " - " + store.get('server_url'));
                 }
                 //block_gui_loading(false);
+              }
+
+              //get icoming message id
+              if (JSON.parse(message).action.token) {
+                message = JSON.parse(message)
+                /*writeLog(message.action.token)
+                writeLog(message.action.id)*/
+                message_link = '/call/'+message.action.token+'#message_'+message.action.id
+
               }
 
               // incoming call process
@@ -2201,8 +2344,37 @@ WantedBy=graphical-session.target`;
               if (JSON.parse(message).action == 'not_found') {
                 if (store.get('auto_login')) {
                   if (!auto_login_error) {
-                    dialog.showErrorBox(i18n.__('error'),i18n.__('message6'));
-                    win.webContents.executeJavaScript('window.location.replace("'+store.get('server_url')+'")')
+                    // ask to retry, exit or check settings?
+                    const options = {
+                      type: 'question',
+                      buttons: [i18n.__('retry'), i18n.__('exit'), i18n.__('check_preferences')],
+                      defaultId: 0,
+                      title: i18n.__('error'),
+                      //icon:icon,
+                      message: i18n.__('message6'),
+                      detail: i18n.__('message9'),
+                    };
+                    dialog.showMessageBox(win, options).then((result) => {
+                      switch (result.response) {
+                        case 0: // Retry
+                          //writeLog('User clicked Retry');
+                          restartApp();
+                          break;
+                        case 1: // Exit App
+                          //writeLoglog('User clicked Exit App');
+                          app.exit(0);
+                          break;
+                        case 2: // Open Preferences
+                          //writeLog('User clicked Open Preferences');
+                          openSettings(true);
+                          break;
+                        default:
+                          break;
+                      }
+                    });
+                    //dialog.showErrorBox(i18n.__('error'),i18n.__('message6'));
+
+                    //win.webContents.executeJavaScript('window.location.replace("'+store.get('server_url')+'")')
                     auto_login_error = true;
                   } else {
 
@@ -2602,7 +2774,8 @@ WantedBy=graphical-session.target`;
       catch (err) {
         writeLog(err)
         dialog.showErrorBox(i18n.__('error'), i18n.__('message5'));
-        fs.unlinkSync(app.getPath('userData')+"/config.json")
+        //fs.unlinkSync(app.getPath('userData')+"/config.json")
+        fs.rmSync(app.getPath('userData'), { recursive: true, force: true });
         restartApp();
       }
     }

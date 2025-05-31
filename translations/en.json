@@ -10,10 +10,11 @@
     "message2": "Will SSO be used during Nextcloud auth process?",
     "message3": "Enter comma separated allowed<br> Nextcloud domains list<br>(wildcard is supported *):",
     "message4": "Enter Nextcloud server URL:",
-    "message5":"config.json is broken! Recreating!",
-    "message6":"NC Talk auto login has failed!",
+    "message5":"config.json is broken! Recreating user app home folder!",
+    "message6":"NC Talk auto login has failed! What next?",
     "message7":"Enter your password for NC account ",
     "message8": "Choose screen or window to share:",
+    "message9": "You can retry connecting to NC server, exit the app, or open preferences to check and adjust settings.",
     "title1":"SSO approval",
     "title2":"Nextcloud allowed domain list",
     "title3": "Enter Nextcloud server URL",
@@ -69,6 +70,7 @@
     "logout":"Logout",
     "logged_out":"SSO or not logged in",
     "logging":"Write log file",
-    "logging_sw":"Status",
-    "logging_open":"Open log file"
+    "logging_open":"Open log file",
+    "retry":"Retry",
+    "check_preferences":"Check preferences"
 }

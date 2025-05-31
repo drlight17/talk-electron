@@ -18,7 +18,7 @@ function get_all_ids () {
 }
 
 
-function loadSettings(settings,locales) {
+function loadSettings(settings,locales,flag) {
 
   if (settings.server_url !== undefined) {
     document.getElementById('server_url').value = settings.server_url;
@@ -80,6 +80,14 @@ function loadSettings(settings,locales) {
     document.getElementById('start_hidden').checked = false;
   }
 
+  if (settings.logging !== undefined) {
+    document.getElementById('logging').checked = settings.logging;
+  } else {
+    document.getElementById('logging').checked = false;
+  }
+
+  cancel_button_action(flag);
+
   /*if (settings.allow_multiple !== undefined) {
     document.getElementById('allow_multiple').checked = settings.allow_multiple;
   } else {
@@ -89,6 +97,22 @@ function loadSettings(settings,locales) {
 
 function disableRunAtStartup() {
   document.getElementById('run_at_startup').setAttribute("disabled","disabled");
+}
+
+function cancel_button_action(flag) {
+  if (flag) {
+    //document.getElementById('cancel_button_id').disabled = true;
+    document.getElementById("cancel_button_id").addEventListener("click", function () {
+      //console.log("Retry clicked");
+      console.log(JSON.stringify({action: "restart_app"}));
+      self.close();
+    });
+  } else {
+    document.getElementById("cancel_button_id").addEventListener("click", function () {
+      //console.log("Retry clicked");
+      self.close();
+    });
+  }
 }
 
 function saveSettings() {
