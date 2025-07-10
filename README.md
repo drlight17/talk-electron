@@ -1,12 +1,12 @@
 # talk-electron
-Simple electron wrapper app for Nextcloud Talk. Learning some nodejs and electron basics while building simple Nextcloud Talk Desktop app for easy enterprise deployment.
+Electron wrapper app for Nextcloud Talk. Learning some nodejs and electron basics while building Nextcloud Talk Desktop app for easy enterprise deployment.
 
 ![Screenshot](https://github.com/user-attachments/assets/2eab2590-9782-4c2f-b4f1-2805c7b4d4b9)
 
 
 Sources are mess but it works =)
 
-Planning to use some things from this project as PRs to the [official Nextcloud Talk Desktop app](https://github.com/nextcloud/talk-desktop).
+Check my app if you are unsatisfied by [official Nextcloud Talk Desktop app](https://github.com/nextcloud/talk-desktop).
 
 # Minimum OS requirements
 MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x)
