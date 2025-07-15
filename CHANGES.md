@@ -1,3 +1,28 @@
+0.5.1-alpha
+- [x] NEW: error message instead of whitescreen in main win in case of connection error
+- [x] BUG: main window shows (got focused) after notification dismiss if main window is visible -- workaround: show notification only if main window is hidden, minimized or unfocused
+- [x] BUG: validate server_url to protect against unhandled exceptions
+- [x] NEW: loading screen for main and settings browserWindows
+- [x] BUG: fallback notification avatar in case of no icon fetched (not a message)
+- [x] BUG: fix notification layout for long messages and titles
+- [x] BUG: deal with chats menu autohide when click on chat context menu (...) and **in new NC version** when click on chats show with no mouse movement
+- [x] NEW: blur chat zone in narrow window when navi menu is opened (#app-content-vue {filter: blur(10px); pointer-events: none})
+- [x] BUG(macos): x64 dist build is not working on the Apple Silicon CPU (xcode errors) - use ` "build": {
+    "npmRebuild": false,` in package.json
+
+0.5.0-alpha
+
+- [x] BUG: [no win show on notification click](https://stackoverflow.com/questions/59898127/electron-notifications-dont-bring-app-up-to-front-again-on-click-on-the-notific)
+- [x] NEW: [self-hosted unread notifications supresses notifications from NC](https://community.openhab.org/t/self-hosted-notifications-with-nextcloud-talk/144090); test in Win and Macos
+- [x] don't hide notification while cursor hover
+- [x] add avatar to notifications
+- [x] NEW: add dark theme to all html templates based on current NC theme
+- [x] NEW: theme setting
+- [x] BUG: ask for further actions (retry, exit, check settings and checkbox to remember decision) if server couldn't be reached instead of run "enter server url" again
+- [x] NEW: get caller avatar and place it as icon in call dialog (npm puppeteer module used to process avatar image)
+- [x] NEW: remake "update available" to appear in other then main menu place
+- [x] BUG: fix center vertical align of "write message" box
+
 0.4.1-alpha
 
 - [x] NEW: save and process credentials for different server_urls to prevent token loose in case of change server_url
