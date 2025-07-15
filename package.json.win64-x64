@@ -14,6 +14,7 @@
   "version": "0.5.1-alpha",
   "author": "drlight17",
   "build": {
+    "npmRebuild": false,
     "appId": "com.electron.talk-electron",
     "productName": "NC Talk Electron",
     "asar": true,
