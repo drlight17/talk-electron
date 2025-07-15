@@ -3,6 +3,7 @@
 const prompt = require('electron-prompt');
 
 const sharp = require('sharp');
+const puppeteer = require('puppeteer');
 
 // for password save function
 const keytar = require('keytar');
@@ -23,7 +24,7 @@ if (isWindows) {
   var { app, clipboard, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor, nativeTheme } = require('electron')
   var { BrowserWindow } = require('electron-acrylic-window') // return BrowserWindows to electron in case of not using electron-acrylic-window
 }*/
-const { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor, nativeTheme, desktopCapturer } = require('electron')
+const { app, clipboard, screen, BrowserWindow, Menu, Tray, nativeImage, ipcMain, Notification, dialog, session, shell, powerMonitor, nativeTheme, desktopCapturer } = require('electron')
 const os = require('os');
 const { exec } = require('child_process');
 const { execFile } = require('child_process');
@@ -39,7 +40,9 @@ const path = require('node:path');
 
 const Store = require('electron-store');
 
-const theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+const system_theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+
+let theme = system_theme;
 
 const packageJsonPath = path.join(app.getAppPath(), 'package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -84,6 +87,30 @@ try {
         //console.log( `[${timestamp}] `+err);
       }
     }
+
+    function validateAndFixProtocol(url) {
+      try {
+        if (/^https?:\/\//i.test(url)) {
+          if (/^https:\/\//i.test(url)) {
+            return url;
+          }
+          writeLog(`Found insecure protocol 'http://' in URL. Fixing it to 'https://'.`);
+          return url.replace(/^http:\/\//i, "https://");
+        }
+
+        if (/^[a-zA-Z0-9]+:\/\//i.test(url)) {
+          writeLog(`Found invalid protocol in URL. Replacing with 'https://'.`);
+          return url.replace(/^[a-zA-Z0-9]+:\/\//i, "https://");
+        }
+
+        writeLog(`No protocol found in URL. Adding 'https://'.`);
+        return "https://" + url;
+      } catch (error) {
+        writeLog(`Error validating and fixing protocol for URL: ${url}. Error: ${error.message}`);
+        return null;
+      }
+    }
+
     async function openLog(filePath) {
 
       try {
@@ -232,26 +259,35 @@ try {
         let unread = false;
         let unread_prev = false;
         let message_link = '';
+        let notification_message_link = '';
+        let notification_message_icon = '';
         let call = false;
+        let avatar = undefined;
         let call_prev = false;
         // to store settings menu opened status
         let settings_opened = false;
         let isLocked_suspend = false;
+        let isLoading = false;
 
-        setTimeout(() => { setInterval(function() {checkNewVersion(app.getVersion())},60*60*1000);}, 3000); // check version in every hour with 3 sec delay for the first time
+        setTimeout(() => {
+          checkNewVersion(app.getVersion());
+          setInterval(() => {
+            checkNewVersion(app.getVersion());
+          }, 60 * 60 * 1000);
+        }, 3000);
+        // check version in every hour with 3 sec delay for the first time
 
         let url = "";
         const url_example = 'https://cloud.example.com';
 
         if (!((app.commandLine.getSwitchValue("server_url") == undefined) || (app.commandLine.getSwitchValue("server_url") == ""))) {
-          // overwrite server_url if arg is given
-          if (app.commandLine.getSwitchValue("server_url").startsWith("http://")) {
-              url = app.commandLine.getSwitchValue("server_url").replace("http://", "https://");
-          }
+          // validate server_url
+          url = validateAndFixProtocol(app.commandLine.getSwitchValue("server_url"))
           store.set('server_url',url)
           //url = app.commandLine.getSwitchValue("server_url");
         } else if (!((store.get('server_url') == undefined) || (store.get('server_url') == ""))) {
-          url = store.get('server_url');
+          url = validateAndFixProtocol(store.get('server_url'));
+          store.set('server_url',url)
         }
 
         // save current app exec path in config file
@@ -283,6 +319,17 @@ try {
 
 
         //const icon = './icon.png';
+
+        
+        // check if theme is configured and set default auto value if not
+        if (!store.get('theme')) {
+          store.set('theme', 'auto');
+        }
+
+        if (store.get('theme') != 'auto') {
+          theme = store.get('theme')
+        }
+
         // set run at startup
         if (store.get('run_at_startup')) {
 
@@ -441,7 +488,11 @@ WantedBy=graphical-session.target`;
                 {
                   label: i18n.__('preferences'),
                   click: () => {
-                    openSettings();
+                    if (!isLoading) {
+                      openSettings();
+                    } else {
+                      dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
+                    }
                   },
                 },
                 // set logging to file
@@ -555,11 +606,15 @@ WantedBy=graphical-session.target`;
                 /*if (gui_blocked) {
                   win_loading.show();
                 }*/
-                win.show()
+                if (!isLoading) {
+                  win.show();
+                  if (isMac) { //app.dock.setIcon(dockIcon); 
+                    app.dock.show(); addBadgeMac();
+                  };
+                } else {
+                  dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
+                }
 
-                if (isMac) { //app.dock.setIcon(dockIcon); 
-                  app.dock.show(); addBadgeMac();
-                };
               },
             },
             {
@@ -582,7 +637,11 @@ WantedBy=graphical-session.target`;
             {
               label: i18n.__('preferences'),
               click: () => {
-                openSettings();
+                if (!isLoading) {
+                  openSettings();
+                } else {
+                  dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
+                }
               },
             },
             // set logging to file
@@ -598,10 +657,36 @@ WantedBy=graphical-session.target`;
             {
               label : i18n.__('about'),
               // for linux compatibility
+              submenu: [
+                {
+                  label: i18n.__('show'),
+                  click: () => {
+                    app.showAboutPanel();
+                  },
+                },
+                {
+                  label: i18n.__('new_version_no'),
+                  enabled: false
+                },
+              ]
+            },/*
+            {
+              label: "show_notification",
               click: () => {
-                app.showAboutPanel();
+                let data = {
+                  title: "test2 отправил(а) вам личное сообщение",
+                  body: "This is a really long notification message that should scroll instead of resizing the entire window. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+                  tag: 86953
+                };
+                createNotification(data);
               }
             },
+            {
+              label: "call_notif_api",
+              click: () => {
+                getNotifications(86867);
+              }
+            },*/
             { type: 'separator' },
             {
               label: ((saved_login)&&(!store.get('auto_login'))) ? i18n.__('logged_in')+' '+saved_login : i18n.__('logged_out'),
@@ -690,7 +775,7 @@ WantedBy=graphical-session.target`;
 
           MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
           Menu.setApplicationMenu(MainMenu);
-          checkNewVersion(app.getVersion());
+          //checkNewVersion(app.getVersion());
         }
 
         function isInternalLink(url) {
@@ -804,14 +889,15 @@ WantedBy=graphical-session.target`;
         }
         function getSettings(win,flag) {
               var lang_files = JSON.stringify(i18n.___("get_locales"));
-              win.webContents.executeJavaScript(`loadSettings(`+JSON.stringify(store.store)+`,`+lang_files+`,`+flag+`);`);
+              var themes = JSON.stringify([{"auto":i18n.__("auto")},{"dark":i18n.__("dark")},{"light":i18n.__("light")}]);
+              win.webContents.executeJavaScript(`loadSettings(`+JSON.stringify(store.store)+`,`+lang_files+`,`+flag+`,`+themes+`);`);
               if (!app.isPackaged) {
                 win.webContents.executeJavaScript(`disableRunAtStartup();`);
                 //win.webContents.toggleDevTools();
               }
         }
 
-        function addNewVersionLink(releaseUrl,latestVersion) {
+        /*function addNewVersionLink(releaseUrl,latestVersion) {
 
           const separator = { type: 'separator' };
 
@@ -837,6 +923,62 @@ WantedBy=graphical-session.target`;
             const updatedMenu = Menu.buildFromTemplate(menuItems);
             Menu.setApplicationMenu(updatedMenu);
           }
+        }*/
+
+        function openNewVersionDialog(releaseUrl,latestVersion) {
+          // ask to open new version download link, close dialog with checkbox to save decision
+          let remembered = false;
+          try {
+            remembered = JSON.parse(store.get('new_version_remember'))[latestVersion]
+          }
+          catch(err) {
+          }
+
+          // add version link to appIcon menu
+          appIconMenuTemplate[6].submenu[1].label = i18n.__('new_version')+": "+latestVersion
+          appIconMenuTemplate[6].submenu[1].enabled = true
+          appIconMenuTemplate[6].submenu[1].click = () => {
+                    shell.openExternal(releaseUrl);
+          }
+          const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
+          try {
+            appIcon.setContextMenu(contextMenu)
+          }
+          catch(err) {
+            //writeLog(err)
+          }
+
+          if (!remembered) {
+            const options = {
+              type: 'info',
+              buttons: [i18n.__('yes_button'), i18n.__('no_button'), i18n.__('new_version_details')],
+              defaultId: 0,
+              title: i18n.__('info'),
+              //icon:icon,
+              message: i18n.__('new_version')+": "+latestVersion,
+              detail: i18n.__('new_version_ask'),  
+              checkboxLabel: i18n.__('new_version_remember'),
+              //checkboxChecked: remembered,
+            };
+            dialog.showMessageBox(win, options).then((result) => {
+              let decisionData = {};
+              switch (result.response) {
+                case 0: // Yes
+                  decisionData[latestVersion] = result.checkboxChecked;
+                  store.set("new_version_remember", JSON.stringify(decisionData));
+                  shell.openExternal(releaseUrl);
+                  break;
+                case 1: // No
+                  decisionData[latestVersion] = result.checkboxChecked;
+                  store.set("new_version_remember", JSON.stringify(decisionData));
+                  break;
+                case 2: // read
+                  shell.openExternal('https://raw.githubusercontent.com/drlight17/talk-electron/main/CHANGES.md');
+                  openNewVersionDialog(releaseUrl,latestVersion);
+                  break;
+              }
+            });
+          }
         }
 
         async function checkNewVersion(currentVersion) {
@@ -846,45 +988,49 @@ WantedBy=graphical-session.target`;
             const apiUrl = `https://api.github.com/repos/drlight17/talk-electron/releases/latest`;
 
             try {
-                let latestVersion;
-                let releaseUrl;
-                //writeLog("Checking new version.")
-                if (!cachedVersion && !cachedUrl) {
-                  writeLog("Fetch new version info from github.")
-                  const response = await fetch(apiUrl);
-                  const data = await response.json();
+              let latestVersion;
+              let releaseUrl;
+              //writeLog("Checking new version.")
+              if (!cachedVersion && !cachedUrl) {
+                writeLog("Fetch new version info from github.")
+                const response = await fetch(apiUrl);
+                const data = await response.json();
 
-                  latestVersion = data.tag_name;
-                  releaseUrl = data.html_url;
+                latestVersion = data.tag_name;
+                releaseUrl = data.html_url;
 
-                  store.set('latestVersion', latestVersion);
-                  store.set('releaseUrl', releaseUrl);
+                store.set('latestVersion', latestVersion);
+                store.set('releaseUrl', releaseUrl);
 
-                  //writeLog(`Running version: ${currentVersion}`);
-                  //writeLog(`Latest version: ${latestVersion}`);
+                //writeLog(`Running version: ${currentVersion}`);
+                //writeLog(`Latest version: ${latestVersion}`);
 
 
-                } else {
-                  //console.log("Using version info from cache.")
-                  latestVersion = cachedVersion;
-                  releaseUrl = cachedUrl;
-                }
+              } else {
+                //console.log("Using version info from cache.")
+                latestVersion = cachedVersion;
+                releaseUrl = cachedUrl;
+              }
 
-                const comparison = compareVersions(currentVersion, latestVersion);
-                if (comparison === 0) {
-                    //writeLog("You are using the latest version.");
-                } else if (comparison < 0) {
-                    writeLog("A new version is available: " + latestVersion);
+              const comparison = compareVersions(currentVersion, latestVersion);
+              if (comparison === 0) {
+                  //writeLog("You are using the latest version.");
+              } else if (comparison < 0) {
+                  writeLog("A new version is available: " + latestVersion);
 
-                    addNewVersionLink(releaseUrl,latestVersion);
-                } else {
-                    writeLog("You are using a newer version.");
-                }
+                  //addNewVersionLink(releaseUrl,latestVersion);
+                  openNewVersionDialog(releaseUrl,latestVersion)
+              } else {
+                  writeLog("You are using a newer version.");
+                  //openNewVersionDialog(releaseUrl,latestVersion)
+              }
 
             } catch (error) {
-                console.error('Error fetching the latest release:', error);
+              console.error('Error fetching the latest release:', error);
             }
         }
+
+
         function compareVersions(version1, version2) {
 
             const cleanVersion1 = version1.replace(/^v/, '');
@@ -918,13 +1064,13 @@ WantedBy=graphical-session.target`;
                 obj = JSON.parse(JSON.parse(message).localization_ids);
                 obj.forEach( id => {
                   let setting_loc= i18n.__(id.replace('_id',''))
-                  win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`");`);
+                  win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`","`+theme+`");`);
 
                   // localization of allow_domain_id title
                   if (id == 'allow_domain_id') {
                     id = id.replace('_id','_title')
                     let setting_loc= i18n.__(id.replace('_id','_title'))
-                    win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`");`);
+                    win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`","`+theme+`");`);
                   }
                 });
               }
@@ -1054,10 +1200,10 @@ WantedBy=graphical-session.target`;
               if (loginData.server && loginData.server[serverUrl]) {
                 delete loginData.server[serverUrl];
                 store.set("saved_login", JSON.stringify(loginData));
-                console.log(`Сервер ${serverUrl} удалён`);
+                writeLog(`Server ${serverUrl} is deleted`);
               }
             } catch (e) {
-              console.error("Ошибка при удалении сервера:", e);
+              writeLog("Error during server remove:", e);
             }
           }
         }
@@ -1118,14 +1264,18 @@ WantedBy=graphical-session.target`;
           };
         }
 
-        function openSettings(flag) {
+        function openSettings(flag,errored) {
+          let modal = !isMac;
+          if (errored) {
+            modal = true;
+          }
           if (!(settings_opened)) {
             let win_settings = new BrowserWindow({
-              modal: !isMac,
+              modal: modal,
               icon:icon,
               title:i18n.__('preferences'),
               width: 500,
-              height: 420,
+              height: 480,
               resizable:false,
               parent: win
             })
@@ -1172,6 +1322,11 @@ WantedBy=graphical-session.target`;
             //win_settings.webContents.openDevTools()
           }
         }
+
+        /*function getAvatar() {
+          win.webContents.executeJavaScript(`get_avatar();`);
+        }*/
+
         async function checkAuth(win,saved_password) {
           ses = win.webContents.session;
 
@@ -1195,6 +1350,26 @@ WantedBy=graphical-session.target`;
             }
           } catch (error) {
             writeLog(error);
+            /*win.webContents.executeJavaScript(`
+              // Create a styled error container
+              const errorContainer = document.createElement('div');
+              errorContainer.style.position = 'fixed';
+              errorContainer.style.top = '0';
+              errorContainer.style.left = '0';
+              errorContainer.style.height = '100%';
+              errorContainer.style.backgroundColor = 'rgba(0,0,0, 0.8);';
+              errorContainer.style.color = 'white';
+              errorContainer.style.display = 'flex';
+              errorContainer.style.justifyContent = 'center';
+              errorContainer.style.alignItems = 'center';
+              errorContainer.style.zIndex = '9999';
+              errorContainer.style.fontSize = '20px';
+              errorContainer.style.textAlign = 'center';
+              errorContainer.style.padding = '20px';
+              errorContainer.textContent = '${i18n.__('error')}: ${error.message}';
+
+              document.body.appendChild(errorContainer);
+            `);*/
             return false;
           }
         }
@@ -1226,11 +1401,11 @@ WantedBy=graphical-session.target`;
               catch(err){
                 writeLog(err)
                 // try to fix http to https
-                if (store.get('server_url').startsWith("http://")) {
+                /*if (store.get('server_url').startsWith("http://")) {
                   writeLog('Found insecure http in saved server url. Fixing it and restart app.')
                   store.set('server_url',store.get('server_url').replace("http://", "https://"));
                   restartApp();
-                }
+                }*/
               }
             }
           }
@@ -1266,6 +1441,7 @@ WantedBy=graphical-session.target`;
 
           return new Promise((resolve) => {
 
+
             win.loadURL(`${store.get('server_url')}/index.php/login/flow`, {
               userAgent: `${os.hostname()} (NC Talk Electron v. ${app.getVersion()})`,
               extraHeaders: [
@@ -1273,6 +1449,9 @@ WantedBy=graphical-session.target`;
                 `Accept-Language: ${app.getPreferredSystemLanguages().join(',')}`,
               ].join('\n'),
             })
+
+            // check page loading 
+            monitorLoadingStatus(win);
 
             /*win.webContents.on('did-start-loading', () => {
               win.setTitle(`${i18n.__('login_auth')} [Loading...]`)
@@ -1284,7 +1463,10 @@ WantedBy=graphical-session.target`;
               win.setProgressBar(-1)
             })*/
 
+            
+
             win.webContents.on('will-redirect', (event, url) => {
+
                 if (url.startsWith('nc://')) {
                   // Stop redirect to nc:// app protocol
                   event.preventDefault()
@@ -1490,6 +1672,44 @@ WantedBy=graphical-session.target`;
           })
         }
 
+        // monitor loading with 10 sec timeout
+        function monitorLoadingStatus(win, timeout = 10000) {
+          const startTime = Date.now();
+
+          // Start monitoring the loading status every second
+          const intervalId = setInterval(() => {
+            if (win && !win.isDestroyed()) {
+              isLoading = win.webContents.isLoading();
+
+              if (!isLoading) {
+                //writeLog("Page has finished loading.");
+                clearInterval(intervalId); // Stop monitoring once the page is loaded
+              } else {
+                const elapsedTime = Date.now() - startTime;
+                
+                //writeLog(`Page is still loading... Elapsed time: ${elapsedTime} ms`);
+
+                // If the timeout is reached, handle the timeout scenario
+                if (elapsedTime >= timeout) {
+                  writeLog(`Timeout: Page failed to load within ${timeout} ms.`);
+                  clearInterval(intervalId);
+                  if (win && !win.isDestroyed()) {
+                    // Optionally reload the page or show an error message
+                    /*dialog.showErrorBox(
+                      "Error",
+                      "The page failed to load. Please check your internet connection or try again later."
+                    );*/
+                    win.loadURL("about:blank"); // Fallback to a blank page
+                  }
+                }
+              }
+            } else {
+              writeLog("Window is destroyed or invalid. Stopping the monitor.");
+              clearInterval(intervalId);
+            }
+          }, 1000); // Check every 1 second
+        }
+
 
         function openPopup(url) {
           // check for cloud profile link
@@ -1514,7 +1734,20 @@ WantedBy=graphical-session.target`;
 
           var theUrl = url;
 
-          win_popup.loadURL(theUrl);
+          // show loading
+
+          
+          win_popup.loadFile('loading.html');
+
+          win_popup.webContents.executeJavaScript(`
+                  const title = document.getElementById('loading-state-title');
+                  title.textContent = '${i18n.__("loading")}';
+                `);
+
+          setTimeout(() => {
+            win_popup.loadURL(theUrl);
+          }, 500);
+          
           win_popup.setMenu(null);
 
           // override fonts to Arial to fix any app startup errors
@@ -1614,6 +1847,7 @@ WantedBy=graphical-session.target`;
 
         // convert icon to B&W
         async function bw_icon_process(icon) {
+
           if (theme == 'dark') {
             var linear = 3 // for white color
           } else {
@@ -1622,6 +1856,12 @@ WantedBy=graphical-session.target`;
           var newImage = await sharp(icon.toPNG()).greyscale().linear(linear, 0).png({colors:2}).toBuffer();
 
           return nativeImage.createFromBuffer(newImage);
+        }
+
+        // Utility function to convert base64 image to buffer
+        function base64ToBuffer(base64String) {
+          const base64Data = base64String.replace(/^data:image\/\w+;base64,/, '');
+          return Buffer.from(base64Data, 'base64');
         }
 
         async function convertIcon (badge,unread,purpose) {
@@ -1668,6 +1908,85 @@ WantedBy=graphical-session.target`;
 
             return;
           }
+        }
+
+        function getNotifications(tag) {
+          win.webContents.executeJavaScript(`get_Notifications(`+tag+`
+            );`);
+        }
+
+        function createNotification(data) {
+          const width = 360
+          const height = 175
+          const { bounds, workArea } = screen.getPrimaryDisplay();
+          const x = workArea.x + workArea.width - width;
+          let y = 0
+          if (isMac) {
+            y = workArea.y;
+          } else {
+            y = workArea.y + workArea.height - height;
+          }
+
+          let win_noti = new BrowserWindow({
+            //modal: !isMac,
+            icon:icon,
+            title:data.title,
+            //titleBarStyle: 'hidden',
+            frame: false,
+            width: width,
+            height: height,
+            resizable:false,
+            movable: false,
+            transparent: true,
+            x: x,
+            y: y,
+            alwaysOnTop: true, // Optional: keep on top
+            skipTaskbar: true, // Optional: don't show in taskbar
+            webPreferences: {
+                //devTools: true,
+                //sandbox: false,
+                contextIsolation: true
+            },
+            //parent: win
+          })
+
+          win_noti.loadFile("notification.html");
+          win_noti.setMenu(null);
+
+          /*setTimeout(() => {
+            if (!win_noti.isDestroyed()) {
+              win_noti.close();
+            }
+          }, 5000); // Close after 5 seconds
+          */
+
+          win_noti.webContents.on('did-finish-load', () => {
+            win_noti.webContents.insertCSS(`
+              * {
+                font-family: 'Arial', sans-serif !important;
+              }
+            `);
+
+            
+            win.webContents.executeJavaScript(`get_Notifications(`+data.tag+`);`);
+            setTimeout(() => {
+              win_noti.webContents.executeJavaScript(`showCustomNotification('`+JSON.stringify(data)+`', '`+i18n.__('dismiss')+`', '`+i18n.__('open')+`', '`+i18n.__('open_title')+`', '`+store.get('notification_timeout')+`', '`+theme+`', '`+icon.toDataURL()+`', '`+notification_message_icon+`', '`+i18n.__('close_after')+`')`)
+            },1000);
+
+          })
+
+          win_noti.webContents.on('console-message', (event, level, message, line, sourceId) => {
+            // open message from notify process
+            if (JSON.parse(message).action.open_message) {
+              //writeLog("Notify #"+JSON.parse(message).action.open_message+" is clicked")
+              setTimeout(function() {
+                win.show();
+                win.webContents.executeJavaScript(`open_message("`+notification_message_link+`");`);
+              }, 1000);
+            }
+          })
+
+          //win_noti.webContents.openDevTools()
         }
 
         /*function addNotificationToTray () {
@@ -1732,7 +2051,9 @@ WantedBy=graphical-session.target`;
                   if (isMac) app.dock.show();
                   // open corresponding message
                   //writeLog(message_link)
-                  win.webContents.executeJavaScript(`open_message("`+message_link+`");`);
+                  setTimeout(function() {
+                    win.webContents.executeJavaScript(`open_message("`+message_link+`");`);
+                  }, 1000);
                 }
               }
             }
@@ -1827,7 +2148,8 @@ WantedBy=graphical-session.target`;
           win = new BrowserWindow({
             title: app.getName() + " v."+app.getVersion() + " - " + store.get('server_url'),
             center: true,
-            show: store.get('start_hidden') ? !JSON.parse(store.get('start_hidden')) : true,
+            //show: store.get('start_hidden') ? !JSON.parse(store.get('start_hidden')) : true,
+            show: false,
             resizable: true,
             minimizable: (isMac) ? false : true,
             minWidth: 512, // temporary restrict min window width by 512px,
@@ -1838,11 +2160,16 @@ WantedBy=graphical-session.target`;
             webPreferences: {
               enableRemoteModule: true,
               backgroundThrottling: false,
-              //preload: path.join(__dirname, 'preload.js'),
-              contextIsolation: true,
+              preload: path.join(__dirname, 'preload.js'),
+              notifications: {
+                show: false
+              },
+              contextIsolation: false,
               nodeIntegration: true,
             }
           });
+
+
         
           // async get saved password if any        
           /*if (store.get('saved_login')) {
@@ -1942,6 +2269,49 @@ WantedBy=graphical-session.target`;
             store.set('bounds', win.getBounds());
           })
 
+          // Handle incoming notification requests
+          ipcMain.on('show-electron-notification', (event, { title, data, options }) => {
+            
+            //writeLog(JSON.stringify(options))
+            //writeLog(event)
+            //let closedByUser = false;
+            /*function createNotification() {
+              const notif = new Notification({
+                title,
+                body: options.body,
+                icon: avatar,
+                silent: true // prevent repeated sounds
+              });
+
+              notif.on('show', () => {
+                writeLog("Notification is shown")
+              });
+
+              notif.on('click', () => {
+                writeLog("Notification clicked!")
+                closedByUser = true;
+                if (!win.isDestroyed()) {
+                  if (win.isMinimized()) win.restore();
+                  win.show();
+                  win.focus();
+                }
+              });
+
+              notif.on('close', () => {
+                writeLog("Notification is closed")
+                if (!closedByUser) {
+                  // Re-show after a short delay
+                  setTimeout(createNotification, 1000);
+                }
+              });
+
+              //notif.show();
+            }*/
+            // check if win is in not hidden, minimized or unfocuse
+            if (!win.isVisible() || win.isMinimized() || !win.isFocused()) {
+              createNotification(data);
+            }
+          });
 
           // save app name title
           win.on('page-title-updated', function(e) {
@@ -1968,6 +2338,10 @@ WantedBy=graphical-session.target`;
           // some things when window is ready
 
           win.on('ready-to-show', () => {
+
+            if (!store.get('start_hidden')) {
+              win.show();
+            }
 
             // load icon from server
             if (store.get('use_server_icon')) {
@@ -2016,6 +2390,14 @@ WantedBy=graphical-session.target`;
           let authenticated = false;
           let saved_password = undefined;
           let ses = undefined;
+
+          // show loading
+
+          win.loadFile('loading.html');
+          win.webContents.executeJavaScript(`
+            const title = document.getElementById('loading-state-title');
+            title.textContent = '${i18n.__("loading")}';
+          `);
 
           if (!store.get('auto_login')) {
             //console.log(JSON.parse(store.get('saved_login')))
@@ -2166,18 +2548,6 @@ WantedBy=graphical-session.target`;
               }
             }
 
-            //try autologin in case there is a saved credential
-            // get saved credential if any
-            /*if (store.get('saved_login')) {
-              if (saved_password) {
-                writeLog("Let's try to login with found "+store.get('saved_login')+" credentials");
-                win.webContents.executeJavaScript(`
-                  checkURL(false,'`+store.get('saved_login')+`','`+saved_password+`');
-                `);
-              }
-            }*/
-
-
           });
 
           win.webContents.on('console-message', (event, level, message, line, sourceId) => {
@@ -2224,20 +2594,26 @@ WantedBy=graphical-session.target`;
                 //block_gui_loading(false);
               }
 
-              //get icoming message id
+              //get incoming message id
               if (JSON.parse(message).action.token) {
                 message = JSON.parse(message)
                 /*writeLog(message.action.token)
                 writeLog(message.action.id)*/
                 message_link = '/call/'+message.action.token+'#message_'+message.action.id
-
               }
+
+              // get notification metadata
+              if (JSON.parse(message).action.notification) {
+                notification_message_link = JSON.parse(message).action.notification.link
+                notification_message_icon = JSON.parse(message).action.avatar
+              }
+
 
               // incoming call process
               if (JSON.parse(message).action.call) {
                 
                 call = JSON.parse(message).action.call
-                //writeLog(call.lastMessage.systemMessage)
+                avatar = JSON.parse(message).action.avatar
                 
                 //let controller = new AbortController();
 
@@ -2257,7 +2633,53 @@ WantedBy=graphical-session.target`;
                   //controller.abort();
                 }
 
-                dialog.showMessageBox(win, {
+                // convert avatar to round shape. used puppeteer to support svg format
+                const avatar_process = async avatar => {
+                  let crop = 200; // set crop pixels, bigger value means more crop
+                  const browser = await puppeteer.launch();
+                  const page = await browser.newPage();
+                  // Wrap SVG in a scaling HTML container
+                  const htmlContent = `
+                    <!DOCTYPE html>
+                    <html style="width: ${crop}px; height: ${crop}px; background: transparent;">
+                      <body style="margin:0; padding:0; background: transparent; display: flex; align-items: center; justify-content: center; height: 100%;">
+                        <div id="svg-wrapper" style="width: 100%; height: 100%; overflow: hidden;">
+                          <img src="${avatar}" style="width: 100%; height: auto; display: block;" />
+                        </div>
+                      </body>
+                    </html>
+                  `;
+                  const dataUri = 'data:text/html,' + encodeURIComponent(htmlContent);
+
+                  // Enable transparency
+                  await page.goto(dataUri, {
+                    waitUntil: 'networkidle0',
+                    timeout: 30000,
+                  });
+
+                  await page.setViewport({
+                    width: crop,
+                    height: crop
+                  });
+
+                  // Take screenshot as buffer
+                  const pngBuffer = await page.screenshot({ type: 'png' });
+
+                  await browser.close();
+                  
+                  const outputBuffer = await sharp(pngBuffer)
+                    .resize(crop, crop) // resize
+                    .composite([{
+                      input: Buffer.from(
+                        `<svg><circle cx="100" cy="100" r="100" fill="white"/></svg>`
+                      ),
+                      blend: 'dest-in'
+                    }])
+                    .png() // Ensure output is PNG for transparency
+                    .toBuffer();
+
+                  avatar = nativeImage.createFromBuffer(outputBuffer);
+                  dialog.showMessageBox(win, {
                     //'type': 'warning',
                     'title': i18n.__('call_title'),
                     'message': i18n.__("call_message")+call.displayName,
@@ -2265,23 +2687,27 @@ WantedBy=graphical-session.target`;
                     'buttons': [
                         i18n.__('cancel_button'),
                         i18n.__('answer_button')
-                    ]/*,
-                    'icon': icon,*/
+                    ],
+                    'icon': avatar
                     //'signal': controller.signal
-                })
-                .then((result) => {
-                  // if no
-                  /*if (result.response !== 0) {
-                    call_prev = false;
-                  }*/
-                  // if no
-                  /*if (result.response === 0) {
-                    return;
-                  }*/
-                  // if yes
-                  if (result.response === 1) win.loadURL(store.get('server_url')+'/call/'+call.token+'#direct-call')
-                });
+                  })
+                  .then((result) => {
+                    // if no
+                    /*if (result.response !== 0) {
+                      call_prev = false;
+                    }*/
+                    // if no
+                    /*if (result.response === 0) {
+                      return;
+                    }*/
+                    // if yes
+                    if (result.response === 1) win.loadURL(store.get('server_url')+'/call/'+call.token+'#direct-call')
+                  });
+                }
+                
+                avatar_process(avatar);
                 win.show();
+                
               }
 
               if (JSON.parse(message).action == 'not_alive') {
@@ -2341,6 +2767,12 @@ WantedBy=graphical-session.target`;
               if (JSON.parse(message).action == 'removed') {
                 removeNotificationFromTray();
               }*/
+
+              // css fix after NC 29
+              if (JSON.parse(message).action == 'css_fix') {
+                win.webContents.insertCSS('.rich-contenteditable__input { padding-top:0.5vh!important;}');
+              }
+
               if (JSON.parse(message).action == 'not_found') {
                 if (store.get('auto_login')) {
                   if (!auto_login_error) {
@@ -2366,7 +2798,7 @@ WantedBy=graphical-session.target`;
                           break;
                         case 2: // Open Preferences
                           //writeLog('User clicked Open Preferences');
-                          openSettings(true);
+                          openSettings(true,true);
                           break;
                         default:
                           break;
@@ -2380,12 +2812,44 @@ WantedBy=graphical-session.target`;
 
                   }
                 } else {
-                  win.close();
+                  //win.destroy();
                   appIcon.destroy();
+                  //writeLog(error);
+                  //win.loadFile('loading.html')
                   if (!prompted) {
-                    dialog.showErrorBox(i18n.__('error'),i18n.__('message1'));
+                    //dialog.showErrorBox(i18n.__('error'),i18n.__('message1'));
+                    // ask to retry, exit or check settings?
+                    const options = {
+                      type: 'error',
+                      buttons: [i18n.__('retry'), i18n.__('exit'), i18n.__('check_preferences')],
+                      defaultId: 0,
+                      title: i18n.__('error'),
+                      useHtmlLabel: true,
+                      //icon:icon,
+                      message: i18n.__('message1'),
+                      detail: i18n.__('message9'),
+                    };
+                    dialog.showMessageBox(win, options).then((result) => {
+                      switch (result.response) {
+                        case 0: // Retry
+                          //writeLog('User clicked Retry');
+                          restartApp();
+                          break;
+                        case 1: // Exit App
+                          //writeLoglog('User clicked Exit App');
+                          app.exit(0);
+                          break;
+                        case 2: // Open Preferences
+                          //writeLog('User clicked Open Preferences');
+                          openSettings(true,true);
+                          break;
+                        default:
+                          break;
+                      }
+                    });
+
                     //app.exit(0);
-                    setServerUrl (store.get('server_url')||url_example);
+                    //setServerUrl (store.get('server_url')||url_example);
                   }
                 }
 
@@ -2457,15 +2921,15 @@ WantedBy=graphical-session.target`;
             mainMenuTemplate[2].submenu[1].label = i18n.__("open_devtools");
             MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
             Menu.setApplicationMenu(MainMenu);
-            checkNewVersion(app.getVersion());
+            //checkNewVersion(app.getVersion());
           })
 
           win.webContents.on('devtools-opened', () => {
-            checkNewVersion(app.getVersion());
+            //checkNewVersion(app.getVersion());
             mainMenuTemplate[2].submenu[1].label = i18n.__("close_devtools");
             MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
             Menu.setApplicationMenu(MainMenu);
-            checkNewVersion(app.getVersion());
+            //checkNewVersion(app.getVersion());
           })
 
           // Open the DevTools.
@@ -2615,17 +3079,6 @@ WantedBy=graphical-session.target`;
                 });
               }
           })
-        }
-
-
-        function openNotificationsSettings() {
-            exec('open x-apple.systempreferences:com.apple.preference.notifications', (error) => {
-                if (error) {
-                    console.error('Error while opeing notification settings:', error);
-                } else {
-                    console.log('Notification settings are opened for macOS.');
-                }
-            });
         }
 
         // set server_url prompt

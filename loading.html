@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>NC Talk Electron loading</title>
+    <style>
+    * {
+      font-family: 'Arial', sans-serif !important;
+      font-size: larger;
+    }
+    #loading-state {
+        width: 100px;
+        height: 100px;
+        position: absolute;
+        top:40%;
+        border-radius: 50%;
+        border: 10px solid black;
+        border-top-color: white;
+        animation: loading 1s linear infinite;
+      }
+      @keyframes loading {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      #loading-state-title {
+        color: white;
+        position: absolute;
+        top: 62%;
+      }
+
+      .loading {
+          background-color: rgba(0, 0, 0, 0.7);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          align-items: center;
+      }
+    </style>
+</head>
+<body class="loading">
+  <div id="loading-state">
+  </div>
+  <div id="loading-state-title"></div>
+</body>

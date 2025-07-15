@@ -33,9 +33,7 @@ async function pingUrl(url){
 }
 
 function open_message(link) {
-  setTimeout(function() {
-    window.location.replace(link)
-  }, 1000)
+  window.location.replace(link)
 }
 
 function force_online() {
@@ -208,6 +206,7 @@ if (typeof _oc_config === "undefined") {
       $('#core_apps').parent().hide();
       $('#core_users').parent().hide();
       $('#help').parent().hide();
+      console.log(JSON.stringify({action: "css_fix"}));
     }
 
 

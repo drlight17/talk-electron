@@ -15,7 +15,79 @@ function getItemsByPartialKey(partialKey) {
     return matchingItems;
 }
 
-function recalc_counters_summary (removed) {
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function() {
+      resolve(reader.result); // This is the base64 string
+    };
+    reader.onerror = function(error) {
+      reject(error);
+    };
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function getBase64FromImageUrl(url) {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error("Network response was not ok");
+
+    const blob = await response.blob();
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result); // Base64 string
+      reader.onerror = error => reject(error);
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("Error fetching or converting image:", error);
+  }
+}
+
+async function get_Notifications(tag) {
+    const response = await fetch('/ocs/v2.php/apps/notifications/api/v2/notifications/'+tag+'?format=json', {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'OCS-APIRequest': 'true',
+        'requesttoken': OC.requestToken,
+        'Content-Type': 'application/json'
+      }/*,
+      body: JSON.stringify({ statusType: 'online' })*/
+    })
+    const resp = await response.json();
+    getBase64FromImageUrl(resp.ocs.data.subjectRichParameters.call['icon-url']).then(base64 => {
+      console.log(JSON.stringify({'action': {'notification': resp.ocs.data, 'avatar': base64}}));
+    });
+}
+
+async function get_avatar(conversation) {
+
+    const response = await fetch('/ocs/v2.php/apps/spreed/api/v1/room/'+conversation.lastMessage.token+'/avatar?format=json', {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'OCS-APIRequest': 'true',
+        'requesttoken': OC.requestToken,
+        'Content-Type': 'application/json'
+      }/*,
+      body: JSON.stringify({ statusType: 'online' })*/
+    })
+
+    const blob = await response.blob();
+
+    blobToBase64(blob)
+      .then(base64String => {
+        console.log(JSON.stringify({'action': {'call': conversation, 'avatar': base64String}}));
+      })
+      .catch(err => {
+        console.error("Conversion failed:", err);
+      });
+}
+
+async function recalc_counters_summary (removed) {
 
     let totalUnreadMessages = 0;
     try {
@@ -58,7 +130,7 @@ function recalc_counters_summary (removed) {
 
             if ((conversation) && (conversation.lastMessage.systemMessage == 'call_started') && (conversation.participantFlags != 7)) {
                 //console.log(conversation.name + " is calling!")
-                console.log(JSON.stringify({'action': {'call': conversation}}));
+                get_avatar(conversation);
             }
 
             // last message chat id and token fetch

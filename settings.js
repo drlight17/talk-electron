@@ -1,4 +1,9 @@
-function localize(id,loc) {
+function localize(id,loc,theme) {
+  if (theme == 'dark') {
+    document.body.classList.add('dark-theme');
+  } else {
+    document.body.classList.add('light-theme');
+  }
   // localize settings.html
   if (id == 'allow_domain_title') {
     // localization of allow_domain_id title
@@ -18,7 +23,7 @@ function get_all_ids () {
 }
 
 
-function loadSettings(settings,locales,flag) {
+function loadSettings(settings,locales,flag,themes) {
 
   if (settings.server_url !== undefined) {
     document.getElementById('server_url').value = settings.server_url;
@@ -49,6 +54,19 @@ function loadSettings(settings,locales,flag) {
     document.getElementById('lang').value = settings.locale;
   }
 
+  select = document.getElementById('theme');
+  themes.forEach((theme) => {
+    const key = Object.keys(theme)[0];
+    const value = theme[key];
+    opt = document.createElement('option');
+    opt.value = key;
+    opt.text = value;
+    select.appendChild(opt);
+  })
+
+  if (settings.theme !== undefined) {
+    document.getElementById('theme').value = settings.theme;
+  }
 
   if (settings.run_at_startup !== undefined) {
     document.getElementById('run_at_startup').checked = settings.run_at_startup;
@@ -67,6 +85,20 @@ function loadSettings(settings,locales,flag) {
   } else {
     document.getElementById('show_on_new_message').checked = false;
   }
+
+  /*var select = document.getElementById('notification_timeout');
+  locales.forEach((locale) => {
+    var regionNames = new Intl.DisplayNames([locale], { type: 'language' });
+    var opt = document.createElement('option');
+    opt.value = locale;
+    opt.innerHTML = regionNames.of(locale);
+    select.appendChild(opt);
+  })*/
+
+  if (settings.notification_timeout !== undefined) {
+    document.getElementById('notification_timeout').value = settings.notification_timeout;
+  }
+
 
   if (settings.always_on_top !== undefined) {
     document.getElementById('always_on_top').checked = settings.always_on_top;
@@ -131,5 +163,12 @@ function saveSettings() {
   }
   // add locale workaround
   settings['locale'] = document.getElementById('lang').value;
+
+  // add notification_timeout workaround
+  settings['notification_timeout'] = document.getElementById('notification_timeout').value;
+
+  // add theme workaround
+  settings['theme'] = document.getElementById('theme').value;
+
   console.log(JSON.stringify({action: "save_settings", settings: JSON.stringify(settings)}));
 }

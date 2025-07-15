@@ -11,7 +11,7 @@
   ],
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "0.4.0-alpha",
+  "version": "0.5.1-alpha",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "homepage": "https://github.com/drlight17/talk-electron",
   "build": {
@@ -61,12 +61,6 @@
           "arch": [
             "arm64"
           ]
-        },
-        {
-          "target": "dmg",
-          "arch": [
-            "x64"
-          ]
         }
       ],
       "asarUnpack": "./icon.png"
@@ -84,6 +78,7 @@
     "electron-prompt": "latest",
     "electron-store": "^8.2.0",
     "keytar": "^7.9.0",
+    "puppeteer": "latest",
     "sharp": "^0.32"
   },
   "devDependencies": {

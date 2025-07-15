@@ -1,4 +1,9 @@
-function localize(id,loc) {
+function localize(id,loc,theme) {
+  if (theme == 'dark') {
+    document.body.classList.add('dark-theme');
+  } else {
+    document.body.classList.add('light-theme');
+  }
   // localize media_picker.html
     document.getElementById(id).innerHTML = loc;
 }

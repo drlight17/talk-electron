@@ -6,13 +6,21 @@
 	<link rel="stylesheet" href="styles.css">
 	<script src="settings.js"></script>
 </head>
-<body>
+<body class="settings">
 	<div id="app">
 		<form id="settings_form" onsubmit="return false">
 			<label id="lang_id" for="lang"></label>
 		    <select id="lang">
 			</select>
 			<br>
+			<br>
+			<label id="theme_id" for="theme"></label>
+		    <select id="theme">
+		    	<!--<option value="auto">Auto</option>
+		    	<option value="dark">Dark</option>
+		    	<option value="light">Light</option>-->
+			</select>
+		    <br>
 			<br>
 		    <label id="server_url_id" for="server_url"></label>
 		    <input type="text" name="server_url" id="server_url"><br><br>
@@ -21,7 +29,16 @@
 		    <!--<input type='hidden' value=false name='saved_login'>
 		    <label id="saved_login_id" for="saved_login"></label>
 		    <input type="text" name="saved_login" id="saved_login">-->
-			<br>
+			<label id="notification_timeout_id" for="notification_timeout"></label>
+		    <select id="notification_timeout">
+		    	<option value="0">0</option>
+		    	<option value="5">5</option>
+		    	<option value="10">10</option>
+		    	<option value="30">30</option>
+			</select>
+			<label id="notification_timeout_end_id" for="notification_timeout_end"></label>
+		    <br>
+		    <br>
 		    <input type='hidden' value=false name='auto_login'>
 		    <input type="checkbox" value=true name="auto_login" id="auto_login">
 		    <label id="auto_login_id" for="auto_login"></label>
@@ -49,7 +66,6 @@
 		    <input type='hidden' value=false name='logging'>
 		    <input type="checkbox" value=true name="logging" id="logging">
 		    <label id="logging_id" for="logging"></label>
-		    <br>
 		    <!--<input type='hidden' value=false name='allow_multiple'>
 		    <input type="checkbox" value=true name="allow_multiple" id="allow_multiple">
 		    <label id="allow_multiple_id" for="allow_multiple"></label>-->

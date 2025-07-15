@@ -11,33 +11,17 @@
 	margin-block:initial!important;
 }
 
-/*settings styling*/
-
-#app {
-	font-family: sans-serif;
-	font-size: smaller;
-	display: flex;
-    justify-content: center;
-    margin-top: 10%;
-    /*height: 100vh;*/
-    overflow-y:hidden;
-    overflow-x:hidden;
-    align-items: center;
-}
-.buttons {
-	display: flex;
-    justify-content: space-evenly;
-}
-.buttons button {
-	min-width: 100px
-}
-
-/*to fix main_menu auto hide in 1024 width */
+/*to fix main_menu auto hide in 1024 width - deprecated since 0.5.1-alpha bad user experience
 
 @media all and (max-width: 1024px) {
 	.app-navigation {
 		position:relative!important;
 	}
+} */
+/* blur chat zone when navi menu is opened */
+#app-content-vue.blurred {
+  filter: blur(10px);
+  pointer-events: none
 }
 
 /*to fix NC talk 20.1+ changes */
@@ -72,10 +56,66 @@
 
 .new-message-form .rich-contenteditable__input {
 	padding-left: 30px!important;
-    padding-top: 0.5vh!important;
 }
 
+body.dark-theme a {
+    color: white;
+}
+
+.buttons {
+  display: flex;
+    justify-content: space-evenly;
+}
+.buttons button {
+  min-width: 100px
+}
+
+button {
+  padding: 12px 24px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  
+}
+
+button:not([disabled]) {
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+body.settings button:hover:not([disabled]):not(.close-btn), body.picker button:hover:not([disabled]):not(.close-btn), body.notification button:hover:not([disabled]):not(.close-btn) {
+  background-color: #ddd;
+}
+
+/*settings styling*/
+
+body.settings.dark-theme {
+  background-color: #282c34;
+}
+
+body.settings #app {
+  font-family: sans-serif;
+  font-size: smaller;
+  display: flex;
+    justify-content: center;
+    margin-top: 10%;
+    /*height: 100vh;*/
+    overflow-y:hidden;
+    overflow-x:hidden;
+    align-items: center;
+}
+
+body.settings.dark-theme #app {
+  color: white;
+}
+
+
 /* picker styling */
+
+body.picker.dark-theme {
+  background-color: #282c34;
+}
+
 body.picker {
   margin: 0;
   padding-bottom: 60px;
@@ -98,22 +138,10 @@ body.picker .buttons {
   z-index: 1000;
 }
 
-button {
-  padding: 12px 24px;
-  font-size: 16px;
-  border: none;
-  border-radius: 5px;
-  
+body.picker.dark-theme .buttons {
+  background-color: #282c3499;
 }
 
-button:not([disabled]) {
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-
-button:hover:not([disabled]) {
-  background-color: #ddd;
-}
 body.picker h2 {
   position: fixed;
   width: 100%;
@@ -125,6 +153,11 @@ body.picker h2 {
   padding: 10px 10px;
   text-align: center;
 }
+
+body.picker.dark-theme h2 {
+    background-color: #282c3499;
+    color: white;
+  }
 
 body.picker .source {
   width: 150px;
@@ -171,5 +204,153 @@ body.picker .source .type-label {
 body.picker .source.selected {
   border-width: 4px !important; /* Жирная рамка */
   border-style: solid;
+}
+
+/* notificayion styling */
+
+body.notification #notification-container {
+  position: fixed;
+  right: 20px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-width: 330px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+body.notification #notification-title {
+    position: fixed;
+    right: 30px;
+    bottom: 10px;
+    filter: opacity(0.4);
+}
+
+body.notification.dark-theme .notification {
+  color: white;
+  background-color: #282c34;
+}
+
+body.notification .notification {
+  position: relative;
+  min-height: 130px;
+  padding: 15px;
+  border-radius: 5px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  animation: slideIn 0.3s ease-out forwards;
+  background-color: white;
+}
+
+body.notification .notification > p> img {
+  width: 40px;
+  object-fit: cover;
+  border-radius: 50%; /* Optional: circular image */
+  flex-shrink: 0;
+  vertical-align: bottom;
+}
+
+/* works only with white app icon
+/*body.notification.light-theme #notification-title img {
+  filter: invert(1);
+}*/
+
+body.notification #notification-title > img {
+  width: 30px;
+  object-fit: cover;
+  flex-shrink: 0;
+  vertical-align: bottom;
+}
+
+body.notification .notification.slide-out {
+  animation: slideOut 0.3s ease-out forwards;
+}
+
+body.notification .notification .read-btn {
+  padding: 5px 10px;
+  font-size: 16px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  /*transition: background-color 0.3s ease;*/
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index:9999;
+}
+
+body.notification .notification:hover .read-btn {
+  opacity: 1;
+}
+
+body.notification .notification #timer {
+  /*font-size: 18px;
+  font-weight: bold;*/
+  transition: opacity 0.2s ease-in-out;
+  opacity: 1;
+  position: absolute;
+  color: rgb(255 255 255 / 64%);
+  z-index: 9999;
+  backdrop-filter: blur(3px);
+  /*margin-left: 35px;*/
+  bottom: 10px;
+}
+
+body.notification .notification:hover #timer {
+  opacity: 0;
+}
+
+body.notification .notification p {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical; 
+  text-overflow: ellipsis;
+  max-width: 310px;
+  /*top: 10px;*/
+  position: relative;
+}
+
+body.notification .notification p.title {
+  font-size: small;
+  -webkit-line-clamp: 2;
+  /*text-overflow: inherit;*/
+  margin-top: -7px;
+}
+
+
+body.notification .close-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    color: inherit;
+    opacity: 0.8;
+    cursor: pointer;
+    position: absolute;
+    right: 20px;
+    outline: none;
+    font-size: 30px;
+    top: 0;
+    z-index: 9999;
+}
+
+body.notification .close-btn:hover {
+    opacity: 1
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(100px); opacity: 0; }
+}
 
 /* Add styles here to customize the appearance of your app */
