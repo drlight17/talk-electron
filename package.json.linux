@@ -15,6 +15,7 @@
   "author": "Yuri Samoilov <root@drlight.fun>",
   "homepage": "https://github.com/drlight17/talk-electron",
   "build": {
+    "npmRebuild": false,
     "appId": "com.electron.talk-electron",
     "productName": "NC Talk Electron",
     "asar": true,
