@@ -19,15 +19,15 @@ MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x)
 |-------------|--------------|---------------------------------------------------|----------------|
 | 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.0.4.1-alpha.msi)   | 87.08 MB          |
 | 🖥 Windows x86   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.0.4.1-alpha.ia32.msi)   | 83.76 MB          |
-| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_0.4.1-alpha_amd64.deb)     | 73.6 MB          |
-| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.4.1-alpha.x86_64.rpm)    | 73.78 MB          |
-| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.4.1-alpha.AppImage)     | 104.07 MB          |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_0.5.1-alpha_amd64.deb)     | 73.6 MB          |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.5.1-alpha.x86_64.rpm)    | 73.78 MB          |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.5.1-alpha.AppImage)     | 104.07 MB          |
 | 🐧 Linux FlatPak x64   | `.flatpak`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.4.1-alpha-x86_64.flatpak)     | 75.09 MB          |
-| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.4.1-alpha.tar.gz)      | 100.87 MB          |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.5.1-alpha.tar.gz)      | 100.87 MB          |
 | 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.4.1-alpha-win.zip)       | 112.04 MB          |
 | 🌐 Windows Archive x86      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.4.1-alpha-ia32-win.zip)       | 106.53 MB          |
 | 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.4.1-alpha.dmg)     | 99.71 MB          |
-| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.4.1-alpha-arm64.dmg)     | 95.36 MB          |
+| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.5.1-alpha-arm64.dmg)     | 95.36 MB          |
 
 
 ---
@@ -55,6 +55,8 @@ Supported setting arguments (see example.config.json):
 - `always_on_top` - true\false value means to show app main window on top of every other windows (default is false)
 - `auto_login` - true\false value means to try auto login (make sure you have configured allow_domain and SSO in NC)
 - `logging` - boolean true\false value means to save application logs to the file app.log in local user folder (nearby config.json)
+- `theme` - application theme (dark, light, auto; default is auto)
+- `notification_timeout` - time period of notification show (in seconds, 0 - means to wait of user action)
 
 # For developers
 Build depends on the platform since 0.2.9-alpha version as it brings support of the system idle detect function.
