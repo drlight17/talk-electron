@@ -9,7 +9,7 @@ Sources are mess but it works =)
 Check my app if you are unsatisfied by [official Nextcloud Talk Desktop app](https://github.com/nextcloud/talk-desktop).
 
 # Minimum OS requirements
-MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x)
+MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x) - all x64 compatible only, no more 32-bit support (since 0.5.1-alpha)
 
 ## Works with Nextcloud since v.28.x.x and since Talk v.18.x
 
@@ -17,15 +17,13 @@ MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x)
 
 | Platform   | Type | Download link                               | File size   |
 |-------------|--------------|---------------------------------------------------|----------------|
-| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.0.4.1-alpha.msi)   | 87.08 MB          |
-| 🖥 Windows x86   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.0.4.1-alpha.ia32.msi)   | 83.76 MB          |
+| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.0.5.1-alpha.msi)   | 87.08 MB          |
 | 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_0.5.1-alpha_amd64.deb)     | 73.6 MB          |
 | 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.5.1-alpha.x86_64.rpm)    | 73.78 MB          |
 | 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.5.1-alpha.AppImage)     | 104.07 MB          |
 | 🐧 Linux FlatPak x64   | `.flatpak`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.4.1-alpha-x86_64.flatpak)     | 75.09 MB          |
 | 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.5.1-alpha.tar.gz)      | 100.87 MB          |
-| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.4.1-alpha-win.zip)       | 112.04 MB          |
-| 🌐 Windows Archive x86      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.4.1-alpha-ia32-win.zip)       | 106.53 MB          |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.5.1-alpha-win.zip)       | 112.04 MB          |         |
 | 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.4.1-alpha.dmg)     | 99.71 MB          |
 | 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.5.1-alpha-arm64.dmg)     | 95.36 MB          |
 
