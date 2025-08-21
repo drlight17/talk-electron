@@ -11,7 +11,7 @@ Check my app if you are unsatisfied by [official Nextcloud Talk Desktop app](htt
 # Minimum OS requirements
 MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x) - all x64 compatible only, no more 32-bit support (since 0.5.1-alpha)
 
-## Works with Nextcloud since v.28.x.x and since Talk v.18.x
+## Works correctly with Nextcloud since v.28.x.x till v.30.x.x and since Talk v.18.x till v.20.x.x
 
 # 📦 Download
 
