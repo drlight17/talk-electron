@@ -90,6 +90,8 @@ npm install -g node-gyp
 npm install --save-dev electron-rebuild
 npx electron-rebuild
 ```
+OR run `prepare.sh`
+
 To build win32 x86 (32bit) app remove **node_modules\sharp\\** after previous common commands, use **package.json.win32-ia32** as package.json and run: 
 ```
 npm install --force --platform=win32 --arch=ia32 sharp
