@@ -1,6 +1,6 @@
  // Modules to control application life and create native browser window
 
-const prompt = require('electron-prompt');
+const prompt = require('custom-electron-prompt');
 
 const sharp = require('sharp');
 const puppeteer = require('puppeteer');
@@ -24,7 +24,10 @@ if (isWindows) {
   var { app, clipboard, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor, nativeTheme } = require('electron')
   var { BrowserWindow } = require('electron-acrylic-window') // return BrowserWindows to electron in case of not using electron-acrylic-window
 }*/
-const { app, clipboard, screen, BrowserWindow, Menu, Tray, nativeImage, ipcMain, Notification, dialog, session, shell, powerMonitor, nativeTheme, desktopCapturer } = require('electron')
+const { app, net, clipboard, screen, BrowserWindow, Menu, Tray, nativeImage, ipcMain, Notification, dialog, session, shell, powerMonitor, nativeTheme, desktopCapturer } = require('electron')
+//const WebSocket = require('ws');
+const { HttpsProxyAgent } = require('https-proxy-agent');
+//const { SocksProxyAgent } = require('socks-proxy-agent');
 const os = require('os');
 const { exec } = require('child_process');
 const { execFile } = require('child_process');
@@ -43,6 +46,7 @@ const Store = require('electron-store');
 const system_theme = nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
 
 let theme = system_theme;
+let ton_wallet = 'UQBz_YJrj5-PCpYIqr7wsdspdSgrzETS02N2t0KSo1njX0FJ';
 
 const packageJsonPath = path.join(app.getAppPath(), 'package.json');
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
@@ -68,12 +72,17 @@ try {
 
     //const store = new Store();
 
-    function writeLog(message) {
+    function writeLog(message,obj) {
 
       const logFilePath = path.join(app.getPath('userData'), 'app.log');
       const timestamp = new Date().toLocaleString();
       const logMessage = `[${timestamp}] ${message}\n`;
-      console.log( `[${timestamp}] ${message}`);
+      if (obj) {
+        console.log( `[${timestamp}]`);
+        console.dir( message, { depth: null, colors: true });
+      } else {
+        console.log( `[${timestamp}] ${message}`);
+      }
       try {
         if (store.get('logging')) {
           fs.appendFile(logFilePath, logMessage, (err) => {
@@ -214,7 +223,7 @@ try {
       writeLog(app.getName() + " v."+app.getVersion() + ' is started in production mode');
     }
 
-    // TODO check allow_multiple in newer version
+    // check allow_multiple in newer version
     let allow_multiple = false/*store.get('allow_multiple') ? JSON.parse(store.get('allow_multiple')) : false;*/
     // prevent multiple instances, focus on the existed app instead
     if (!gotTheLock) {
@@ -249,7 +258,8 @@ try {
         });
 
         // to check prompted status for dialogs
-        let prompted = false
+        let prompted = false;
+        let controller = {};
         let auto_login_error = false
         let idleTime_non_active = 0;
         // to check gui_blocked status
@@ -261,21 +271,40 @@ try {
         let message_link = '';
         let notification_message_link = '';
         let notification_message_icon = '';
-        let call = false;
-        let avatar = undefined;
-        let call_prev = false;
+        let notification_type = '';
+        let notificationWindowsIds = [];
+        let notificationWindows = [];
+        let checkInactivityInterval = {};
+        let dismissed = {};
+        let call = {};
+        let avatar = {};
+        let call_prev = {};
         // to store settings menu opened status
         let settings_opened = false;
         let isLocked_suspend = false;
         let isLoading = false;
+        let proxyUrl = false;
+        let proxyAgent = false;
+        let proxyWsAgent = false;
+        let saved_proxy_login = false;
+        let saved_proxy_password = false;
+        let proxies = undefined;
+        let isDialogOpen = false;
 
+        // check version in every hour with 3 sec delay for the first time
         setTimeout(() => {
           checkNewVersion(app.getVersion());
           setInterval(() => {
             checkNewVersion(app.getVersion());
           }, 60 * 60 * 1000);
+          //}, 10* 1000);
         }, 3000);
-        // check version in every hour with 3 sec delay for the first time
+        
+        
+        // check if license_key is configured and set default null if not
+        if (!store.get('license_key')) {
+          store.set('license_key', null);
+        }
 
         let url = "";
         const url_example = 'https://cloud.example.com';
@@ -303,9 +332,39 @@ try {
            writeLog("Writing app log to file "+path.join(app.getPath('userData'), 'app.log'))
         }
 
+        // check if notification_timeout_checkbox is configured and set default true if not
+        if (store.get('notification_timeout_checkbox') == undefined ) {
+           store.set('notification_timeout_checkbox', true);
+        }
+
+        // check if notification_muted is configured and set default false if not
+        if (!store.get('notification_muted')) {
+           store.set('notification_muted', false);
+        }
+
+        // check if notification_sys_checkbox is configured and set default false if not
+        if (!store.get('notification_sys_checkbox')) {
+           store.set('notification_sys_checkbox', false);
+        }
+
+        // check if notification_position is configured and set default bottom-right if not
+        if (!store.get('notification_position')) {
+          if (isMac) {
+            store.set('notification_position', 'top-right');
+          } else {
+            store.set('notification_position', 'bottom-right');
+          }
+        }
+
+        // check if saved_proxy_login is configured and set default false if not
+        if (!store.get('saved_proxy_login')) {
+          store.set('saved_proxy_login', false);
+        }
+
         let icon = nativeImage.createFromPath(iconPath); // template with center transparency
         let trayIcon = icon
         let dockIcon = icon
+        let original_icon = icon
 
         if (isMac) {
           var icon_bw = await bw_icon_process(icon);
@@ -462,6 +521,8 @@ WantedBy=graphical-session.target`;
         }
 
         var win = null;
+        let saved_password = undefined;
+        //var win_noti = null;
         //var win_loading = null;
         var appIcon = null;
         var MainMenu = null;
@@ -474,19 +535,77 @@ WantedBy=graphical-session.target`;
         catch (err) {
           saved_login = false;
         }
+        let donate_menu_element = {
+          id: 'donate_menu_element',
+          label : '💰',
+          submenu: [
+            {
+              label: '💰  '+i18n.__('donate_title'),
+              click: () =>  {
+                if (!store.get('license_key')) {
+                  donateClick();
+                } else {
+                  dialog.showMessageBox(win, {
+                    type: 'info',
+                    message: i18n.__('donate_already_requested',{license_key:store.get('license_key')}),
+                    detail: i18n.__('donate_already_requested_detail'),
+                    buttons: [i18n.__('save_button'),i18n.__('donate_cancel_request')],
+                    defaultId: 0,
+                    cancelId: 0
+                  })
+                  .then((result) => {
+                    // if cancel license request
+                    if (result.response != 0) {
+                      dialog.showMessageBox(win, {
+                        type: 'question',
+                        detail: i18n.__('donate_cancel_request_sure'),
+                        buttons: [i18n.__('no_button'), i18n.__('yes_button')],
+                        defaultId: 0,
+                      })
+                      .then((result) => {
+                        if (result.response == 1) {
+                          dialog.showMessageBox(win, {
+                            type: 'info',
+                            detail: i18n.__('donate_cancel_request_canceled',{license_key:store.get('license_key')})
 
+                          })
+                          store.set('license_key', null)
+                          store.set('license_key_activated',false)
+                        }
+                      })
+                    }
+                  });
+                }
+              }
+            },
+            {
+              label: '📨  '+i18n.__('donate_send_confirmation'),
+              click: () => {
+                if (store.get('license_key')) {
+                  shell.openExternal('mailto:root@drlight.fun?body='+i18n.__('donate_send_confirmation_body',{license_key:store.get('license_key')})+'&subject='+i18n.__('donate_send_confirmation_subject',{license_key:store.get('license_key')}));
+                } else {
+                  dialog.showMessageBox(win, {
+                    type: 'error',
+                    //message: i18n.__('donate_send_confirmation_error'),
+                    detail: i18n.__('donate_send_confirmation_error')
+                  });
+                }
+              }
+            }
+          ]
+        };
         let mainMenuTemplate = [
             {
-              label: i18n.__('file'),
+              label: '⋮ '+i18n.__('file'),
               submenu: [
                 {
-                  label: i18n.__('open_nc'),
+                  label: '🌐  '+i18n.__('open_nc'),
                   click: () => {
                     shell.openExternal(store.get('server_url'));
                   },
                 },
                 {
-                  label: i18n.__('preferences'),
+                  label: '⚙️  '+i18n.__('preferences'),
                   click: () => {
                     if (!isLoading) {
                       openSettings();
@@ -497,7 +616,7 @@ WantedBy=graphical-session.target`;
                 },
                 // set logging to file
                 {
-                  label: i18n.__('logging_open'),
+                  label: '📄  '+i18n.__('logging_open'),
                   //type: 'checkbox',
                   enabled: store.get('logging'),
                   click: () => {
@@ -507,24 +626,28 @@ WantedBy=graphical-session.target`;
                 },
                 { type: 'separator' },
                 {
-                  label: ((saved_login)&&(!store.get('auto_login'))) ? i18n.__('logged_in')+' '+saved_login : i18n.__('logged_out'),
+                  label: ((saved_login)&&(!store.get('auto_login'))) ? '🔒  '+i18n.__('logged_in')+' '+saved_login : '🔓  '+i18n.__('logged_out'),
                   enabled: ((saved_login)&&(!store.get('auto_login')))  ? true : false,
                   submenu: [
                     {
-                      label: i18n.__('logout'),
+                      label: '↩  '+i18n.__('logout'),
                       click: () => {
-                        deleteCredentials(JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user)
-                        //store.delete('saved_login');
-                        removeServerFromLoginData(store.get('server_url'))
-                        session.defaultSession.clearStorageData([], (data) => {});
-                        restartApp();
+                        if (!isLoading) {                        
+                          deleteCredentials(JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user)
+                          //store.delete('saved_login');
+                          removeServerFromLoginData(store.get('server_url'))
+                          session.defaultSession.clearStorageData([], (data) => {});
+                          restartApp();
+                        } else {
+                          dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
+                        }
                       },
                     }
                   ]
                 },
                 { type: 'separator' },
                 {
-                  label: i18n.__('exit'),
+                  label: '🚪  '+i18n.__('exit'),
                   accelerator: isMac ? 'Cmd+Q' : 'Alt+X',
                   click: () => {
                     store.set('bounds', win.getBounds());
@@ -539,10 +662,10 @@ WantedBy=graphical-session.target`;
               ]
             },
             {
-              label : i18n.__('view'),
+              label : '👁 '+i18n.__('view'),
               submenu : [
                 //{ label : "Обновить", role : "reload" },
-                { label: i18n.__('refresh'),
+                { label: '↻  '+i18n.__('refresh'),
                   click: () => {
                     /*if (!gui_blocked) {
                       block_gui_loading(true);*/
@@ -552,7 +675,7 @@ WantedBy=graphical-session.target`;
                   accelerator: isMac ? 'Cmd+R' : 'Ctrl+R'
                 },
                 { type: 'separator' },
-                { label: i18n.__('hide'),
+                { label: '⚊  '+i18n.__('hide'),
                   click: () => {
                     if (isMac) app.dock.hide();
                     /*if (!isMac)*/ win.hide();
@@ -561,7 +684,7 @@ WantedBy=graphical-session.target`;
                   accelerator: isMac ? 'Cmd+H' : 'Ctrl+H',
                   //role : "hide"
                 },
-                { label: i18n.__('fullscreen'),
+                { label: '⛶  '+i18n.__('fullscreen'),
                   accelerator: isMac ? 'Cmd+M' : 'Ctrl+M',
                   click: () => {
                     checkMaximize(true);
@@ -571,170 +694,267 @@ WantedBy=graphical-session.target`;
               ]
             },
             {
-              label : "?",
+              label : '?',
               submenu : [
 
-                { label : i18n.__('help'),
+                { label : '❔  '+i18n.__('help'),
                   accelerator: 'F1',
                   click: () => {
                     openPopup('https://docs.nextcloud.com/server/latest/user_manual/ru/talk');
                     //app.exit(0);
                   }
                 },
-                { label: i18n.__('open_devtools'),
+                { label: '🔍  '+i18n.__('open_devtools'),
                   accelerator: 'F12',
                   click: () => {
                     win.webContents.toggleDevTools();
                   }
                 },
                 { type: 'separator' },
-                { label : i18n.__('about'),
+                {
+                  label : 'ⓘ  '+i18n.__('about'),
                   // for linux compatibility
-                  click: () => {
-                    app.showAboutPanel();
-                  }
-                }
+                  submenu: [
+                    {
+                      label: 'ⓘ  '+i18n.__('show'),
+                      click: () => {
+                        updateAbout();
+                        app.showAboutPanel();
+                      },
+                    },
+                    {
+                      label: '✗  '+i18n.__('new_version_no'),
+                      enabled: false
+                    },
+                  ]
+                },
               ]
+            },
+            {
+              label : '       '
+            },
+            donate_menu_element,
+            {
+              label : ' | '
+            },
+            { 
+              label : '📱  '+ i18n.__('need_mobile'),
+              ...(isMac ? {
+                submenu: [
+                  {
+                    label: 'ⓘ  '+i18n.__("more"),
+                    click: () =>  {
+                      needMobileClick()
+                    }
+                  }
+                ]
+              } : {}),
+              //enabled: ((saved_login)&&(!store.get('auto_login')))  ? true : false,
+              click: () =>  {
+                needMobileClick()
+              }
             }
         ];
 
         let appIconMenuTemplate = [
-
-            {
-              label: i18n.__('show'),
-              click: () => {
-                /*if (gui_blocked) {
-                  win_loading.show();
-                }*/
-                if (!isLoading) {
-                  win.show();
-                  if (isMac) { //app.dock.setIcon(dockIcon); 
-                    app.dock.show(); addBadgeMac();
-                  };
-                } else {
-                  dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
-                }
-
-              },
-            },
-            {
-              label: i18n.__('hide'),
-              click: () => {
-                if (isMac) app.dock.hide();
-                /*if (!isMac)*/ win.hide();
-                //win_loading.hide();
-              },
-              enabled: isMac ? false : true,
-              //role : "hide"
-            },
-            { type: 'separator' },
-            {
-              label: i18n.__('open_nc'),
-              click: () => {
-                shell.openExternal(store.get('server_url'));
-              },
-            },
-            {
-              label: i18n.__('preferences'),
-              click: () => {
-                if (!isLoading) {
-                  openSettings();
-                } else {
-                  dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
-                }
-              },
-            },
-            // set logging to file
-            {
-              label: i18n.__('logging_open'),
-              //type: 'checkbox',
-              enabled: store.get('logging'),
-              click: () => {
-                writeLog('Opening log file...');
-                openLog(path.join(app.getPath('userData'), 'app.log'));
-              }
-            },
-            {
-              label : i18n.__('about'),
-              // for linux compatibility
-              submenu: [
-                {
-                  label: i18n.__('show'),
-                  click: () => {
-                    app.showAboutPanel();
-                  },
-                },
-                {
-                  label: i18n.__('new_version_no'),
-                  enabled: false
-                },
-              ]
-            },/*
-            {
-              label: "show_notification",
-              click: () => {
-                let data = {
-                  title: "test2 отправил(а) вам личное сообщение",
-                  body: "This is a really long notification message that should scroll instead of resizing the entire window. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
-                  tag: 86953
+          {
+            label: '⿻  '+i18n.__('show'),
+            click: () => {
+              /*if (gui_blocked) {
+                win_loading.show();
+              }*/
+              if (!isLoading) {
+                win.show();
+                if (isMac) { //app.dock.setIcon(dockIcon); 
+                  app.dock.show(); addBadgeMac();
                 };
-                createNotification(data);
+              } else {
+                dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
+              }
+
+            },
+          },
+          {
+            label: '⚊  '+i18n.__('hide'),
+            click: () => {
+              if (isMac) app.dock.hide();
+              /*if (!isMac)*/ win.hide();
+              //win_loading.hide();
+            },
+            enabled: isMac ? false : true,
+            //role : "hide"
+          },
+          { type: 'separator' },
+          {
+            label: '🌐  '+i18n.__('open_nc'),
+            click: () => {
+              shell.openExternal(store.get('server_url'));
+            },
+          },
+          {
+            label: '⚙️  '+i18n.__('preferences'),
+            click: () => {
+              if (!isLoading) {
+                openSettings();
+              } else {
+                dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
               }
             },
-            {
-              label: "call_notif_api",
-              click: () => {
-                getNotifications(86867);
-              }
-            },*/
-            { type: 'separator' },
-            {
-              label: ((saved_login)&&(!store.get('auto_login'))) ? i18n.__('logged_in')+' '+saved_login : i18n.__('logged_out'),
-              enabled: ((saved_login)&&(!store.get('auto_login')))  ? true : false,
-              submenu: [
-                {
-                  label: i18n.__('logout'),
-                  click: () => {
+          },
+          // set logging to file
+          {
+            label: '📄  '+i18n.__('logging_open'),
+            //type: 'checkbox',
+            enabled: store.get('logging'),
+            click: () => {
+              writeLog('Opening log file...');
+              openLog(path.join(app.getPath('userData'), 'app.log'));
+            }
+          },
+          {
+            label : 'ℹ️  '+i18n.__('about'),
+            // for linux compatibility
+            submenu: [
+              {
+                label: 'ℹ️  '+i18n.__('show'),
+                click: () => {
+                  updateAbout()
+                  app.showAboutPanel();
+                },
+              },
+              {
+                label: '✗  '+i18n.__('new_version_no'),
+                enabled: false
+              },
+              donate_menu_element.submenu[0],
+              donate_menu_element.submenu[1]
+            ]
+          },
+          { type: 'separator' },
+          {
+            label: ((saved_login)&&(!store.get('auto_login'))) ? '🔒  '+i18n.__('logged_in')+' '+saved_login : '🔓  '+i18n.__('logged_out'),
+            enabled: ((saved_login)&&(!store.get('auto_login')))  ? true : false,
+            submenu: [
+              {
+                label: '↩  '+i18n.__('logout'),
+                click: () => {
+                  if (!isLoading) {
                     deleteCredentials(JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user)
                     //store.delete('saved_login');
                     removeServerFromLoginData(store.get('server_url'))
                     session.defaultSession.clearStorageData([], (data) => {});
                     restartApp();
-                  },
-                }
-              ]
+                  } else {
+                    dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
+                  }
+                },
+              }
+            ]
+          },
+          {
+            label: '🚪  '+i18n.__('exit'),
+            click: () => {
+              store.set('bounds', win.getBounds());
+              store.delete('latestVersion');
+              store.delete('releaseUrl');
+              if (isMac) {
+                exec('launchctl bootout gui/"$(id -u)"/com.electron.'+appNameLC);
+              }
+              app.exit(0);
             },
-            { type: 'separator' },
-            {
-              label: i18n.__('exit'),
-              click: () => {
-                store.set('bounds', win.getBounds());
-                store.delete('latestVersion');
-                store.delete('releaseUrl');
-                if (isMac) {
-                  exec('launchctl bootout gui/"$(id -u)"/com.electron.'+appNameLC);
-                }
-                app.exit(0);
+          },
+          /*{ type: 'separator' },
+          {
+            label: "DEBUG_ZONE",
+            enabled: false
+          },
+          {
+            label: "COMMANDS",
+            submenu: [
+              {
+                label: "checkLicense_forced",
+                click: () => {
+                  checkLicense(store.get('license_key'),true);
+                  //getResponse(options);
+                  }
               },
-            }
+              {
+                label: "checkLicense",
+                click: () => {
+                  checkLicense(store.get('license_key'));
+                  //getResponse(options);
+                  }
+              },
+              {
+                label: "donateClick",
+                click: () => {
+                  donateClick();
+                }
+              },
+              {
+                label: "show_long_notification",
+                click: () => {
+                  let data = {
+                    title: "test2 отправил(а) вам личное сообщение",
+                    body: "This is a really long notification message that should scroll instead of resizing the entire window. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.",
+                    tag: 86953
+                  };
+                  createNotification(data);
+                }
+              },
+              {
+                label: "show_small_notification",
+                click: () => {
+                  let data = {
+                    title: "что-то еще...",
+                    body: "тесттест тест тест. тесттест =))",
+                    tag: 86954
+                  };
+                  createNotification(data);
+                }
+              },
+              {
+                label: "showAutoRetryDialog",
+                click: () => {
+                      const options = {
+                        type: 'question',
+                        buttons: [i18n.__('retry'), i18n.__('exit'), i18n.__('check_preferences')],
+                        defaultId: 0,
+                        title: i18n.__('error'),
+                        //icon:icon,
+                        message: i18n.__('message6'),
+                        detail: i18n.__('message9'),
+                      };
+                  showAutoRetryDialog(win,options,20000);
+                }
+              },
+              {
+                label: "test_locale",
+                click: () => {
+                  win.webContents.executeJavaScript(`force_lang('`+store.get('locale')+`','`+saved_password+`');`);
+                  //win.webContents.executeJavaScript(`force_lang('en','`+saved_password+`');`);
+                  //win.webContents.executeJavaScript(`force_lang_stupid();`);
+
+                }
+              },
+              {
+                label: "test_theme",
+                click: () => {
+                  win.webContents.executeJavaScript(`force_theme('`+store.get('theme')+`','`+saved_password+`');`);
+                }
+              },
+              
+              {
+                label: "test_online",
+                click: () => {
+                  win.webContents.executeJavaScript(`force_online();`);
+                }
+              },
+            ]
+          },*/
         ];
 
-        /*function checkInactivity() {
-            const idleTime = SystemIdleTime.getIdleTime();
-            console.log('Idle time is:'+idleTime+' s');
-            //const idleTime = Date.now() - lastActivityTime;
-            if (idleTime > 4 * 60 ) {
-              console.log("User is not active for 4 minutes...");
-            } else {
-              //simulateActivity();
-              if (!win.isVisible() || !win.isFocused()) {
-                console.log("User is active for the last 4 minutes so reloading window to simulate activity...");
-                win.reload();
-              }
-            }
-        }*/
-
-          function checkInactivity(activity_check_interval) {
+          function checkInactivity(activity_check_interval, win_noti) {
             let idleTime = SystemIdleTime.getIdleTime();
 
             if (!win.isVisible() || !win.isFocused()) {
@@ -742,15 +962,23 @@ WantedBy=graphical-session.target`;
             } else {
               idleTime_non_active = 0;
             }
-            //console.log('Current idle time is:'+idleTime+' s');
-            //console.log('Current hidden or unfocused time is:'+idleTime_non_active+' s');
+            
+            if (win_noti) {
+              //writeLog(`Current idle time for notification ID ${win_noti.id } with interval ${activity_check_interval/1000}s is: ${idleTime}s`);
+              if ((idleTime < 1) && (!(dismissed[win_noti.id]))) {
+                win_noti.webContents.executeJavaScript(`updateDismissTimeout(10,${win_noti.id})`);
+                dismissed[win_noti.id] = true;
+              }
+            } else {
+              //writeLog(`Current idle time for app with interval ${activity_check_interval}s is: ${idleTime}s`);
+            }
+            
+            //writeLog(`Current hidden or unfocused time is: ${idleTime_non_active} s`);
 
             if ((idleTime_non_active > 4 * 60) && (!isLocked_suspend)) {
               if (idleTime <= 4 * 60) {
-                //writeLog("Window is hidden or unfocused for more than 4 minutes, but user was active - reloading the page...");
                 idleTime_non_active = 0;
-                writeLog("Window is hidden or unfocused for more than 4 minutes, but user was active - forcing online status");
-                //win.reload();
+                //writeLog("Window is hidden or unfocused for more than 4 minutes, but user was active - forcing online status");
                 win.webContents.executeJavaScript(`force_online();`);
               }
             }
@@ -759,17 +987,17 @@ WantedBy=graphical-session.target`;
         function checkMaximize(click) {
           if (win.isMaximized()) {
             if (click) {
-              mainMenuTemplate[1].submenu[3].label = i18n.__("fullscreen");
+              mainMenuTemplate[1].submenu[3].label = '⛶  '+i18n.__("fullscreen");
               win.unmaximize()
             } else {
-              mainMenuTemplate[1].submenu[3].label = i18n.__("restore");
+              mainMenuTemplate[1].submenu[3].label = '⿻  '+i18n.__("restore");
             }
           } else {
             if (click) {
-              mainMenuTemplate[1].submenu[3].label = i18n.__("restore");
+              mainMenuTemplate[1].submenu[3].label = '⿻  '+i18n.__("restore");
               win.maximize()
             } else {
-              mainMenuTemplate[1].submenu[3].label = i18n.__("fullscreen");
+              mainMenuTemplate[1].submenu[3].label = '⛶  '+i18n.__("fullscreen");
             }
           }
 
@@ -786,6 +1014,220 @@ WantedBy=graphical-session.target`;
           return !isInternalLink(url)
         }
 
+        function showDonateModal() {
+            return new Promise((resolve) => {
+                let width = 500;
+                let height = 550;
+
+                const bounds = store.get('bounds');
+
+                const x = Math.round(bounds.x + (bounds.width - width) / 2);
+                const y = Math.round(bounds.y + (bounds.height - height) / 2);
+
+                const win_donate = new BrowserWindow({
+                    modal: !isMac,
+                    //modal: true,
+                    icon: icon,
+                    title: '💰  '+i18n.__('donate_title'),
+                    // macOS & Windows 10/11 only
+                    //vibrancy: 'fullscreen-ui',    // on MacOS
+                    //backgroundMaterial: 'acrylic', // on Windows 11
+                    //titleBarStyle: 'hidden',
+                    //frame: false,
+                    width: width,
+                    height: height,
+                    resizable:false,
+                    movable: false,
+                    //transparent: true,
+                    x: x,
+                    y: y,
+                    //alwaysOnTop: !isLinux, // Optional: keep on top
+                    //focusable: !isLinux,
+                    //hasShadow: false,
+                    skipTaskbar: true, // Optional: don't show in taskbar
+                    autoHideMenuBar: true,
+                    /*webPreferences: {
+                        //devTools: true,
+                        //sandbox: false,
+                        contextIsolation: true
+                    },*/
+                    parent: win,
+                    webPreferences: {
+                        nodeIntegration: false,
+                        contextIsolation: true,
+                        preload: path.join(__dirname, './donate/donate-preload.js')
+                    }
+                });
+
+                win_donate.loadFile('./donate/donate.html');
+
+                win_donate.webContents.once('did-finish-load', () => {
+                    win_donate.webContents.send('load-donate-data', {
+                        title: '💰  ' + i18n.__('donate_title'),
+                        win_title: app.getName() + " v."+app.getVersion(),
+                        detail: i18n.__('donate_message'),
+                        theme: theme,
+                        icon: original_icon.toDataURL(),
+                        buttons: [
+                            { text: '🔐  ' + i18n.__('donate_request_license') },
+                            { text: '🔓  ' + i18n.__('donate_open_license') },
+                            { text: '👛  ' + i18n.__('donate_copy_ton_wallet') },
+                            { text: '⭐  ' + i18n.__('donate_star_github') },
+                            { text: i18n.__('cancel_button') } 
+                        ]
+                    });
+                });
+
+                const onResponse = (event, responseIndex) => {
+                    ipcMain.removeListener('donate-modal-response', onResponse);
+                    win_donate.close();
+                    resolve({ response: responseIndex, window: win_donate });
+                };
+
+                ipcMain.once('donate-modal-response', onResponse);
+
+                win_donate.on('closed', () => {
+                    ipcMain.removeListener('donate-modal-response', onResponse);
+                    resolve({ response: 4 });
+                });
+                //win_donate.webContents.toggleDevTools();
+            });
+        }
+        async function donateClick() {
+          if (isDialogOpen || prompted) {
+              //writeLog('Dialog is already open. Skipping duplicate.');
+              return;
+          }
+
+          isDialogOpen = true;
+          store.set('donation_showed', Math.floor(Date.now() / 1000));
+
+          try {
+              const result = await showDonateModal();
+
+              if (result.response === 0) {
+                  // if request license
+                  // return;
+                  prompted = true;
+                  // show input box for server address
+                  prompt({
+                      title: '🔐  ' + i18n.__('donate_request_license'),
+                      label: '📧  ' + i18n.__('donate_request_enter_email'),
+                      //value: server_url,
+                      customStylesheet: (theme == 'dark') ? theme : null,
+                      type: 'input',
+                      buttonLabels: {
+                          ok: i18n.__('save_button'),
+                          cancel: i18n.__('cancel_button')
+                      },
+                      inputAttrs: {
+                          type: 'email',
+                          required: true
+                      },
+                      icon: icon,
+                      height: 350
+                  }, (!isMac) ? win : null)
+                  .then((input) => {
+                      prompted = false;
+                      if(input === null) {
+                          //store.set('license_key', null);
+                          donateClick();
+                      } else {
+                          writeLog(`Call license server api to generate key for ${input} `);
+                          reqLicense(input);
+                      }
+                  })
+                  .catch((err) => {
+                      writeLog(err);
+                  });
+              } else if (result.response === 1) {
+                  // if open license
+                  let clip_value = clipboard.readText();
+                  let pattern = '^([0-9A-F]{4}-){3}[0-9A-F]{4}$';
+                  let regex = new RegExp(pattern);
+                  let isValid = regex.test(clip_value);
+                  prompted = true;
+                  prompt({
+                      title: '🔑  ' + i18n.__('donate_open_message'),
+                      label: '🔑  ' + i18n.__('donate_open_message'),
+                      value: (isValid) ? clip_value : null,
+                      customStylesheet: (theme == 'dark') ? theme : null,
+                      type: 'input',
+                      buttonLabels: {
+                          ok: i18n.__('save_button'),
+                          cancel: i18n.__('cancel_button')
+                      },
+                      ...(isMac ? {
+                          button: {
+                              label: i18n.__('paste'),
+                              click: () => {
+                                  document.querySelectorAll("#data")[0].value = document.querySelectorAll("button")[0].getAttribute("data");
+                              },
+                              attrs: {
+                                  data: clipboard.readText()
+                              }
+                          }
+                      } : {}),
+                      inputAttrs: {
+                          type: 'text',
+                          required: true,
+                          pattern: pattern,
+                          placeholder: 'XXXX-XXXX-XXXX-XXXX'
+                      },
+                      icon: icon,
+                      height: 250
+                  }, (!isMac) ? win : null)
+                  .then((input) => {
+                      prompted = false;
+                      if(input === null) {
+                          //store.set('license_key', null);
+                        donateClick();
+                      } else {
+                          store.set('license_key', input);
+                          checkLicense(input, true);
+                      }
+                  });
+              } else if (result.response === 2) {
+                clipboard.writeText(ton_wallet);
+                prompted = true;
+                dialog.showMessageBox(win, {
+                  type: 'info',
+                  //message: i18n.__('donate_copy_ton_wallet_copied'),
+                  detail: i18n.__('donate_copy_ton_wallet_copied')
+                })
+                .then((result) => {
+                  prompted = false;
+                });
+              } else if (result.response === 3) {
+                  shell.openExternal('https://github.com/drlight17/talk-electron');
+              }
+          } catch (err) {
+              writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
+          } finally {
+              isDialogOpen = false;
+          }
+      }
+
+        function  needMobileClick() {
+            dialog.showMessageBox(win, {
+              'type': 'question',
+              'title': '📱  '+i18n.__('need_mobile'),
+              'message': i18n.__("need_mobile_prompt"),
+              'defaultId':0,
+              'buttons': [
+                  i18n.__('yes_button'),
+                  i18n.__('no_button')
+              ]
+            })
+            .then((result) => {
+              // if yes
+              if (result.response !== 1) {
+                shell.openExternal('https://nextcloud.com/install/#talk-mobile')
+              }
+            });
+          
+        }
+
         function applyContextMenu(win) {
           win.webContents.on('context-menu', (event, params) => {
             const menuItems = []
@@ -800,7 +1242,7 @@ WantedBy=graphical-session.target`;
               { type: 'separator' },
               {
                 //label: 'Add to dictionary',
-                label: i18n.__('add_to_dict'),
+                label: '📙  '+i18n.__('add_to_dict'),
                 click: () => win.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
               },
               { type: 'separator' },
@@ -814,12 +1256,12 @@ WantedBy=graphical-session.target`;
             const menuImageItems = [
               {
                 //label: 'Copy image',
-                label: i18n.__('copy_image'),
+                label: '✍️  '+i18n.__('copy_image'),
                 click: () => win.webContents.copyImageAt(params.x, params.y),
               },
               {
                 //label: 'Save image',
-                label: i18n.__('save_image'),
+                label: '🖼️  '+i18n.__('save_image'),
                 click: () => win.webContents.downloadURL(params.srcURL),
               },
               { type: 'separator' },
@@ -833,12 +1275,12 @@ WantedBy=graphical-session.target`;
             const menuLinkItems = [
               {
                 //label: 'Copy link address',
-                label: i18n.__('copy_link_address'),
+                label: '📋🔗  '+i18n.__('copy_link_address'),
                 click: () => clipboard.writeText(params.linkURL),
               },
               {
                 //label: 'Copy link text',
-                label: i18n.__('copy_link_text'),
+                label: '📋📄  '+i18n.__('copy_link_text'),
                 click: () => clipboard.writeText(params.linkText.trim() || params.linkURL),
               },
               { type: 'separator' },
@@ -852,23 +1294,23 @@ WantedBy=graphical-session.target`;
             const menuClipboardItems = [
               {
                 role: 'copy',
-                label: i18n.__('copy'),
+                label: '📋  '+i18n.__('copy'),
                 enabled: params.selectionText && params.editFlags.canCopy,
               },
               {
                 role: 'cut',
-                label: i18n.__('cut'),
+                label: '✂  '+i18n.__('cut'),
                 enabled: params.selectionText && params.isEditable && params.editFlags.canCut,
                 visible: params.isEditable,
               },
               {
                 role: 'selectAll',
-                label: i18n.__('select_all'),
+                label: '✔  '+i18n.__('select_all'),
                 enabled: params.editFlags.canSelectAll,
               },
               {
                 role: 'paste',
-                label: i18n.__('paste'),
+                label: '⤵  '+i18n.__('paste'),
                 enabled: params.isEditable && params.editFlags.canPaste,
                 visible: params.isEditable,
               },
@@ -879,7 +1321,7 @@ WantedBy=graphical-session.target`;
               haveContext = true;
             }
 
-            // TODO Remove or hide from production DevTools toggle before final release
+            // Remove or hide from production DevTools toggle before final release
             //menuItems.push({ role: 'toggleDevTools' })
 
             if (haveContext) {
@@ -887,98 +1329,569 @@ WantedBy=graphical-session.target`;
             }
           })
         }
-        function getSettings(win,flag) {
+        async function getSettings(win,flag) {
               var lang_files = JSON.stringify(i18n.___("get_locales"));
               var themes = JSON.stringify([{"auto":i18n.__("auto")},{"dark":i18n.__("dark")},{"light":i18n.__("light")}]);
-              win.webContents.executeJavaScript(`loadSettings(`+JSON.stringify(store.store)+`,`+lang_files+`,`+flag+`,`+themes+`);`);
+              if (!saved_proxy_login) {
+                writeLog("Use of system proxy is not enabled. Force proxy credentials remove from keystore.")
+                let creds = await getAllProxyCredentials();
+                //writeLog(creds,true);
+
+                creds.forEach(async (credential) => {
+                  deleteProxyCredentials(credential.account);
+                });
+                
+              }
+              win.webContents.executeJavaScript(`loadSettings(`+JSON.stringify(store.store)+`,`+lang_files+`,`+flag+`,`+themes+`,'`+proxyUrl+`','`+saved_proxy_password+`','`+theme+`');`);
               if (!app.isPackaged) {
                 win.webContents.executeJavaScript(`disableRunAtStartup();`);
                 //win.webContents.toggleDevTools();
               }
         }
 
-        /*function addNewVersionLink(releaseUrl,latestVersion) {
-
-          const separator = { type: 'separator' };
-
-          const menu = Menu.getApplicationMenu();
-          const newVersionLabel = i18n.__('new_version')+latestVersion;
-
-          const newVersionMenuItem = {
-              label: newVersionLabel,
-              click: () => {
-                  shell.openExternal(releaseUrl);
-              }
-          };
-
-          const menuItems = menu.items.map(item => item);
-          const exists = menuItems.some(item => item.label === newVersionLabel);
-
-          if (!exists) {
-
-            menuItems.push(separator);
-            menuItems.push(newVersionMenuItem);
-
-
-            const updatedMenu = Menu.buildFromTemplate(menuItems);
-            Menu.setApplicationMenu(updatedMenu);
+        async function updateAbout() {
+          //customize about
+          let copyright = "Lisense AGPLv3 ©2024"+" - "+new Date().getFullYear();
+          if (store.get('license_key')) {
+            copyright = i18n.__('donate_key')+' '+store.get('license_key') +'\n\n'+copyright
           }
+          app.setAboutPanelOptions({
+            applicationName: app.getName(),
+            applicationVersion: "v."+app.getVersion(),
+            authors: ["drlight17"],
+            version: app.getVersion(),
+            copyright: copyright,
+            iconPath: iconPath,
+            website: "https://github.com/drlight17/talk-electron"
+          });
+        }
+
+        async function getProxyInfo(url) {
+          
+          proxyInfo = await session.defaultSession.resolveProxy(url);
+
+          if (proxyInfo.split(' ')[1]) {
+            proxyUrl = 'https://'+proxyInfo.split(' ')[1];
+            //writeLog('Configured proxy URL: '+proxyUrl)
+          } else {
+            return false;
+          }
+
+          if (store.get('saved_proxy_login')) {
+            saved_proxy_login = store.get('saved_proxy_login')
+          }
+          try {
+            saved_proxy_password = await getProxyCredentials(JSON.parse(saved_proxy_login).server?.[proxyUrl]?.user)
+          }
+          catch(err) {
+            writeLog(err)
+            return false;
+          }
+          
+          /*if (!saved_proxy_password) {
+            //saveProxyServer(proxyUrl)
+            // use settings to store proxy login and password instead of dialog
+            return false;
+          }*/
+          let auth = null;
+          if (proxyInfo === 'DIRECT') {
+            return false;
+          } else {
+            
+            if (saved_proxy_password == null) {
+              //writeLog("No saved login or password. Try to use proxy anonymously... ")
+              auth = false
+            } else {
+              auth = `${JSON.parse(saved_proxy_login).server?.[proxyUrl]?.user}:${saved_proxy_password}`
+            }
+            let host = new URL(proxyUrl).hostname
+            let port = new URL(proxyUrl).port
+
+            proxyAgent = new HttpsProxyAgent({
+              host: host,
+              port: port,
+              //auth: `${proxies[0].username}:${proxies[0].password}`,
+              auth: auth,
+            });
+            //writeLog(proxyAgent,true)
+
+            /*proxyWsAgent = new SocksProxyAgent(
+              `socks5://${auth}@${host}:1080`
+            );*/
+
+            // TODO check proxy connectivity trying to fetch store.get('server_url')
+            // jsonRequest
+          }
+        }
+
+        /*async function testWSS () {
+
+          writeLog(proxyWsAgent,true)
+
+          const ws = new WebSocket('wss://cloud.kgilc.ru/standalone-signaling/spreed',{
+            handshakeTimeout: 5000,
+            agent: proxyWsAgent
+          });
+
+          ws.on('open', () => {
+            writeLog('WebSocket is connected');
+            setTimeout(function timeout() {
+              ws.send(Date.now());
+            }, 500);
+          });
+          ws.on('message', (data) => {
+              writeLog(`Received: ${data.toString()}`);
+              ws.close();
+          });
+          ws.on('error', (err) => {
+            writeLog('WebSocket error: '+ err.message);
+          });
+          ws.on('close', function close() {
+            writeLog('WebSocket is disconnected');
+          });
+
         }*/
 
-        function openNewVersionDialog(releaseUrl,latestVersion) {
-          // ask to open new version download link, close dialog with checkbox to save decision
-          let remembered = false;
-          try {
-            remembered = JSON.parse(store.get('new_version_remember'))[latestVersion]
+        async function jsonRequest(options) {
+            isLoading = true;
+            const { url, method = 'GET', headers = {}, data = null } = options;
+
+            return new Promise((resolve, reject) => {
+                const request = net.request({
+                    url,
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        ...headers
+                    }
+                });
+
+                const timeoutId = setTimeout(() => {
+                    request.abort();
+                    reject(new Error('Request timeout after 10 seconds'));
+                    isLoading = false;
+                }, 10000);
+
+                const cleanup = () => {
+                    clearTimeout(timeoutId);
+                    isLoading = false;
+                };
+
+                request.on('response', (response) => {
+                    let rawData = '';
+
+                    response.on('data', (chunk) => {
+                        rawData += chunk;
+                    });
+
+                    response.on('end', () => {
+                        cleanup();
+                        
+                        let jsonData = null;
+                        if (rawData) {
+                            try {
+                                jsonData = JSON.parse(rawData);
+                            } catch (err) {
+                                return reject(new Error(`Invalid JSON response: ${err.message}`));
+                            }
+                        }
+
+                        resolve({
+                            statusCode: response.statusCode,
+                            statusMessage: response.statusMessage,
+                            headers: response.headers,
+                            jsonData
+                        });
+                    });
+
+                    response.on('error', (err) => {
+                        cleanup();
+                        reject(new Error(`Response error: ${err.message}`));
+                    });
+                });
+
+                request.on('error', (err) => {
+                    cleanup();
+                    reject(new Error(`Request failed: ${err.message}`));
+                });
+
+                // login (proxy)
+                request.on('login', (authInfo, callback) => {
+                    if (proxyAgent?.proxy?.auth) {
+                        const [username, password] = proxyAgent.proxy.auth.split(':');
+                        callback(username, password);
+                    } else {
+                        callback();
+                    }
+                });
+
+                if (data !== null) {
+                    const body = JSON.stringify(data);
+                    request.write(body);
+                }
+
+                request.end();
+            });
+        }
+
+        async function loadURLWithProxy(url, proxyAgent) {
+          //writeLog("Trying to load "+url+" using proxy.")
+          win.loadURL(url, {
+            userAgent: `${os.hostname()} (NC Talk Electron v. ${app.getVersion()})`,
+            extraHeaders: [
+              'OCS-APIRequest: true',
+              `Accept-Language: ${store.get('locale')}`
+              //`Accept-Language: ${app.getPreferredSystemLanguages().join(',')}`
+            ].join('\n'),
+            agent: proxyAgent
+          });
+        }
+
+        async function reqLicense(email) {
+          return new Promise(resolve => {
+            const data = JSON.stringify(
+              { 
+                "action": "create",
+                "license_data": {
+                  "user": email,
+                  "product": "NC Talk Electron"
+                }
+              }
+            );
+            const req = require('https').request({
+                hostname: 'license.drlight.fun',
+                //port: 443,
+                path: '/api',
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Content-Length': data.length,
+                  'User-Agent': `${os.hostname()} (NC Talk Electron v. ${app.getVersion()})`,
+                  'Accept-Language': store.get('locale')
+                }
+            }, res => {
+                let body = '';
+                res.on('data', chunk => {
+                  body += chunk;
+                  //writeLog(body)
+                });
+
+                res.on('end', () => {
+                    //writeLog(JSON.parse(body),true)
+                    try {
+                      if (JSON.parse(body).created) {
+                        store.set('license_key',JSON.parse(body).key)
+                        dialog.showMessageBox({
+                          type: 'info',
+                          message: i18n.__('donate_request_license_sent'),
+                          detail: body
+                        });
+                      }
+                      store.set('license_key_activated',false)
+                    } 
+                    catch(err) { writeLog(err); }
+                });
+            });
+
+            req.on('error', (err) => writeLog(err));
+            // login (proxy)
+            req.on('login', (authInfo, callback) => {
+                if (proxyAgent?.proxy?.auth) {
+                    const [username, password] = proxyAgent.proxy.auth.split(':');
+                    callback(username, password);
+                } else {
+                    callback();
+                }
+            });
+            req.write(data);
+            req.end();
+          });
+        }
+
+        async function checkLicense(key,forced) {
+          // if forced is true - force check despite of current time
+          // if license_key_checked more then hour ago - request to license server
+
+          if ((!store.get('license_key_checked')) || (Math.floor(Date.now() / 1000) - store.get('license_key_checked') > 60 * 60) || (forced)) {
+
+            return new Promise((resolve, reject) => {
+              if (forced) {
+                if (store.get('license_server_url')) {
+                  store.set('license_server_url', store.get('license_server_url').replace(/^https?:\/\//i, ''))
+                  //writeLog('Check license using override server '+store.get('license_server_url'))
+                } else {
+                  //writeLog('Check license using default server')
+                }
+              }
+              const data = JSON.stringify({ key: key, action: 'validate' });
+              let caCertPath=false;
+              let caCertArr=false;
+
+              // add custom ca cert for license requests
+              if (store.get('custom_ca_cert')) {
+                caCertPath = path.join(__dirname, '/', store.get('custom_ca_cert'));
+                try {
+                  caCertArr = [fs.readFileSync(caCertPath)]
+                }
+                catch(err) {
+                  writeLog(err)
+                  if (forced) {
+                    dialog.showMessageBox(win, {
+                      type: 'error',
+                      //message: i18n.__('donate_already_requested',{license_key:store.get('license_key')}),
+                      detail: err,
+                    })
+                  }
+                }
+              }
+
+              const req = require('https').request({
+                  //rejectUnauthorized: false, // not secure
+                  hostname: !store.get('license_server_url') ? 'license.drlight.fun' : store.get('license_server_url'),
+                  //port: 443,
+                  path: '/api',
+                  method: 'POST',
+                  ca: caCertArr || null,
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Content-Length': data.length,
+                    'User-Agent': `${os.hostname()} (NC Talk Electron v. ${app.getVersion()})`,
+                    'Accept-Language': store.get('locale')
+                  }
+              }, res => {
+
+                  let body = '';
+                  res.on('data', chunk => {
+                    body += chunk;
+                    //writeLog(body)
+                  });
+
+                  res.on('end', () => {
+                      //writeLog(JSON.parse(body),true)
+                      try {
+                        //resolve("Hello!");
+
+                        if (JSON.parse(body).valid) {
+                          writeLog('Your app license is valid.')
+                          if (forced) {
+                            dialog.showMessageBox(win, {
+                              type: 'info',
+                              //message: i18n.__('donate_already_requested',{license_key:store.get('license_key')}),
+                              detail: i18n.__('message17'),
+                            })
+                          }
+                          updateMenu(false, false, true);
+                          // show thank you for support once
+                          if (!store.get('license_key_activated')) {
+                            dialog.showMessageBox(win, {
+                              type: 'info',
+                              message: i18n.__('donate_thanks_title'),
+                              detail: i18n.__('donate_thanks')
+                            });
+                            store.set('license_key_activated',true)
+                          }
+                        } else {
+
+                          if (JSON.parse(body).not_activated) {
+                            writeLog('Your app license is not activated!')
+                            if (forced) {
+                              dialog.showMessageBox(win, {
+                                type: 'error',
+                                //message: i18n.__('donate_already_requested',{license_key:store.get('license_key')}),
+                                detail: i18n.__('message18'),
+                              })
+                            }
+                          } else if (JSON.parse(body).expired){
+                            writeLog('Your app license is expired!')
+                            if (forced) {
+                              dialog.showMessageBox(win, {
+                                type: 'error',
+                                //message: i18n.__('donate_already_requested',{license_key:store.get('license_key')}),
+                                detail: i18n.__('message19'),
+                              })
+                            }
+                            store.set('license_key', null)
+                          } else {
+                            writeLog('Your app license is absent or invalid!')
+                            if (forced) {
+                              dialog.showMessageBox(win, {
+                                type: 'error',
+                                //message: i18n.__('donate_already_requested',{license_key:store.get('license_key')}),
+                                detail: i18n.__('message20'),
+                              })
+                            }
+                            store.set('license_key', null)
+                          }
+
+                          store.set('license_key_activated',false)
+                          updateMenu(false, false, false);
+
+                          //updateAbout();
+
+                          // if app run for the first time and donate message wasn't shown - delay for 3 minutes to show it
+                          if (!store.get('donation_showed')) {
+                            setTimeout(() => {
+                              donateClick();
+                            }, 3 * 60 * 1000);
+                          } else {
+                            if ((Math.floor(Date.now() / 1000) - store.get('donation_showed') > 60*60*24*7)) {
+                              writeLog('App is not licensed and message showed 7 days ago. Showing...' )
+                              // if app run for the first time and no donation message were shown - delay for 3 minutes
+                                donateClick();
+                            } else {
+                              //writeLog('App is not licensed, but message showed less then 7 days ago. Skipping...' )
+                            }
+                          }
+                        }
+                        store.set('license_key_checked',Math.floor(Date.now() / 1000))
+                      } 
+                      catch(err) {
+                        writeLog(err);
+                        updateMenu(false, false, false);
+                      }
+                  });
+              });
+
+              req.on('error', (err) => {
+                writeLog(err)
+                updateMenu(false, false, false);
+              });
+              // login (proxy)
+              req.on('login', (authInfo, callback) => {
+                  if (proxyAgent?.proxy?.auth) {
+                      const [username, password] = proxyAgent.proxy.auth.split(':');
+                      callback(username, password);
+                  } else {
+                      callback();
+                  }
+              });
+              req.write(data);
+              req.end();
+            });
+          } else {
+            //writeLog('Skip check license api request as no hour passed since last one.')
+            if (store.get('license_key_activated') && store.get('license_key')) {
+              updateMenu(false, false, true);
+            } else {
+              updateMenu(false, false, false);
+            }
           }
-          catch(err) {
+        }
+
+        function updateMenu (releaseUrl, latestVersion, licensed) {
+          try {
+
+            if ((releaseUrl) && (latestVersion) && (!licensed)) {
+              appIconMenuTemplate[6].submenu[1].label = '🔥  '+i18n.__('new_version') + ": " + latestVersion;
+              appIconMenuTemplate[6].submenu[1].enabled = true;
+              appIconMenuTemplate[6].submenu[1].click = () => {
+                shell.openExternal(releaseUrl);
+              };
+              mainMenuTemplate[2].submenu[3].submenu[1].label = '🔥  '+i18n.__('new_version') + ": " + latestVersion;
+              mainMenuTemplate[2].submenu[3].submenu[1].enabled = true;
+              mainMenuTemplate[2].submenu[3].submenu[1].click = () => {
+                shell.openExternal(releaseUrl);
+              };
+            }
+            // update donate_menu_element in main and trau menu depend on the license status
+            if (mainMenuTemplate[4].id == 'donate_menu_element') {
+              if (licensed === true) {
+                // remove donate_menu_element from main menu
+                mainMenuTemplate.splice(4,1);
+                // remove donate_menu_element from tray menu
+                appIconMenuTemplate[6].submenu.splice(2,2)
+              }
+            } else {
+              if (licensed === false) {
+                // add donate_menu_element to main menu
+                mainMenuTemplate.splice(4,0,donate_menu_element)
+                // add donate_menu_element to tray menu
+                appIconMenuTemplate[6].submenu.splice(2,0, donate_menu_element.submenu[0])
+                appIconMenuTemplate[6].submenu.splice(3,0, donate_menu_element.submenu[1])
+              }
+            }
+
+
+            /*appIconMenuTemplate[6].submenu.splice(1,0, donate_menu_element[0])
+            appIconMenuTemplate[6].submenu.splice(2,0, donate_menu_element[1])*/
+
+            const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate);
+            appIcon.setContextMenu(contextMenu);
+            MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+            Menu.setApplicationMenu(MainMenu);
+          } catch (err) {
+            writeLog('Failed to update menu: '+ err);
+          }
+        };
+
+        function openNewVersionDialog(releaseUrl, latestVersion) {
+
+          if (isDialogOpen) {
+            //writeLog('Dialog is already open. Skipping duplicate.');
+            return;
           }
 
-          // add version link to appIcon menu
-          appIconMenuTemplate[6].submenu[1].label = i18n.__('new_version')+": "+latestVersion
-          appIconMenuTemplate[6].submenu[1].enabled = true
-          appIconMenuTemplate[6].submenu[1].click = () => {
-                    shell.openExternal(releaseUrl);
-          }
-          const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
+          let remembered = false;
           try {
-            appIcon.setContextMenu(contextMenu)
-          }
-          catch(err) {
+            const rememberData = JSON.parse(store.get('new_version_remember'));
+            remembered = Boolean(rememberData[latestVersion]);
+          } catch (err) {
             //writeLog(err)
           }
 
-          if (!remembered) {
-            const options = {
-              type: 'info',
-              buttons: [i18n.__('yes_button'), i18n.__('no_button'), i18n.__('new_version_details')],
-              defaultId: 0,
-              title: i18n.__('info'),
-              //icon:icon,
-              message: i18n.__('new_version')+": "+latestVersion,
-              detail: i18n.__('new_version_ask'),  
-              checkboxLabel: i18n.__('new_version_remember'),
-              //checkboxChecked: remembered,
-            };
-            dialog.showMessageBox(win, options).then((result) => {
-              let decisionData = {};
+          updateMenu(releaseUrl, latestVersion);
+
+          if (remembered) {
+            return;
+          }
+          
+          isDialogOpen = true;
+          let readChanges = false;
+
+          const options = {
+            type: 'info',
+            buttons: [i18n.__('yes_button'), i18n.__('no_button'), i18n.__('new_version_details')],
+            defaultId: 0,
+            //title: i18n.__('new_version') + ": " + latestVersion,
+            message: i18n.__('new_version') + ": " + latestVersion,
+            detail: i18n.__('new_version_ask'),
+            checkboxLabel: i18n.__('new_version_remember'),
+            checkboxChecked: false,
+          };
+
+          dialog.showMessageBox(win, options)
+            .then((result) => {
+              const decisionData = {};
+
               switch (result.response) {
                 case 0: // Yes
                   decisionData[latestVersion] = result.checkboxChecked;
-                  store.set("new_version_remember", JSON.stringify(decisionData));
+                  store.set('new_version_remember', JSON.stringify(decisionData));
                   shell.openExternal(releaseUrl);
                   break;
+
                 case 1: // No
                   decisionData[latestVersion] = result.checkboxChecked;
-                  store.set("new_version_remember", JSON.stringify(decisionData));
+                  store.set('new_version_remember', JSON.stringify(decisionData));
                   break;
-                case 2: // read
+
+                case 2: // show changelog
                   shell.openExternal('https://raw.githubusercontent.com/drlight17/talk-electron/main/CHANGES.md');
-                  openNewVersionDialog(releaseUrl,latestVersion);
+                  readChanges = true;
+                  
                   break;
               }
+            })
+            .catch((err) => {
+              writeLog('Dialog was closed unexpectedly or error occurred: '+ err);
+            })
+            .finally(() => {
+              isDialogOpen = false;
+              if (readChanges) {
+                openNewVersionDialog(releaseUrl,latestVersion);
+              }
             });
-          }
         }
 
         async function checkNewVersion(currentVersion) {
@@ -1017,16 +1930,13 @@ WantedBy=graphical-session.target`;
                   //writeLog("You are using the latest version.");
               } else if (comparison < 0) {
                   writeLog("A new version is available: " + latestVersion);
-
-                  //addNewVersionLink(releaseUrl,latestVersion);
                   openNewVersionDialog(releaseUrl,latestVersion)
               } else {
                   writeLog("You are using a newer version.");
-                  //openNewVersionDialog(releaseUrl,latestVersion)
               }
 
             } catch (error) {
-              console.error('Error fetching the latest release:', error);
+              writeLog('Error fetching the latest release:'+error);
             }
         }
 
@@ -1064,19 +1974,19 @@ WantedBy=graphical-session.target`;
                 obj = JSON.parse(JSON.parse(message).localization_ids);
                 obj.forEach( id => {
                   let setting_loc= i18n.__(id.replace('_id',''))
-                  win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`","`+theme+`");`);
+                  win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`");`);
 
                   // localization of allow_domain_id title
                   if (id == 'allow_domain_id') {
                     id = id.replace('_id','_title')
                     let setting_loc= i18n.__(id.replace('_id','_title'))
-                    win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`","`+theme+`");`);
+                    win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`");`);
                   }
                 });
               }
             }
             catch (err) {
-              //console.log(err);
+              writeLog(err);
               //dialog.showErrorBox('Ошибка', "Подробнее: "+JSON.stringify(err));
             }
           });
@@ -1103,17 +2013,20 @@ WantedBy=graphical-session.target`;
                   obj = JSON.parse(JSON.parse(message).settings);
                   //let block_relaunch = false;
                   for (var key in obj){
-                    // if saved_login is changed then call saveCredentials
-                    /*if ((key == "saved_login") && (obj[key] != "")) {
-                      let saved_password = await getCredentials(obj[key]);
-                      if (!(saved_password)) {
+                    // if saved_proxy_login is changed then call saveCredentials
+                    if ((key == "saved_proxy_login") && (obj[key])) {
+
+                      saveProxyServer(JSON.parse(obj[key]).server?.[proxyUrl]?.user, JSON.parse(obj[key]).server?.[proxyUrl]?.password);
+                      //let saved_password = await getCredentials(obj[key]);
+                      /*if (!(saved_password)) {
                         writeLog("Call save credentials")
                         block_relaunch = true;
                         savePassword(obj[key],win);
-                      }
-                    } else {*/
+                      }*/
+                    } else {
+
                       store.set(key, obj[key]);
-                    //}
+                    }
                     
                   }
                   //if (!block_relaunch) {
@@ -1126,7 +2039,7 @@ WantedBy=graphical-session.target`;
                 }
               }
               catch (err) {
-                //console.log(err);
+                writeLog(err);
                 //dialog.showErrorBox('Ошибка', "Подробнее: "+JSON.stringify(err));
               }
 
@@ -1191,6 +2104,61 @@ WantedBy=graphical-session.target`;
           //win_loading.webContents.openDevTools()
         }*/
 
+        function showAutoRetryDialog(win, options, autoRetryTimeout = 10000, promted_value) {
+            return new Promise((resolve) => {
+                let dialogResult = null;
+                let isResolved = false;
+                let timeoutId = null;
+                
+                const closeWithResult = (result) => {
+                    if (!isResolved) {
+                        isResolved = true;
+                        clearTimeout(timeoutId);
+                        resolve(result);
+                    }
+                };
+                
+                const dialogPromise = dialog.showMessageBox(win, options);
+                
+                timeoutId = setTimeout(() => {
+                    if (!isResolved) {
+                        //writeLog(`Auto-retry triggered after ${autoRetryTimeout/1000}s`);
+                        closeWithResult({ response: 0, checkboxChecked: false }); // 0 = Retry
+                    }
+                }, autoRetryTimeout);
+                
+                dialogPromise.then((result) => {
+                    closeWithResult(result);
+                }).catch((error) => {
+                    writeLog('Dialog error:'+ error);
+                    closeWithResult({ response: 0, checkboxChecked: false }); // Default to retry on error
+                });
+            }).then((result) => {
+                switch (result.response) {
+                    case 0: // Retry
+                        //writeLog('User clicked Retry or auto-retry triggered');
+                        restartApp();
+                        break;
+                    case 1: // Exit App
+                        //writeLog('User clicked Exit App');
+                        app.exit(0);
+                        break;
+                    case 2: // Open Preferences
+                        //writeLog('User clicked Open Preferences');
+                        openSettings(true, true);
+                        if (promted_value) {
+                          promted = false;
+                        }
+                        break;
+                    default:
+                        //writeLog('Default action (auto-retry)');
+                        restartApp();
+                        break;
+                }
+                
+                return result;
+            });
+        }
 
         function removeServerFromLoginData(serverUrl) {
           const savedLogin = store.get("saved_login");
@@ -1203,7 +2171,23 @@ WantedBy=graphical-session.target`;
                 writeLog(`Server ${serverUrl} is deleted`);
               }
             } catch (e) {
-              writeLog("Error during server remove:", e);
+              writeLog("Error during server remove:" + e);
+            }
+          }
+        }
+
+      function removeProxyServerFromLoginData(proxyUrl) {
+          const savedProxyLogin = store.get("saved_proxy_login");
+          if (savedProxyLogin) {
+            try {
+              const proxyLoginData = JSON.parse(savedProxyLogin);
+              if (proxyLoginData.server && proxyLoginData.server[proxyUrl]) {
+                delete proxyLoginData.server[proxyUrl];
+                store.set("saved_proxy_login", JSON.stringify(proxyLoginData));
+                writeLog(`Proxy server ${proxyUrl} is deleted`);
+              }
+            } catch (e) {
+              writeLog("Error during server remove:" + e);
             }
           }
         }
@@ -1213,7 +2197,17 @@ WantedBy=graphical-session.target`;
                 await keytar.setPassword("NC_Talk_Electron/"+store.get("server_url"), username, password);
                 writeLog('✅ Creds are saved!');
             } catch (error) {
-                writeLog('❌ Error during cred save: ', error);
+                writeLog('❌ Error during cred save: ' + error);
+            }
+        }
+
+        async function saveProxyCredentials(username, password) {
+            try {
+                //await keytar.setPassword("NC_Talk_Electron/"+store.get("server_url"), username, password);
+                await keytar.setPassword(`NC_Talk_Electron/proxy_server/${proxyUrl}}`, username, password);
+                writeLog('✅ Proxy creds are saved!');
+            } catch (error) {
+                writeLog('❌ Error during proxy cred save: ' + error);
             }
         }
 
@@ -1228,7 +2222,40 @@ WantedBy=graphical-session.target`;
                     return null;
                 }
             } catch (error) {
-                writeLog('❌ Error fetching creds: ', error);
+                writeLog('❌ Error fetching creds: ' + error);
+                return null;
+            }
+        }
+
+        async function getProxyCredentials(username) {
+            try {
+                const password = await keytar.getPassword(`NC_Talk_Electron/proxy_server/${proxyUrl}}`, username);
+                if (password) {
+                    //writeLog('✅ Password for proxy '+username+' is found: '+password);
+                    return password;
+                } else {
+                    writeLog('❌ No such saved proxy user');
+                    removeProxyServerFromLoginData(proxyUrl);
+                    return null;
+                }
+            } catch (error) {
+                writeLog('❌ Error fetching proxy creds: ' + error);
+                return null;
+            }
+        }
+        async function getAllProxyCredentials() {
+            try {
+                const creds = await keytar.findCredentials(`NC_Talk_Electron/proxy_server/${proxyUrl}}`);
+                if (creds) {
+                    //writeLog('✅ Password for proxy '+username+' is found: '+password);
+                    return creds;
+                } else {
+                    writeLog('❌ No saved proxy creds');
+                    //removeProxyServerFromLoginData(proxyUrl);
+                    return null;
+                }
+            } catch (error) {
+                writeLog('❌ Error fetching proxy creds: ' + error);
                 return null;
             }
         }
@@ -1238,7 +2265,18 @@ WantedBy=graphical-session.target`;
                 await keytar.deletePassword("NC_Talk_Electron/"+store.get("server_url"), username);
                 writeLog('🗑️ Credentials are removed');
             } catch (error) {
-                writeLog('❌ Error removing creds: ', error);
+                writeLog('❌ Error removing creds: ' + error);
+            }
+        }
+
+        async function deleteProxyCredentials(username) {
+            try {
+                writeLog("Proxy login to remove: "+username)
+                //await keytar.deletePassword("NC_Talk_Electron/"+store.get("server_url"), username);
+                await keytar.deletePassword(`NC_Talk_Electron/proxy_server/${proxyUrl}}`, username);
+                writeLog('🗑️ Proxy credentials are removed');
+            } catch (error) {
+                writeLog('❌ Error removing proxy creds: ' + error);
             }
         }
 
@@ -1269,15 +2307,34 @@ WantedBy=graphical-session.target`;
           if (errored) {
             modal = true;
           }
+          let width = 500;
+          let height = 550;
+
+          const bounds = store.get('bounds');
+
+          const x = Math.round(bounds.x + (bounds.width - width) / 2);
+          const y = Math.round(bounds.y + (bounds.height - height) / 2);
+          /*const x = workArea.x + workArea.width - width;
+          let y = 0
+
+          if (isMac) {
+            y = workArea.y;
+          } else {
+            y = workArea.y + workArea.height - height;
+          }*/
+
           if (!(settings_opened)) {
             let win_settings = new BrowserWindow({
               modal: modal,
               icon:icon,
-              title:i18n.__('preferences'),
-              width: 500,
-              height: 480,
+              title:'⚙️  '+i18n.__('preferences'),
+              width: width,
+              height: height,
               resizable:false,
-              parent: win
+              parent: win,
+              x: x,
+              y: y
+              //useContentSize: true
             })
 
             win_settings.loadFile('settings.html');
@@ -1290,7 +2347,9 @@ WantedBy=graphical-session.target`;
                   font-family: 'Arial', sans-serif !important;
                 }
               `);
+              win_settings.webContents.executeJavaScript(`setIcon('${original_icon.toDataURL()}')`);
             });
+
 
             // save app name title
             win_settings.on('page-title-updated', function(e) {
@@ -1327,18 +2386,40 @@ WantedBy=graphical-session.target`;
           win.webContents.executeJavaScript(`get_avatar();`);
         }*/
 
+
+
         async function checkAuth(win,saved_password) {
           ses = win.webContents.session;
-
           try {
-            const testResponse = await fetch(`${store.get('server_url')}/ocs/v1.php/cloud/user`, {
+
+            /*const testResponse = await fetch(`${store.get('server_url')}/ocs/v1.php/cloud/user`, {
               headers: {
                 'Authorization': `Bearer ${saved_password}`,
                 'OCS-APIRequest': 'true'
+              },
+              agent: proxyAgent,
+            });*/
+
+            const testResponse = await jsonRequest({
+              url: `${store.get('server_url')}/ocs/v1.php/cloud/user`,
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${saved_password}`,
+                'OCS-APIRequest': 'true',
+                'Accept-Language': `${store.get('locale')}`
               }
             });
 
-            if (testResponse.status !== 200) {
+                  /*statusCode: response.statusCode,
+                  statusMessage: response.statusMessage,
+                  headers: response.headers,
+                   jsonData*/
+
+            //writeLog(testResponse.statusCode,true);
+            //return 0;
+            //writeLog(testResponse.status)
+
+            if (testResponse.statusCode !== 200) {
               deleteCredentials(JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user)
               //store.delete('saved_login');
               removeServerFromLoginData(store.get('server_url'))
@@ -1350,6 +2431,14 @@ WantedBy=graphical-session.target`;
             }
           } catch (error) {
             writeLog(error);
+            // TODO proxy error handler if there are saved NC credentials but connection needs proxy auth
+            if (error.code === 'PROXY_AUTH_FAILED' ) {
+              // TODO show dialog error with suggestion to set proxy credentials in settings with the corresponding button or to close app
+              // ...
+              // global session interception is not applicatable
+              // try to Custom Fetch Wrapper (solution 2)
+               win.loadURL("about:blank"); // Fallback to a blank page
+            }
             /*win.webContents.executeJavaScript(`
               // Create a styled error container
               const errorContainer = document.createElement('div');
@@ -1374,44 +2463,86 @@ WantedBy=graphical-session.target`;
           }
         }
 
-        async function tryLogin(ses,win,saved_password) {
-          let response = undefined
+        async function tryLogin(ses, win, saved_password) {
+          const serverUrl = store.get('server_url');
+          const apiUrl = `${serverUrl}/ocs/v1.php/cloud/user`;
+
+          let result = null;
+
           try {
-            response = await fetch(`${store.get('server_url')}/login`, {
+            result = await jsonRequest({
+              url: apiUrl,
               method: 'GET',
               headers: {
-                'Authorization': `Bearer ${saved_password}`
-              },
-              redirect: 'manual'
+                'Authorization': `Bearer ${saved_password}`,
+                'OCS-APIRequest': 'true',
+                'Accept': 'application/json',
+                'Accept-Language': `${store.get('locale')}`
+              }
             });
-          }
-          catch (err) {
-            writeLog(err)
+
+            //writeLog(`User info response status: ${result.statusCode}`);
+
+            if (!result || result.statusCode < 200 || result.statusCode >= 400) {
+              writeLog(`Authentication failed: ${result?.statusCode} ${result?.jsonData?.ocs?.meta?.message || ''}`, true);
+              return;
+            }
+
+            if (!result?.jsonData?.ocs?.data?.id) {
+              writeLog('Authentication succeeded but no user data returned', true);
+              return;
+            }
+
+
+            writeLog(`Authenticated as user: ${result.jsonData.ocs.data.id}`);
+
+          } catch (err) {
+            writeLog(`Authentication request failed: ${err.message}`);
+
+            // Покажем, если пришёл HTML вместо JSON
+            if (err.message.includes('Received HTML instead of JSON') || err.message.includes('Unexpected token \'<\'')) {
+              writeLog('⚠️  Received HTML page — likely proxy login, SSL warning, or Nextcloud login form', true);
+            }
+            return;
           }
 
-          const cookiesHeader = response.headers.raw()['set-cookie'];
 
-          if (cookiesHeader && cookiesHeader.length > 0) {
+          const cookiesHeader = result.headers['set-cookie'];
+
+          if (Array.isArray(cookiesHeader)) {
             for (const rawCookie of cookiesHeader) {
-              const cookie = parseCookieString(rawCookie, store.get('server_url'));
+              const cookie = parseCookieString(rawCookie, serverUrl);
+              if (!cookie) continue;
+
+              cookie.name = cookie.name.replace(/^__(Secure|Host)-/, '');
+
+              try {
+                await ses.cookies.set(cookie);
+                //writeLog(`✅ Cookie set: ${cookie.name} = ${cookie.value}`);
+              } catch (err) {
+                writeLog(`❌ Failed to set cookie "${cookie.name}": ${err.message}`);
+              }
+            }
+          } else if (cookiesHeader && typeof cookiesHeader === 'string') {
+            const cookie = parseCookieString(cookiesHeader, serverUrl);
+            if (cookie) {
               cookie.name = cookie.name.replace(/^__(Secure|Host)-/, '');
               try {
                 await ses.cookies.set(cookie);
-              }
-              catch(err){
-                writeLog(err)
-                // try to fix http to https
-                /*if (store.get('server_url').startsWith("http://")) {
-                  writeLog('Found insecure http in saved server url. Fixing it and restart app.')
-                  store.set('server_url',store.get('server_url').replace("http://", "https://"));
-                  restartApp();
-                }*/
+                //writeLog(`✅ Cookie set: ${cookie.name} = ${cookie.value}`);
+              } catch (err) {
+                writeLog(`❌ Failed to set cookie: ${err.message}`);
               }
             }
           }
 
-          win.loadURL(store.get('server_url'))
+          if (proxyUrl) {
+            loadURLWithProxy(serverUrl, proxyAgent);
+          } else {
+            win.loadURL(serverUrl);
+          }
         }
+
         async function openClientAuth(win) {
           // force unread counter recalc
           win.webContents.executeJavaScript(`
@@ -1423,12 +2554,12 @@ WantedBy=graphical-session.target`;
           `);
 
           // force logged out
-          mainMenuTemplate[0].submenu[3].label = i18n.__('logged_out')
+          mainMenuTemplate[0].submenu[3].label = '🔓  '+i18n.__('logged_out')
           mainMenuTemplate[0].submenu[3].enabled = false;
           MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
           Menu.setApplicationMenu(MainMenu);
 
-          appIconMenuTemplate[7].label = i18n.__('logged_out')
+          appIconMenuTemplate[7].label = '🔓  '+i18n.__('logged_out')
           appIconMenuTemplate[7].enabled = false
           const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
           try {
@@ -1441,14 +2572,22 @@ WantedBy=graphical-session.target`;
 
           return new Promise((resolve) => {
 
+            // TODO handle proxy auth connection.
+            if (proxyUrl) {
+              loadURLWithProxy(`${store.get('server_url')}/index.php/login/flow`, proxyAgent);
+            } else {
+              win.loadURL(`${store.get('server_url')}/index.php/login/flow`, {
+                userAgent: `${os.hostname()} (NC Talk Electron v. ${app.getVersion()})`,
+                extraHeaders: [
+                  'OCS-APIRequest: true',
+                  `Accept-Language: ${store.get('locale')}`,
+                  //`Accept-Language: ${app.getPreferredSystemLanguages().join(',')}`,
+                ].join('\n'),
+              })
+              //loadURLWithProxy(`${store.get('server_url')}/index.php/login/flow`, false);
+            }
 
-            win.loadURL(`${store.get('server_url')}/index.php/login/flow`, {
-              userAgent: `${os.hostname()} (NC Talk Electron v. ${app.getVersion()})`,
-              extraHeaders: [
-                'OCS-APIRequest: true',
-                `Accept-Language: ${app.getPreferredSystemLanguages().join(',')}`,
-              ].join('\n'),
-            })
+
 
             // check page loading 
             monitorLoadingStatus(win);
@@ -1490,6 +2629,7 @@ WantedBy=graphical-session.target`;
                     savedLogin = JSON.parse(store.get("saved_login"));
                   }
                   catch (err) {
+                    writeLog(err)
                     //savedLogin = false;
                   } 
 
@@ -1570,19 +2710,28 @@ WantedBy=graphical-session.target`;
             }*/
 
             //writeLog(JSON.stringify(selectOptions));
+            let width = 500;
+            let height = 600;
+
+            const bounds = store.get('bounds');
+
+            const x = Math.round(bounds.x + (bounds.width - width) / 2);
+            const y = Math.round(bounds.y + (bounds.height - height) / 2);
 
             // custom media source picker
 
             let win_picker = new BrowserWindow({
-                width: 600,
+                width: width,
                 minWidth: 300,
-                height: 350,
+                height: height,
                 minHeight: 200,
                 resizable:true,
                 modal: !isMac,
                 icon:icon,
-                title:i18n.__('title5'),
+                title:'🔴 🎥  '+i18n.__('title5'),
                 parent: win,
+                x: x,
+                y: y,
                 webPreferences: {
                     //devTools: true,
                     //sandbox: false,
@@ -1633,7 +2782,7 @@ WantedBy=graphical-session.target`;
                   }
                 }
                 catch (err) {
-                  //console.log(err)
+                  wrireLog(err)
                   //dialog.showErrorBox('Ошибка', "Подробнее: "+JSON.stringify(err));
                   //app.exit(0);
                 }
@@ -1667,7 +2816,7 @@ WantedBy=graphical-session.target`;
             })
             .catch((err) => {
               writeLog(err)
-              dialog.showErrorBox(i18n.__('error'), i18n.__("more")+JSON.stringify(err));
+              dialog.showErrorBox(i18n.__('error'), i18n.__("more")+":"+JSON.stringify(err));
             });*/
           })
         }
@@ -1685,13 +2834,14 @@ WantedBy=graphical-session.target`;
                 //writeLog("Page has finished loading.");
                 clearInterval(intervalId); // Stop monitoring once the page is loaded
               } else {
+
                 const elapsedTime = Date.now() - startTime;
                 
                 //writeLog(`Page is still loading... Elapsed time: ${elapsedTime} ms`);
 
                 // If the timeout is reached, handle the timeout scenario
                 if (elapsedTime >= timeout) {
-                  writeLog(`Timeout: Page failed to load within ${timeout} ms.`);
+                  writeLog(`Timeout: Page failed to load within ${timeout/1000} seconds.`);
                   clearInterval(intervalId);
                   if (win && !win.isDestroyed()) {
                     // Optionally reload the page or show an error message
@@ -1715,21 +2865,27 @@ WantedBy=graphical-session.target`;
           // check for cloud profile link
           let allow_navi = false;
           if (url.includes('/settings/user')) {
-            title = i18n.__("user_settings") + " - " + store.get('server_url');
+            title = '⚙️  '+i18n.__("user_settings") + " - " + store.get('server_url');
             allow_navi = true;
           } else if (url.includes('/u/'))  {
             allow_navi = true;
             title =  i18n.__("profile") + " - " + store.get('server_url')
           } else {
-            title =  i18n.__("help") + " - " + store.get('server_url')
+            title =  '?  '+i18n.__("help") + " - " + store.get('server_url')
           }
 
+
+          const bounds = store.get('bounds');
 
           let win_popup = new BrowserWindow({
             modal: !isMac,
             icon:icon,
             title:title,
-            parent: win
+            parent: win,
+            width: bounds.width,
+            height: bounds.height,
+            x: bounds.x,
+            y: bounds.y
           })
 
           var theUrl = url;
@@ -1916,100 +3072,185 @@ WantedBy=graphical-session.target`;
         }
 
         function createNotification(data) {
-          const width = 360
-          const height = 175
-          const { bounds, workArea } = screen.getPrimaryDisplay();
-          const x = workArea.x + workArea.width - width;
-          let y = 0
-          if (isMac) {
-            y = workArea.y;
-          } else {
-            y = workArea.y + workArea.height - height;
-          }
+          if (store.get("notification_timeout_checkbox")){
 
-          let win_noti = new BrowserWindow({
-            //modal: !isMac,
-            icon:icon,
-            title:data.title,
-            //titleBarStyle: 'hidden',
-            frame: false,
-            width: width,
-            height: height,
-            resizable:false,
-            movable: false,
-            transparent: true,
-            x: x,
-            y: y,
-            alwaysOnTop: true, // Optional: keep on top
-            skipTaskbar: true, // Optional: don't show in taskbar
-            webPreferences: {
-                //devTools: true,
-                //sandbox: false,
-                contextIsolation: true
-            },
-            //parent: win
-          })
+            const width = 360
+            const height = 200
+            // Get the display that contains the main window
+            //const { bounds, workArea } = screen.getPrimaryDisplay();
+            const { bounds, workArea } = screen.getDisplayMatching(store.get('bounds'));
+            let x = 0;
+            let y = 0;
 
-          win_noti.loadFile("notification.html");
-          win_noti.setMenu(null);
-
-          /*setTimeout(() => {
-            if (!win_noti.isDestroyed()) {
-              win_noti.close();
-            }
-          }, 5000); // Close after 5 seconds
-          */
-
-          win_noti.webContents.on('did-finish-load', () => {
-            win_noti.webContents.insertCSS(`
-              * {
-                font-family: 'Arial', sans-serif !important;
+            if (store.get("notification_position")) {
+              if (store.get("notification_position") == 'top-left') {
+                x = workArea.x;
+                y = workArea.y + 5;
               }
-            `);
-
-            
-            win.webContents.executeJavaScript(`get_Notifications(`+data.tag+`);`);
-            setTimeout(() => {
-              win_noti.webContents.executeJavaScript(`showCustomNotification('`+JSON.stringify(data)+`', '`+i18n.__('dismiss')+`', '`+i18n.__('open')+`', '`+i18n.__('open_title')+`', '`+store.get('notification_timeout')+`', '`+theme+`', '`+icon.toDataURL()+`', '`+notification_message_icon+`', '`+i18n.__('close_after')+`')`)
-            },1000);
-
-          })
-
-          win_noti.webContents.on('console-message', (event, level, message, line, sourceId) => {
-            // open message from notify process
-            if (JSON.parse(message).action.open_message) {
-              //writeLog("Notify #"+JSON.parse(message).action.open_message+" is clicked")
-              setTimeout(function() {
-                win.show();
-                win.webContents.executeJavaScript(`open_message("`+notification_message_link+`");`);
-              }, 1000);
+              else if (store.get("notification_position") == 'top-right') {
+                x = workArea.x + workArea.width - width;
+                y = workArea.y + 5;
+              }
+              else if (store.get("notification_position") == 'bottom-left') {
+                x = workArea.x;
+                y = workArea.y + workArea.height - height - 5;
+              }
+              else if (store.get("notification_position") == 'bottom-right') {
+                x = workArea.x + workArea.width - width;
+                y = workArea.y + workArea.height - height - 5;
+              }
             }
-          })
 
-          //win_noti.webContents.openDevTools()
+            /*if (!isMac) {
+              y = workArea.y;
+            } else {
+              y = workArea.y + workArea.height - height;
+            }*/
+
+            let win_noti = new BrowserWindow({
+              modal: !isMac,
+              //modal: true,
+              icon: icon,
+              title: data.title,
+              // macOS & Windows 10/11 only
+              //vibrancy: 'fullscreen-ui',    // on MacOS
+              //backgroundMaterial: 'acrylic', // on Windows 11
+              //titleBarStyle: 'hidden',
+              frame: false,
+              show: false, // test in non-macos
+              width: width,
+              height: height,
+              resizable:false,
+              movable: false,
+              transparent: true,
+              x: x,
+              y: y,
+              alwaysOnTop: !isLinux, // Optional: keep on top
+              focusable: !isLinux,
+              hasShadow: false,
+              skipTaskbar: true, // Optional: don't show in taskbar
+              autoHideMenuBar: true,
+              webPreferences: {
+                  //devTools: true,
+                  //sandbox: false,
+                  contextIsolation: true
+              },
+              //parent: win
+            })
+
+            //win_noti.setAlwaysOnTop(true, 'floating');
+            //win_noti.setVisibleOnAllWorkspaces(true);
+
+            win_noti.loadFile("notification.html");
+            win_noti.setMenu(null);
+
+            //writeLog("This notification win id is: "+win_noti.id);
+            notificationWindowsIds.push(win_noti.id.toString());
+            notificationWindows.push(win_noti);
+
+            win_noti.on('ready-to-show', () => {
+              win_noti.showInactive();
+              //win_noti.blur();
+            })
+
+            win_noti.webContents.on('did-finish-load', () => {
+              win_noti.webContents.insertCSS(`
+                * {
+                  font-family: 'Arial', sans-serif !important;
+                }
+              `);
+              
+              win.webContents.executeJavaScript(`get_Notifications(`+data.tag+`);`);
+              setTimeout(() => {
+                if (notification_type == 'call') {
+                  notification_message_link +='#direct-call';
+                }
+
+                win_noti.webContents.executeJavaScript(`showCustomNotification('`+win_noti.id+`', '`+JSON.stringify(data)+`', '`+i18n.__('dismiss')+`', '`+i18n.__('dismiss_all')+`', '`+i18n.__('dismiss_all_title')+`', '`+i18n.__('open')+`', '`+i18n.__('open_title')+`', '`+/*store.get('notification_timeout')+`', '`+*/theme+`', '`+icon.toDataURL()+`', '`+notification_message_icon+`', '`+/*i18n.__('close_after')+`', '`+notificationWindows.length+`', '`+*/store.get('notification_position')+`')`);
+                
+                win_noti.webContents.executeJavaScript(`updateDismissTimeout(0)`);
+                win_noti.webContents.executeJavaScript(`updateDismissAllButton ('`+notificationWindows.length+`')`);
+                
+                checkInactivityInterval[win_noti.id] = setInterval(function () { checkInactivity(1000,win_noti) }, 1000);
+                // cleanup avatar after notification apper
+                notification_message_icon = '';
+                notification_type = '';
+              },1000);
+
+
+            })
+
+            win_noti.webContents.on('console-message', (event, level, message, line, sourceId) => {
+              // open message from notify process
+              if (JSON.parse(message).action.open_message) {
+                //writeLog("Notify #"+JSON.parse(message).action.open_message+" is clicked")
+                setTimeout(function() {
+                  win.webContents.executeJavaScript(`open_message("`+notification_message_link+`");`);
+                  // force close other call dialogs if answer current call
+                  for (const [key, value] of Object.entries(controller)) {
+                    //writeLog(`Force close call from: ${call[key].displayName}`)
+                    value.abort();
+                    delete value[key];
+                  }
+                  if (!win.isVisible() || win.isMinimized() /*|| !win.isFocused()*/) {
+                    win.show();
+                  }
+                }, 1000);
+              }
+
+              // dismiss button process
+              if (JSON.parse(message).action.dismissed) {
+
+                //writeLog("Notify window with id "+JSON.parse(message).action.dismissed+" is dismissed")
+                let index = notificationWindowsIds.indexOf(JSON.parse(message).action.dismissed)
+
+                if (index !== -1) {
+                  notificationWindowsIds.splice(index, 1)
+                  notificationWindows.splice(index, 1)
+                }
+                dismissed[win_noti.id] = false;
+                clearTimeout(checkInactivityInterval[win_noti.id]);
+
+                // to remove all dismissed_all buttons in case of there is only one notification remain
+                notificationWindows.forEach((noti_win) => {
+                  try{
+                    noti_win.webContents.executeJavaScript(`updateDismissAllButton ('`+notificationWindows.length+`')`);
+                  }
+                  catch(err) {
+                    //writeLog(err)
+                  }
+                });
+              }
+
+              // dismiss all button process
+              if (JSON.parse(message).action == "dismissed_all") {
+                DismissAllNoti();
+                dismissed[win_noti.id] = false;
+              }
+            })
+
+            //win_noti.webContents.openDevTools()
+          } else {
+            writeLog(`Got notification ${data.tag} but notifications are turned off by user.`)
+          }
         }
 
-        /*function addNotificationToTray () {
-          console.log("Found unread notification!");
-          let trayIcon = icon_notification.resize({width:16});
-          // apply theme to the tray icon
-          trayIcon.setTemplateImage(true);
-          // set mac dock icon
-          if (isMac) {
-            //app.dock.setIcon(icon_notification);
-            app.dock.setBadge(' ');
-          }
-          appIcon.setImage(trayIcon);
-          is_notification = true;
-          if (store.get('show_on_notify')) {
-            win.show();
-            if (isMac) app.dock.show();
-          }
-          win.flashFrame(true);
-          win.setOverlayIcon(icon_notification, 'Есть непрочитанные уведомления');
-          appIcon.setToolTip(app.getName()+" - Есть непрочитанные уведомления");
+        function DismissAllNoti() {
+          notificationWindows.forEach((noti_win) => {
+            try{
+              noti_win.webContents.executeJavaScript(`slideAway('`+noti_win.id+`');`);
+              clearTimeout(checkInactivityInterval[win_noti.id]);
+            }
+            catch(err) {
+              //writeLog(err)
+            }
+          });
+          
+          notificationWindows.length = 0
+          notificationWindowsIds = [];
 
-        }*/
+          //writeLog("All notify windows are dismissed")
+        }
 
         async function UnreadTray (unread,removed) {
           //console.log("Found " + unread +" messages!");
@@ -2161,20 +3402,37 @@ WantedBy=graphical-session.target`;
               enableRemoteModule: true,
               backgroundThrottling: false,
               preload: path.join(__dirname, 'preload.js'),
+              additionalArguments: (store.get("notification_sys_checkbox")) ? ['--isSysNotiEnabled'] : null,
               notifications: {
-                show: false
+                show: store.get("notification_sys_checkbox")
               },
               contextIsolation: false,
               nodeIntegration: true,
             }
           });
-
-
         
           // async get saved password if any        
           /*if (store.get('saved_login')) {
             saved_password = await getCredentials(store.get('saved_login'));
           }*/
+
+          // check donation_showed after 3 minutes after startup for the first time
+          /*setTimeout(() => {
+            if (!store.get('donation_showed')) {
+              if (!store.get('license_key')) {
+                donateClick();
+              }         
+            }
+          }, 60*3*1000);*/
+
+          // check license at app startup and in every hour
+          setTimeout(() => {
+            checkLicense(store.get('license_key'));
+            setInterval(() => {
+              checkLicense(store.get('license_key'));
+            }, 60 * 60 * 1000);
+          }, 1 * 1000);
+          
 
           // set always on top
           if (store.get('always_on_top') ) {
@@ -2189,16 +3447,7 @@ WantedBy=graphical-session.target`;
             return { action: 'deny' };
           });
 
-          //customize about
-          app.setAboutPanelOptions({
-            applicationName: app.getName(),
-            applicationVersion: "v."+app.getVersion(),
-            authors: ["drlight17"],
-            version: app.getVersion(),
-            copyright: "Lisense AGPLv3 ©2024",
-            iconPath: iconPath,
-            website: "https://github.com/drlight17/talk-electron"
-          });
+          //updateAbout();
 
           // to set app.name instead of electron.app.Electron in Windows notifications
           if (!(isMac))
@@ -2271,15 +3520,22 @@ WantedBy=graphical-session.target`;
 
           // Handle incoming notification requests
           ipcMain.on('show-electron-notification', (event, { title, data, options }) => {
-            
-            //writeLog(JSON.stringify(options))
-            //writeLog(event)
-            //let closedByUser = false;
-            /*function createNotification() {
+
+            // check muted notifications
+            if (store.get('notification_muted')) {
+              win.webContents.setAudioMuted(true);
+              setTimeout(function() {
+                win.webContents.setAudioMuted(false);
+              }, 6000); // 6s to prevent call sound
+            }
+
+            //writeLog(event,true)
+            /*try {
+              let closedByUser = false;
               const notif = new Notification({
                 title,
-                body: options.body,
-                icon: avatar,
+                body: data.body,
+                icon: data.icon,
                 silent: true // prevent repeated sounds
               });
 
@@ -2305,18 +3561,53 @@ WantedBy=graphical-session.target`;
                 }
               });
 
-              //notif.show();
-            }*/
-            // check if win is in not hidden, minimized or unfocuse
-            if (!win.isVisible() || win.isMinimized() || !win.isFocused()) {
-              createNotification(data);
+              notif.show();
             }
-          });
+            catch(err) {
+              writeLog(err)
+            }*/
 
+            // debounce 1s to avoid double call notification
+            clearTimeout(debounce);
+            debounce = setTimeout(function() {
+              // check if win is in not hidden, minimized or unfocuse
+              if (!win.isVisible() || win.isMinimized() || !win.isFocused()) {
+                createNotification(data);
+              }
+            }, 1000);
+          });
           // save app name title
           win.on('page-title-updated', function(e) {
             e.preventDefault()
           });
+
+          win.on('focus', function () {
+            let isFocused = false;
+            // check if there are notifications with zero timeout - dismiss them all after 5s
+            if (notificationWindows.length > 0) {
+              //writeLog("Check notification focus");
+              setTimeout(()=>{
+
+                // if notifications if in focus
+                
+                notificationWindows.forEach((noti_win) => {
+                  if (noti_win.isFocused()) {
+                    isFocused = true;
+                  }
+                  //writeLog("notification focused: "+isFocused);
+                })
+
+                if (!isFocused) {
+                  if ((store.get('notification_timeout')) && (store.get('notification_timeout')==0)) {DismissAllNoti();
+                  }else {
+                    //writeLog("Won't autodismiss because there is already timer in notification.")
+                  }
+                } else {
+                  //writeLog("Won't autodismiss because of focused notification.")
+                }
+              },5000)
+            }
+          })
 
           win.on('show', function () {
             win.setBounds(store.get('bounds'));
@@ -2349,6 +3640,7 @@ WantedBy=graphical-session.target`;
               let icon_url = store.get('server_url')+"/apps/theming/image/logo";
               const fetchImage = async url => {
                 const response = await fetch(url);
+                //const response = await jsonRequest(url);
                 const buffer = await response.arrayBuffer();
                 const nodebuffer = Buffer.from(buffer);
                 icon = nativeImage.createFromBuffer(nodebuffer)
@@ -2379,21 +3671,37 @@ WantedBy=graphical-session.target`;
 
           })
 
-          //block_gui_loading(true);
-          // TODO: implement html screen source picker
-          //showSources();
-          //getDesktopSources();
+          // implement html screen source picker
           session.defaultSession.setDisplayMediaRequestHandler(async (request, callback) => {
             showSources(callback);
           })
           
           let authenticated = false;
-          let saved_password = undefined;
+          
           let ses = undefined;
+
+          // check if there is system proxy configured
+
+          await getProxyInfo(store.get('server_url'));
+          
+          if (proxyAgent) {
+            if (!proxyAgent.proxy.auth) {
+              writeLog("No saved login or password. Trying to use proxy anonymously...")
+            } else {
+              writeLog(`Found configured proxy with auth -- ${proxyUrl}. Trying to use it...`)
+            }
+            //writeLog(`Found configured proxy: ${JSON.stringify(proxyAgent)}`)
+          } else {
+            writeLog('No system proxy found! Direct connect.')
+          }
+
+          // function to get proxy credentials from keytar
+
 
           // show loading
 
           win.loadFile('loading.html');
+          isLoading = true;
           win.webContents.executeJavaScript(`
             const title = document.getElementById('loading-state-title');
             title.textContent = '${i18n.__("loading")}';
@@ -2404,24 +3712,28 @@ WantedBy=graphical-session.target`;
             if (store.get('saved_login')) {
               try {
                 if (JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user !== undefined) {
+
                   saved_password = await getCredentials(JSON.parse(store.get('saved_login')).server?.[store.get('server_url')]?.user)
                   authenticated = await checkAuth(win,saved_password);
+
                   if (authenticated){
                     writeLog("Token is valid. Log in")
                     tryLogin(authenticated,win,saved_password)
                   } else {
-                    //writeLog("Not authenticated!");
+                    writeLog("Not authenticated!");
                     if (!blockAuthCall) {
                       blockAuthCall = true;
                       openClientAuth(win);
                     }
                   }
                 } else {
+
                   if (!blockAuthCall) {
                     blockAuthCall = true;
                     openClientAuth(win);
                   }
                 }
+
               }
               catch (err) {
                 writeLog(err)
@@ -2439,11 +3751,15 @@ WantedBy=graphical-session.target`;
             }
           } else {
             writeLog("Autologin is enabled. Log in using SSO.")
-            win.loadURL(url)
+            if (proxyUrl) {
+              loadURLWithProxy(url, proxyAgent)
+            } else {
+              win.loadURL(url)
+            }
+            //autologin handle in case of proxy connection refuse
+            blockAuthCall = true;
           }
-
-          
-
+          isLoading = false;
           let activity_check_interval = 5;
 
           setInterval(function () { checkInactivity(activity_check_interval) }, activity_check_interval*1000);
@@ -2453,26 +3769,6 @@ WantedBy=graphical-session.target`;
           // apply context menus
           // BUG since 19.x Talk version double call ready-to-show
           applyContextMenu(win)
-
-          // no need since we have nextcloud_check observer script below
-          /*win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-            win.close();
-            appIcon.destroy();
-            dialog.showErrorBox('Ошибка','Nextcloud или Talk необходимых версий не найдены!');
-            setServerUrl (store.get('server_url')||url_example);
-          })*/
-
-          /*win.webContents.on('did-start-loading', () => {
-            win.setTitle(app.getName() + " v."+app.getVersion() + " - " + store.get('server_url') + " - " + i18n.__("loading"));
-            appIcon.setToolTip(app.getName() + " v."+app.getVersion() + " - " + store.get('server_url') + " - " + i18n.__("loading"));
-            win.setProgressBar(2, { mode: 'indeterminate' })
-          });
-
-          win.webContents.on('did-stop-loading', () => {
-            win.setTitle(app.getName() + " v."+app.getVersion() + " - " + store.get('server_url'));
-            appIcon.setToolTip(app.getName() + " v."+app.getVersion() + " - " + store.get('server_url'));
-             win.setProgressBar(-1)
-          });*/
 
           // to detect lock screen and suspend (mac)
           if (isMac) {
@@ -2497,10 +3793,15 @@ WantedBy=graphical-session.target`;
           }
 
           // fallback if cloud can't be loaded
+          // case of proxy auth connection error
           win.webContents.on('did-fail-load', (event, errorCode, errorDescription, validatedURL) => {
-            //writeLog(`Failed to load ${validatedURL}: ${errorDescription} (${errorCode})`);
-            win.close();
-            appIcon.destroy();
+
+            writeLog(`Failed to load ${validatedURL}: ${errorDescription} (${errorCode})`);
+            if (!validatedURL.includes('unsupported?redirect_url')) {
+              win.loadURL("about:blank"); // Fallback to a blank page
+            }
+            //win.close();
+            //appIcon.destroy();
           });
 
           // check cloud
@@ -2520,6 +3821,9 @@ WantedBy=graphical-session.target`;
             // get notification dot status on webContents change
             //win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'notification_observer.js')), true)
 
+            // check nc and talk status and version and run pinger
+            win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'nextcloud_check.js')),true)
+
             // get unread messages count
             win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'unread_observer.js')), true)
 
@@ -2530,9 +3834,12 @@ WantedBy=graphical-session.target`;
             win.webContents.executeJavaScript(`var nc_link_loc = "`+i18n.__("nc_link")+`";`);
             win.webContents.executeJavaScript(`var user_settings_link_loc = "`+i18n.__("user_settings_link")+`";`);
 
-            // check nc and talk status and version and run pinger
-            win.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'nextcloud_check.js')),true)
-
+            /*setTimeout(() => {
+              // set current app language
+              win.webContents.executeJavaScript(`force_lang('`+store.get('locale')+`','`+saved_password+`');`);
+              // set current app theme
+              win.webContents.executeJavaScript(`force_theme('`+store.get('theme')+`','`+saved_password+`');`);
+            }, 1000);*/
 
             // try autologin in case of SSO enabled
             if (!auto_login_error) {
@@ -2548,19 +3855,66 @@ WantedBy=graphical-session.target`;
               }
             }
 
+
           });
+          // proxy callback for remote NC server
+          win.webContents.on('login', (event, webContents, request, callback) => {
+            //writeLog("Remote NC server proxy callback");
+            //callback(proxyAgent.proxy.auth.split(':')[0], proxyAgent.proxy.auth.split(':')[1]); //supply credentials to remote server
+          })
+          let lastWebSocketConnectMessage = null;
+          let waitingForError = false;
+          let trackedWebSocketUrl = null;
 
           win.webContents.on('console-message', (event, level, message, line, sourceId) => {
 
             try {
-              //console.log(JSON.parse(message))
-              // get current nextcloud lang
-              /*if (JSON.parse(message).cur_nc_lang !== undefined) {
-                //console.log(JSON.parse(message).cur_nc_lang)
-                let user_settings_link = i18n.__('user_settings_link',JSON.parse(message).cur_nc_lang)
+              if (message.includes('Connecting to wss://')) {
 
-                win.webContents.executeJavaScript(`localize("`+id+`","`+setting_loc+`");`);
-              }*/
+                  //writeLog('WebSocket connecting...');
+                  lastWebSocketConnectMessage = message;
+                  waitingForError = true;
+                  
+
+                  const urlMatch = message.match(/wss:\/\/[^\s'"]+/);
+                  if (urlMatch) {
+                      trackedWebSocketUrl = urlMatch[0];
+                  }
+                  
+              } else if (waitingForError && message.includes('Error [object Event]')) {
+
+                  /*writeLog('🎯 WebSocket connection failed!');
+                  writeLog('URL:'+ trackedWebSocketUrl);
+                  writeLog('Connect message:'+ lastWebSocketConnectMessage);
+                  writeLog('Error message:'+ message);*/
+                  if ((!prompted) && (!(settings_opened))) {
+                    const options = {
+                      type: 'error',
+                      buttons: [i18n.__('save_button'), i18n.__('check_preferences')],
+                      defaultId: 1,
+                      title: i18n.__('error'),
+                      //icon:icon,
+                      message: i18n.__('message16'),
+                      //detail: i18n.__('message16'),
+                    };
+                    prompted = true;
+                    dialog.showMessageBox(win, options).then((result) => {
+                      if (result.response === 1) {
+                        openSettings(false,true);
+                        // don't show until app restart
+                        //prompted = false;
+                      } else {
+                        // don't show until app restart
+                        //prompted = false;
+                      }
+                    });
+                  }
+                  
+                  waitingForError = false;
+                  lastWebSocketConnectMessage = null;
+                  trackedWebSocketUrl = null;
+                  
+              }
 
               if (JSON.parse(message).action.unread || (JSON.parse(message).action.unread === 0)) {
                 //console.log(JSON.parse(message).action.unread)
@@ -2606,108 +3960,181 @@ WantedBy=graphical-session.target`;
               if (JSON.parse(message).action.notification) {
                 notification_message_link = JSON.parse(message).action.notification.link
                 notification_message_icon = JSON.parse(message).action.avatar
+                notification_type = JSON.parse(message).action.notification.object_type
               }
-
 
               // incoming call process
               if (JSON.parse(message).action.call) {
+                let token = JSON.parse(message).action.call.token
                 
-                call = JSON.parse(message).action.call
-                avatar = JSON.parse(message).action.avatar
-                
-                //let controller = new AbortController();
+                call[token] = JSON.parse(message).action.call
+                avatar[token] = JSON.parse(message).action.avatar
 
                 // check call status
-                if (call.lastMessage.systemMessage == 'call_started') {
-                //if (call.hasCall) {
-                  if (call_prev.token == call.token) {
-                    return;
+                //writeLog(call.lastMessage.systemMessage)
+                // 5 sec delay
+                setTimeout(function() {
+                  if (call[token].lastMessage.systemMessage.includes('call_started')) {
+                    //writeLog('Started call: '+ call[token].displayName)
+                    try {
+                      //writeLog('Prev token:' + call_prev[token].token)
+                    }
+                    catch (err) {
+                      //writeLog(err)
+                    }
+                    
+                    
+
+                    if (call_prev[token]) {
+                      if (call_prev[token].token == token) {
+                        //writeLog('Prev call = current')
+                        return;
+                      }
+                    }
+                    //writeLog(controller,true)
+                    if (!controller[token]) {
+                      controller[token] = new AbortController();
+                    }
+
+                    // convert avatar to round shape. used puppeteer to support svg format
+                    const avatar_process = async avatar => {
+                      let crop = 200; // set crop pixels, bigger value means more crop
+                      const browser = await puppeteer.launch();
+                      const page = await browser.newPage();
+                      // Wrap SVG in a scaling HTML container
+                      const htmlContent = `
+                        <!DOCTYPE html>
+                        <html style="width: ${crop}px; height: ${crop}px; background: transparent;">
+                          <body style="margin:0; padding:0; background: transparent; display: flex; align-items: center; justify-content: center; height: 100%;">
+                            <div id="svg-wrapper" style="width: 100%; height: 100%; overflow: hidden;">
+                              <img src="${avatar}" style="width: 100%; height: auto; display: block;" />
+                            </div>
+                          </body>
+                        </html>
+                      `;
+                      const dataUri = 'data:text/html,' + encodeURIComponent(htmlContent);
+
+                      // Enable transparency
+                      await page.goto(dataUri, {
+                        waitUntil: 'networkidle0',
+                        timeout: 30000,
+                      });
+
+                      await page.setViewport({
+                        width: crop,
+                        height: crop
+                      });
+
+                      // Take screenshot as buffer
+                      const pngBuffer = await page.screenshot({ type: 'png' });
+
+                      await browser.close();
+                      
+                      const outputBuffer = await sharp(pngBuffer)
+                        .resize(crop, crop) // resize
+                        .composite([{
+                          input: Buffer.from(
+                            `<svg><circle cx="100" cy="100" r="100" fill="white"/></svg>`
+                          ),
+                          blend: 'dest-in'
+                        }])
+                        .png() // Ensure output is PNG for transparency
+                        .toBuffer();
+
+                      avatar = nativeImage.createFromBuffer(outputBuffer);
+
+                      //writeLog(controller[token].signal,true)
+                      // if modal - win, then there will be priority around all call windows, otherwise - no
+                      if (!isMac) win.setEnabled(false);
+                      win.webContents.executeJavaScript(`blur_on_call_dialog(true)`)
+
+                      dialog.showMessageBox(
+                        (isMac) ? win : false,
+                        // hack
+                        /*new BrowserWindow({
+                          show: false,
+                          alwaysOnTop: true
+                        }),*/
+                        {
+                        //'type': 'warning',
+                        'title': '📞  '+i18n.__('call_title')+' '+call[token].displayName,
+                        'message': i18n.__("call_message")+call[token].displayName,
+                        'defaultId':1,
+                        'buttons': [
+                            '❌  '+i18n.__('cancel_button'),
+                            '📞  '+i18n.__('answer_button')
+                        ],
+                        'icon': avatar,
+                        'signal': controller[token].signal
+                      })
+                      .then((result) => {
+                        // if yes
+                        if (result.response === 1) {
+                          if (proxyUrl) {
+                            loadURLWithProxy(store.get('server_url')+'/call/'+token+'#direct-call', proxyAgent)
+                          } else {
+                            win.loadURL(store.get('server_url')+'/call/'+token+'#direct-call')
+                          }
+                          // force close other call dialogs if answer current call
+                          for (const [key, value] of Object.entries(controller)) {
+                            //writeLog(`Force close call from: ${call[key].displayName}`)
+                            value.abort();
+                            delete value[key];
+                          }
+                        } else {
+
+                          if (controller) {
+                            controller[token].abort();
+                            delete controller[token];
+                            for (const [key, value] of Object.entries(controller)) {
+                              //writeLog(call[key].displayName)
+                              if (key) return;
+                            }
+                          }
+                          
+                        }
+
+                        if (!isMac) win.setEnabled(true);
+                        win.webContents.executeJavaScript(`blur_on_call_dialog(false)`)
+                      });
+                      call_prev[token] = call[token];
+
+                    }
+                    avatar_process(avatar[token]);
+                    win.show();
                   } else {
-                    if (call!==false){
-                      call_prev = call;
+                    //writeLog('Prev call: '+call_prev[token].token)
+                    if (call[token].lastMessage.systemMessage.includes('call_missed')) {
+                      //writeLog('Missed call: '+ call[token].displayName)
+                      if (controller) {
+                        controller[token].abort();
+                        delete controller[token];
+                        delete call_prev[token];
+                        for (const [key, value] of Object.entries(controller)) {
+                          //writeLog(call[key].displayName)
+                          if (key) return;
+                        }
+                      }
+                      if (!isMac) win.setEnabled(true);
+                      win.webContents.executeJavaScript(`blur_on_call_dialog(false)`)
+                    }
+
+                    if (call[token].lastMessage.systemMessage.includes('call_ended')) {
+                      //writeLog('Ended call: '+call[token].displayName)
+                      if (controller) {
+                        controller[token].abort();
+                        delete controller[token];
+                        delete call_prev[token];
+                        for (const [key, value] of Object.entries(controller)) {
+                          //writeLog(call[key].displayName)
+                          if (key) return;
+                        }
+                      }
+                      if (!isMac) win.setEnabled(true);
+                      win.webContents.executeJavaScript(`blur_on_call_dialog(false)`)
                     }
                   }
-                } else {
-                  //writeLog('Missed call')
-                  call_prev = false;
-                  //controller.abort();
-                }
-
-                // convert avatar to round shape. used puppeteer to support svg format
-                const avatar_process = async avatar => {
-                  let crop = 200; // set crop pixels, bigger value means more crop
-                  const browser = await puppeteer.launch();
-                  const page = await browser.newPage();
-                  // Wrap SVG in a scaling HTML container
-                  const htmlContent = `
-                    <!DOCTYPE html>
-                    <html style="width: ${crop}px; height: ${crop}px; background: transparent;">
-                      <body style="margin:0; padding:0; background: transparent; display: flex; align-items: center; justify-content: center; height: 100%;">
-                        <div id="svg-wrapper" style="width: 100%; height: 100%; overflow: hidden;">
-                          <img src="${avatar}" style="width: 100%; height: auto; display: block;" />
-                        </div>
-                      </body>
-                    </html>
-                  `;
-                  const dataUri = 'data:text/html,' + encodeURIComponent(htmlContent);
-
-                  // Enable transparency
-                  await page.goto(dataUri, {
-                    waitUntil: 'networkidle0',
-                    timeout: 30000,
-                  });
-
-                  await page.setViewport({
-                    width: crop,
-                    height: crop
-                  });
-
-                  // Take screenshot as buffer
-                  const pngBuffer = await page.screenshot({ type: 'png' });
-
-                  await browser.close();
-                  
-                  const outputBuffer = await sharp(pngBuffer)
-                    .resize(crop, crop) // resize
-                    .composite([{
-                      input: Buffer.from(
-                        `<svg><circle cx="100" cy="100" r="100" fill="white"/></svg>`
-                      ),
-                      blend: 'dest-in'
-                    }])
-                    .png() // Ensure output is PNG for transparency
-                    .toBuffer();
-
-                  avatar = nativeImage.createFromBuffer(outputBuffer);
-                  dialog.showMessageBox(win, {
-                    //'type': 'warning',
-                    'title': i18n.__('call_title'),
-                    'message': i18n.__("call_message")+call.displayName,
-                    'defaultId':1,
-                    'buttons': [
-                        i18n.__('cancel_button'),
-                        i18n.__('answer_button')
-                    ],
-                    'icon': avatar
-                    //'signal': controller.signal
-                  })
-                  .then((result) => {
-                    // if no
-                    /*if (result.response !== 0) {
-                      call_prev = false;
-                    }*/
-                    // if no
-                    /*if (result.response === 0) {
-                      return;
-                    }*/
-                    // if yes
-                    if (result.response === 1) win.loadURL(store.get('server_url')+'/call/'+call.token+'#direct-call')
-                  });
-                }
-                
-                avatar_process(avatar);
-                win.show();
-                
+                }, 3000)
               }
 
               if (JSON.parse(message).action == 'not_alive') {
@@ -2745,7 +4172,7 @@ WantedBy=graphical-session.target`;
 
 
                 // dirty but it works
-                if (!win.isVisible()) { 
+                if (!win.isVisible() || win.isMinimized() /*|| !win.isFocused()*/) {
                   win.show();
                   if (isMac) app.dock.show();
 
@@ -2773,6 +4200,24 @@ WantedBy=graphical-session.target`;
                 win.webContents.insertCSS('.rich-contenteditable__input { padding-top:0.5vh!important;}');
               }
 
+              // check if language is changed - reload
+              if (JSON.parse(message).action == 'language_changed') {
+                win.reload();
+              }
+
+              // check if theme is changed - reload
+              if (JSON.parse(message).action == 'theme_changed') {
+                win.reload();
+              }
+
+              // apply theme and lang
+              if (JSON.parse(message).action == 'try_apply_theme_and_lang') {
+                // set current app language
+                win.webContents.executeJavaScript(`force_lang('`+store.get('locale')+`','`+saved_password+`');`);
+                // set current app theme
+                win.webContents.executeJavaScript(`force_theme('`+store.get('theme')+`','`+saved_password+`');`);
+              }
+
               if (JSON.parse(message).action == 'not_found') {
                 if (store.get('auto_login')) {
                   if (!auto_login_error) {
@@ -2786,27 +4231,13 @@ WantedBy=graphical-session.target`;
                       message: i18n.__('message6'),
                       detail: i18n.__('message9'),
                     };
-                    dialog.showMessageBox(win, options).then((result) => {
-                      switch (result.response) {
-                        case 0: // Retry
-                          //writeLog('User clicked Retry');
-                          restartApp();
-                          break;
-                        case 1: // Exit App
-                          //writeLoglog('User clicked Exit App');
-                          app.exit(0);
-                          break;
-                        case 2: // Open Preferences
-                          //writeLog('User clicked Open Preferences');
-                          openSettings(true,true);
-                          break;
-                        default:
-                          break;
-                      }
-                    });
+
+                    showAutoRetryDialog(win, options, 20*1000);
+
                     //dialog.showErrorBox(i18n.__('error'),i18n.__('message6'));
 
                     //win.webContents.executeJavaScript('window.location.replace("'+store.get('server_url')+'")')
+                    
                     auto_login_error = true;
                   } else {
 
@@ -2829,24 +4260,8 @@ WantedBy=graphical-session.target`;
                       message: i18n.__('message1'),
                       detail: i18n.__('message9'),
                     };
-                    dialog.showMessageBox(win, options).then((result) => {
-                      switch (result.response) {
-                        case 0: // Retry
-                          //writeLog('User clicked Retry');
-                          restartApp();
-                          break;
-                        case 1: // Exit App
-                          //writeLoglog('User clicked Exit App');
-                          app.exit(0);
-                          break;
-                        case 2: // Open Preferences
-                          //writeLog('User clicked Open Preferences');
-                          openSettings(true,true);
-                          break;
-                        default:
-                          break;
-                      }
-                    });
+                    prompted = true;
+                    showAutoRetryDialog(win, options, 20*1000, prompted);
 
                     //app.exit(0);
                     //setServerUrl (store.get('server_url')||url_example);
@@ -2856,7 +4271,8 @@ WantedBy=graphical-session.target`;
               }
             }
             catch (err) {
-              //console.log(err)
+              // Don't write this errors in log as they are useless with some json parse issues
+              //writeLog(err)
               //dialog.showErrorBox('Ошибка', "Подробнее: "+JSON.stringify(err));
               //app.exit(0);
             }
@@ -2918,7 +4334,7 @@ WantedBy=graphical-session.target`;
 
 
           win.webContents.on('devtools-closed', () => {
-            mainMenuTemplate[2].submenu[1].label = i18n.__("open_devtools");
+            mainMenuTemplate[2].submenu[1].label = '🔍  '+i18n.__("open_devtools");
             MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
             Menu.setApplicationMenu(MainMenu);
             //checkNewVersion(app.getVersion());
@@ -2926,7 +4342,7 @@ WantedBy=graphical-session.target`;
 
           win.webContents.on('devtools-opened', () => {
             //checkNewVersion(app.getVersion());
-            mainMenuTemplate[2].submenu[1].label = i18n.__("close_devtools");
+            mainMenuTemplate[2].submenu[1].label = '🔍  '+i18n.__("close_devtools");
             MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
             Menu.setApplicationMenu(MainMenu);
             //checkNewVersion(app.getVersion());
@@ -2945,16 +4361,17 @@ WantedBy=graphical-session.target`;
         }
 
         function guiInit() {
-
-          /*var locale = 'en';
+          // check locale set and apply current browser locale if it is not set
           if ((store.get('locale') == undefined) || (store.get('locale') == "")) {
-              locale = navigator.language.slice(0,2).toLowerCase() || navigator.userLanguage.slice(0,2).toLowerCase();
-              store.set('locale',locale)
+              store.set('locale',navigator.language.slice(0,2).toLowerCase() || navigator.userLanguage.slice(0,2).toLowerCase())
               //localStorage.setItem('locale',this.settings.locale);
-          } else {
+          }/* else {
               locale = store.get('locale');
           }*/
+          // TODO sync NC locale with app locale
 
+
+          
           // localize gui
           //loadLocaleMessages(locale);
 
@@ -2983,7 +4400,12 @@ WantedBy=graphical-session.target`;
               if (win.isVisible() && win.isFocused()) {
                 win.hide()
               } else {
-                win.show()
+                if (!isLoading) {
+                  win.show()
+                } else {
+                  dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
+                }
+                
               }
             } else {
               appIcon.popUpContextMenu();
@@ -3072,13 +4494,74 @@ WantedBy=graphical-session.target`;
                 })
                 .catch((err) => {
                   writeLog(err)
-                  dialog.showErrorBox(i18n.__('error'), i18n.__("more")+JSON.stringify(err));
+                  dialog.showErrorBox(i18n.__('error'), i18n.__("more")+":"+JSON.stringify(err));
                   store.delete('latestVersion');
                   store.delete('releaseUrl');
                   app.exit(0);
                 });
               }
           })
+        }
+
+
+        function saveProxyServer (login,password) {
+
+          /*if(input === null) {
+            //writeLog('Proxy dialog cancelled');
+            dialog.showErrorBox(i18n.__('error'), i18n.__("message15"));
+            return app.exit(0);
+          }
+
+          const trimmed = input.trim();
+
+          const parts = trimmed.split(':');
+          if (parts.length !== 2) {
+            dialog.showErrorBox(i18n.__('error'), i18n.__("message12"));
+            return saveProxyServer (proxyUrl)
+          }
+
+          const [login, password] = parts;
+          if (!login.trim()) {
+            dialog.showErrorBox(i18n.__('error'), i18n.__("message13"));
+            return saveProxyServer (proxyUrl)
+          }
+          if (!password.trim()) {
+            dialog.showErrorBox(i18n.__('error'), i18n.__("message14"));
+            return saveProxyServer (proxyUrl)
+          }*/
+
+          saveProxyCredentials(login, password)
+
+          let proxyLoginData = { server: {} };
+          let savedProxyLogin = false;
+
+          try {
+            savedProxyLogin = JSON.parse(store.get("saved_proxy_login"));
+          }
+          catch (err) {
+            writeLog(err)
+          } 
+
+          if (savedProxyLogin) {
+            try {
+              proxyLoginData = savedProxyLogin;
+              if (!proxyLoginData.server) {
+                proxyLoginData.server = {};
+              }
+            } catch (e) {
+              writeLog("Error parsing saved_proxy_login, create new structure");
+              proxyLoginData = { server: {} };
+            }
+          }
+
+          proxyLoginData.server[proxyUrl] = {
+            user: login
+          };
+
+          store.set("saved_proxy_login", JSON.stringify(proxyLoginData));
+
+          //restartApp();
+            
         }
 
         // set server_url prompt
@@ -3122,44 +4605,12 @@ WantedBy=graphical-session.target`;
           })
           .catch((err) => {
             writeLog(err)
-            dialog.showErrorBox(i18n.__('error'), i18n.__("more")+JSON.stringify(err));
+            dialog.showErrorBox(i18n.__('error'), i18n.__("more")+":"+JSON.stringify(err));
             store.delete('latestVersion');
             store.delete('releaseUrl');
             app.exit(0);
           });
         }
-
-        // save password prompt
-        /*async function savePassword (login,win) {
-          //prompted = true;
-          // show input box for server address
-          prompt({
-            title: i18n.__('title4'),
-            label: i18n.__('message7')+'<br><strong>'+login+':</strong>',
-            useHtmlLabel: true,
-            buttonLabels: {
-              ok: i18n.__('save_button'),
-              cancel: i18n.__('cancel_button')
-            },
-            type: 'input',
-            inputAttrs: {
-              type: 'password',
-              required: true
-            },
-            height : 200
-          }, win)
-          .then((input) => {
-            if(input === null) {
-            } else {
-              //saveCredentials(login,input);
-              //store.set("saved_login", login);
-            }
-          })
-          .catch((err) => {
-            writeLog(err)
-            dialog.showErrorBox(i18n.__('error'), i18n.__("more")+JSON.stringify(err));
-          });
-        }*/
 
         /******************** startup app block *********************/
 
@@ -3167,7 +4618,7 @@ WantedBy=graphical-session.target`;
         // initialization and is ready to create browser windows.
         // Some APIs can only be used after this event occurs.
 
-        // TODO To enable transparency on Linux (in KDE dont work?)
+        // To enable transparency on Linux (in KDE dont work?)
         if (isLinux) {
           app.commandLine.appendSwitch('enable-transparent-visuals');
           app.commandLine.appendSwitch('disable-gpu');
@@ -3220,6 +4671,15 @@ WantedBy=graphical-session.target`;
           //if (!isMac) app.quit()
         })
 
+        // TODO handle proxy if it is used
+        // TODO add proxy url and creds to all electron-fetch calls!
+
+        app.on('login', (event, webContents, request, authInfo, callback) => {
+            //let fullProxy = `${authInfo.host}:${authInfo.port}`; //concat proxy for lookup
+            //writeLog(fullProxy)
+            callback(proxyAgent.proxy.auth.split(':')[0], proxyAgent.proxy.auth.split(':')[1]); //supply credentials to server
+        });
+
         /******************** startup app block *********************/
 
 
@@ -3240,5 +4700,6 @@ catch (err) {
   store.delete('releaseUrl');
   app.exit(0);
 }
+
 
 

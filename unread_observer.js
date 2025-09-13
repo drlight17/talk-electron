@@ -127,11 +127,17 @@ async function recalc_counters_summary (removed) {
 
             // statuses are: call_ended, call_missed, call_started
             // participantFlags == 7 means you're the caller, participantFlags == 0 - someone calls you
+            let onehourago = new Date(Date.now() - (60 * 60 * 1000));
+            let lastMessagetimestamp = new Date(conversation.lastMessage.timestamp*1000);
 
-            if ((conversation) && (conversation.lastMessage.systemMessage == 'call_started') && (conversation.participantFlags != 7)) {
+            if ((conversation) && ((conversation.lastMessage.systemMessage.includes('call_started'))||(conversation.lastMessage.systemMessage.includes('call_missed')) || (conversation.lastMessage.systemMessage.includes('call_ended'))) && (conversation.participantFlags != 7)) {
+
                 //console.log(conversation.name + " is calling!")
-                get_avatar(conversation);
+                if (lastMessagetimestamp > onehourago) {
+                    get_avatar(conversation);
+                }
             }
+
 
             // last message chat id and token fetch
             if ((conversation.unreadMessages != 0) && (typeof conversation.unreadMessages === 'number')) {

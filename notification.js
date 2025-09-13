@@ -1,13 +1,31 @@
-function showCustomNotification(data, dismiss, open, open_title, timeout, theme, appIcon, avatar, close_after) {
+// Create notification element
+let notif = document.createElement('div');
+let animation_direction_in = '';
+let animation_direction_out = '';
+let dismissTimeout;
+let total;
+let remaining;
+let timerDisplay;
+let src_body_opacity;
+let new_body_opacity;
 
+function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss_all_title, open, open_title, theme, appIcon, avatar, /*close_after, notification_counter,*/ notification_position) {
   const container = document.getElementById('notification-container');
+
   if (theme == 'dark') {
     document.body.classList.add('dark-theme');
   } else {
     document.body.classList.add('light-theme');
   }
 
-  container.title = open_title;
+  if (notification_position.includes('left')) {
+    animation_direction_in = "slide-in-left";
+    animation_direction_out = "slide-out-left";
+  } else {
+    animation_direction_in = "slide-in-right";
+    animation_direction_out = "slide-out-right";
+  }
+
   try {
     // to remove all bad control characters
     data = data.replace(/[\x00-\x1F\x7F]/g, '');
@@ -17,111 +35,214 @@ function showCustomNotification(data, dismiss, open, open_title, timeout, theme,
 
     data = JSON.parse(data);
 
-    // Create notification element
-    const notif = document.createElement('div');
     notif.className = 'notification';
     let ava_html = '';
     if (avatar) {
       ava_html = `<img src="${avatar}" alt="Avatar" />`
     }
+    notif.title=open_title;
+
     notif.innerHTML = `
-      <button title="${dismiss}" class="close-btn">&times;</button>
+      <span>
+        <button title="${dismiss_all_title}" id="dismiss_all">${dismiss_all}</button>
+        <button title="${dismiss}" class="close-btn">&times;</button>
+      </span>
       <p class="title">${ava_html}&nbsp;&nbsp;<strong>${data.title}</strong></p>
-      <p>${data.body}</p>
-      <button title="${open_title}" class="read-btn">${open}</button>
-      <div class="timer-number" id="timer"></div>
+      <p class="data-body">${data.body}</p>
+      <div class="timer-container hidden">
+        <svg class="circular-timer" viewBox="0 0 40 40">
+          <circle class="timer-ring-background" cx="20" cy="20" r="18"></circle>
+          <circle class="timer-ring-progress" cx="20" cy="20" r="18"></circle>
+        </svg>
+        <div class="timer-number" id="timer"></div>
+      </div>
       <div id="notification-title"><img src="${appIcon}" alt="App icon" />&nbsp;&nbsp;NC Talk Electron</div>
     `;
+    
+    if (isTextLongAndHasSpace(notif.querySelector('.data-body'),50)) {
+      notif.querySelector('.data-body').classList.add('fade-mask');
+    }
+
+    notif.classList.add(animation_direction_in);
 
     // Dismiss on close-btn click
     notif.querySelector('.close-btn').addEventListener('click', (event) => {
-    //container.addEventListener('click', () => {
-        notif.classList.add('slide-out');
+        event.stopPropagation();
+        notif.classList.remove(animation_direction_in);
+        notif.classList.add(animation_direction_out);
         setTimeout(() => {
           notif.remove();
           self.close();
+          console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
         }, 300);
     });
 
     // open message tag link at read-btn
-    notif.querySelector('.read-btn').addEventListener('click', (event) => {
-    //container.addEventListener('click', (event) => {
-      event.stopPropagation(); // prevent parent container click
-      notif.classList.add('slide-out');
+    notif.addEventListener('click', (event) => {
+      notif.classList.remove(animation_direction_in);
+      notif.classList.add(animation_direction_out);
       setTimeout(() => {
         notif.remove();
         self.close();
+        console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
       }, 300);
-      // open message tag link
       console.log(JSON.stringify({'action': {'open_message': data.tag }}));
     });
 
-    // Auto-dismiss after timeout
+    // Pause timer on hover
+    notif.addEventListener('mouseenter', () => {
+      clearInterval(dismissTimeout);
+    });
 
-    if ((timeout > 0) && (typeof timeout !== 'undefined')) {
-      let dismissTimeout;
-      let total = timeout; // total seconds
-      let remaining = total;
+    // Restart timer on mouse leave
+    notif.addEventListener('mouseleave', () => {
+      startDismissTimer(win_noti_id); // Reset countdown
+    });
 
-      const timerDisplay = notif.querySelector('#timer');
-
-      const updateTimer = () => {
-        if (timerDisplay) {
-          timerDisplay.innerHTML = close_after + '&nbsp;' + remaining;
-        }
-      };
-
-      const startDismissTimer = () => {
-        remaining = total;
-        updateTimer();
-        timerDisplay.classList.remove('fade-out'); // reset fade
-
-        clearInterval(dismissTimeout); // Clear any previous interval
-
-        dismissTimeout = setInterval(() => {
-          remaining--;
-
-          if (remaining <= 0) {
-            clearInterval(dismissTimeout);
-            if (container.contains(notif)) {
-              // Start fade-out animation
-              timerDisplay.classList.add('fade-out');
-
-              // Wait for animation to finish before removing
-              setTimeout(() => {
-                notif.classList.add('slide-out'); // Optional: slide-out animation
-                setTimeout(() => {
-                  notif.remove();
-                  self.close();
-                }, 300);
-              }, 200); // match fade-out duration
-            }
-          } else {
-            updateTimer();
-          }
-        }, 1000);
-      };
-
-      // Start initial timer
-      startDismissTimer();
-
-      // Pause timer on hover
-      notif.addEventListener('mouseenter', () => {
-        clearInterval(dismissTimeout);
-      });
-
-      // Restart timer on mouse leave
-      notif.addEventListener('mouseleave', () => {
-        startDismissTimer(); // Reset countdown
-      });
-    }
-
+    // Start initial timer
+    startDismissTimer(win_noti_id);
 
     // Add to DOM
     container.appendChild(notif);
+
   }
   catch(err) {
     console.log(err)
   }
+}
 
+function isTextLongAndHasSpace(element, minLength) {
+  // Проверяем, является ли аргумент элементом
+  if (!element || typeof element !== 'object' || element.nodeType !== Node.ELEMENT_NODE) {
+    console.error('Первый аргумент должен быть DOM элементом');
+    return false;
+  }
+
+  // Получаем текстовое содержимое элемента
+  // textContent включает текст всех потомков
+  // innerText учитывает стили (например, display: none), но может быть менее надежным
+  // innerHTML вернет HTML, что нам не нужно
+  const text = element.textContent || element.innerText || "";
+
+  // Проверяем длину текста
+  const isLongEnough = text.length > minLength;
+
+  // Проверяем наличие хотя бы одного пробела
+  // \s соответствует любому пробельному символу (пробел, табуляция, новая строка и т.д.)
+  // Если нужно проверить именно обычный пробел ' ', используйте text.includes(' ')
+  const hasSpace = /\s/.test(text); // Или text.includes(' ') для обычного пробела
+
+  // Возвращаем true, если оба условия выполнены
+  return isLongEnough && hasSpace;
+}
+
+function updateDismissAllButton (counter){
+  // if counter > 1 show dismiss all button
+  let dismiss_all_button = notif.querySelector('#dismiss_all')
+  if (counter > 1) {
+    dismiss_all_button.classList.add('visible');
+    notif.classList.add('multiple');
+    document.body.classList.add('multiple');
+  } else {
+    dismiss_all_button.classList.remove('visible');
+    notif.classList.remove('multiple');
+    document.body.classList.remove('multiple');
+  }
+  // dismiss all notifications action
+  dismiss_all_button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    console.log(JSON.stringify({'action': 'dismissed_all'}));
+  })
+}
+
+function updateDismissTimeout(timeout,win_noti_id) {
+
+  if ((timeout > 0) && (typeof timeout !== 'undefined')) {
+    src_body_opacity = parseFloat(getComputedStyle(document.body).opacity);
+    new_body_opacity = src_body_opacity;
+    total = timeout * 10;
+    remaining = total;
+    timerDisplay = notif.querySelector('#timer');
+
+    window.updateTimer = function() {
+      if (!timerDisplay) return;
+      const progressCircle = notif.querySelector('.timer-ring-progress');
+      const circumference = 2 * Math.PI * 18; // 2πr где r=18
+      const remainingPercent = remaining / total * 100;
+      notif.querySelector('.timer-container').classList.remove('hidden');
+
+      if (remainingPercent > 33) {
+        const progress = (remainingPercent - 33) / (100 - 33);
+        new_body_opacity = src_body_opacity * (0.7 + 0.3 * progress);
+      } else if (remainingPercent > 0) {
+        const progress = remainingPercent / 33;
+        const expFactor = Math.pow(progress, 2);
+        new_body_opacity = src_body_opacity * (0.2 + 0.5 * expFactor);
+      } else {
+        new_body_opacity = src_body_opacity * 0.1;
+      }
+      document.body.style.opacity = new_body_opacity.toFixed(2);
+      timerDisplay.innerHTML = '&nbsp;' + Math.round(remaining / 10);
+      if (progressCircle) {
+        progressCircle.style.strokeDasharray = circumference;
+        const progress = (remaining / total) * circumference;
+        progressCircle.style.strokeDashoffset = circumference - progress;
+      }
+    };
+  }
+}
+
+function startDismissTimer(win_noti_id) {
+
+  remaining = total;
+  
+  if (typeof updateTimer === 'function') {
+    updateTimer();
+  }
+  
+  if (timerDisplay) {
+    timerDisplay.classList.remove('fade-out');
+  }
+
+  clearInterval(dismissTimeout);
+
+  dismissTimeout = setInterval(() => {
+    remaining--;
+
+    if (remaining <= 0) {
+      clearInterval(dismissTimeout);
+      if (timerDisplay && timerDisplay.parentNode) {
+        timerDisplay.classList.add('fade-out');
+        if (notif && notif.parentNode) {
+          notif.classList.remove(animation_direction_in);
+          notif.classList.add(animation_direction_out);
+          setTimeout(() => {
+            if (notif && notif.parentNode) {
+              notif.remove();
+              self.close();
+              console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
+            }
+          }, 300);
+        }
+      }
+    } else {
+      if (typeof updateTimer === 'function') {
+        updateTimer();
+      }
+    }
+  }, 100);
+};
+
+function slideAway(id) {
+  console.log(JSON.stringify({'action': {'dismissed': id }}));
+  if (notif && notif.parentNode) {
+    notif.classList.remove(animation_direction_in);
+    notif.classList.add(animation_direction_out);
+    setTimeout(() => {
+        if (notif && notif.parentNode) {
+          notif.remove();
+          self.close();
+        }
+      }, 300);
+  }
 }

@@ -1,3 +1,53 @@
+0.6.0
+- [x] NEW: global proxy detect with url and port fetch
+- [x] BUG: delayed donateClick at first runeven with started licensing flow
+- [x] NEW: app theme force to NC
+- [x] BUG(macos): don't intercept focus on notification appear
+- [x] BUG: notification with long no-spaces string force css ellipsis (check multiple long lines also!!)
+- [x] NEW: donate messagebox using browserWindow with IPC
+- [x] BUG: fullscreen button logic interferes with blurred logic of app and avatar icon menu
+- [x] NEW: show license info in about panel
+- [x] NEW: show donation button also in tray menu
+- [x] BUG: add custom ca cert for license server requests (in config.json set 'custom_ca_cert', place cert to app root folder)
+- [x] BUG: ocs api requests to theme and lang require password
+- [x] NEW: license_server_url variable to override default license server (no gui for now)
+- [x] handle connection errors in case of proxy connection
+- [x] NEW (gui): store proxy login and password in keytar using settings.html
+- [x] electron loadURL and electron-fetch proxy credentials provide
+- [x] handle proxy with no auth aprovided (settings also)
+- [x] get wss connection errors in console and show error messagebox once
+- [x] BUG: multiple connection error can appear
+- [x] BUG: proxy websocket connectivity fix
+- [x] NEW: dismiss all button for notification with 0s timeout if there more then 1 notification
+- [x] NEW: styling of dismiss all button and multiple notifications
+- [x] NEW: detect if mainWindow is focused after notification with 0s timeout appeared - auto dismiss all notifications (with 5s delay)
+- [x] NEW: add button "Need mobile client?" with ios and android app links in window menu
+- [x] BUG(macos): "Need mobile client" is not shown
+- [x] NEW: some GUI icons
+- [x] NEW: donate $ button in window menu
+- [x] NEW: ability to cancel license key request (delete key_licence from store) in warn dialog (prompt)
+- [x] BUG: forced checkLicense messageboxes localization
+- [x] NEW: donate dialog of non activated app every 7 days
+- [x] NEW: cache license check once in hour
+- [x] BUG: app browser locale sync with app locale
+- [x] NEW: notification sound setting
+- [x] NEW: organize settings menu (appearance, connection, notifications,behaviour)
+- [x] NEW: fadeout effect at notification during timer
+- [x] NEW: change notification appearance to telegram like
+- [x] BUG: adopt to NC 31.x.x
+- [x] NEW: settings window appearance decor
+- [x] BUG: double notification on call'
+- [x] BUG: autologin handle in case of proxy connection refuse
+- [x] BUG: force close call in dialog if call has changed status from 'call_started' to 'call_ended' or 'call_missed'
+- [x] NEW: turn off notifications checkbox
+- [x] BUG: place all browserWindow instances (settings,notifications, picker) on the same display as app main window
+- [x] BUG: some call dialog and related window behaviour and animations
+- [x] BUG: isLoading block for logout and settings
+- [x] NEW: auto retry with timeout in case of connection error
+- [x] BUG: navi-menu blurred background content fix for \[ 910; 1024 \] px width
+- [x] BUG: cleanup avatar in notifications after use
+- [x] BUG: multiple "update available" windows
+
 0.5.1-alpha
 - [x] NEW: error message instead of whitescreen in main win in case of connection error
 - [x] BUG: main window shows (got focused) after notification dismiss if main window is visible -- workaround: show notification only if main window is hidden, minimized or unfocused

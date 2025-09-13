@@ -1,23 +1,3 @@
-function waitForElm(selector) {
-    return new Promise(resolve => {
-        if (document.querySelector(selector)) {
-            return resolve(document.querySelector(selector));
-        }
-
-        const observer = new MutationObserver(mutations => {
-            if (document.querySelector(selector)) {
-                resolve(document.querySelector(selector));
-                observer.disconnect();
-            }
-        });
-
-        /*observer.observe($('#notifications').get(0), {
-            childList: true,
-            subtree: true
-        });*/
-    });
-}
-
 let debounce;
 
 // temp force close navi-menu if user menu is opened 
@@ -45,53 +25,94 @@ waitForElm('#user-menu').then((elm) => {
   });
 })
 
-const $toggleButton = $('.app-navigation-toggle-wrapper button');
+//const $toggleButton = $('.app-navigation-toggle-wrapper button');
+
+// blur chat zone when navi menu is opened 
+
+const buttonSelector = '.app-navigation-toggle-wrapper button';
+let fullscreen = false;
+let observer3 = null;
 
 // Function to handle the attribute change
-function handleAriaExpandedChange() {
+function handleAriaExpandedChange(elm) {
+
   clearTimeout(debounce);
   debounce = setTimeout(function() {
-    if ($(window).width() < 1024) {
-      let isExpanded = $toggleButton.attr('aria-expanded') === "true";
-      
-      if (isExpanded) {
-        //console.log("The button is expanded.");
-        document.getElementById('app-content-vue').classList.add("blurred");
+    // check if fullscreen - remove #body-user #header z-index
+    if (!window.screenTop && !window.screenY) {
+        //console.log('Browser is in fullscreen');
+        document.getElementById('header').classList.add("fullscreen_fix");
+        fullscreen = true;
+    } else {
+      document.getElementById('header').classList.remove("fullscreen_fix");
+      fullscreen = false;
+    }
+
+
+    if (!fullscreen) {
+      if ($(window).width() <= 910)  {
+        // redetect elm to observer as it is recreated
+        if (!isElementInDOM(elm[0])) {
+          //console.log("Button was removed. Start new observer")
+          startToggleButtonObserver(buttonSelector);
+          return;
+        }
+
+        let isExpanded = elm.attr('aria-expanded') === "true";
+         //console.log(elm.attr('aria-expanded'));
+
+        if (isExpanded) {
+          //console.log("The button is expanded.");
+          document.getElementById('app-content-vue').classList.add("blurred");
+        } else {
+          //console.log("The button is collapsed.");
+          document.getElementById('app-content-vue').classList.remove("blurred");
+        }
       } else {
-        //console.log("The button is collapsed.");
         document.getElementById('app-content-vue').classList.remove("blurred");
       }
-    } else {
-      document.getElementById('app-content-vue').classList.remove("blurred");
     }
   }, 200);
 }
 
-// blur chat zone when navi menu is opened 
-// Create a MutationObserver to monitor attribute changes
-const observer3 = new MutationObserver((mutationsList) => {
-  for (const mutation of mutationsList) {
-    if (mutation.type === 'attributes' && mutation.attributeName === 'aria-expanded') {
-      handleAriaExpandedChange();
+function startToggleButtonObserver(buttonSelector) {
+  waitForElm(buttonSelector).then((elm) => {
+    // Create a MutationObserver to monitor attribute changes
+    // turn off previous if exist
+    if (observer3) {
+      observer3.disconnect();
+      observer3 = null;
     }
-  }
-});
 
-// Start observing the button for attribute changes
-if ($toggleButton.length > 0) {
-  observer3.observe($toggleButton[0], {
-    attributes: true, // Monitor attribute changes
-  });
+    observer3 = new MutationObserver((mutationsList) => {
+      for (const mutation of mutationsList) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'aria-expanded') {
+          handleAriaExpandedChange($(elm));
+        }
+      }
+    });
 
-  // Initial check in case the attribute is already set
-  handleAriaExpandedChange();
-} else {
-  console.error("Target button not found!");
+    if ($(elm).length > 0) {
+      // Start observing the button for attribute changes
+
+      observer3.observe($(elm)[0], {
+        attributes: true, // Monitor attribute changes
+      });
+
+      // Initial check in case the attribute is already set
+      handleAriaExpandedChange($(elm));
+    } else {
+      console.error("Target button not found!");
+    }
+
+    $(window).resize(function() {
+        handleAriaExpandedChange($(elm));
+    })
+
+  })
 }
 
-$(window).resize(function() {
-    handleAriaExpandedChange();
-})
+startToggleButtonObserver(buttonSelector);
 
 
 

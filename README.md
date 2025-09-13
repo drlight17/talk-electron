@@ -54,7 +54,11 @@ Supported setting arguments (see example.config.json):
 - `auto_login` - true\false value means to try auto login (make sure you have configured allow_domain and SSO in NC)
 - `logging` - boolean true\false value means to save application logs to the file app.log in local user folder (nearby config.json)
 - `theme` - application theme (dark, light, auto; default is auto)
-- `notification_timeout` - time period of notification show (in seconds, 0 - means to wait of user action)
+- `notification_timeout` - time period of notification show (in seconds, 0 - means to wait of user action) (*deprecated since v.0.6.0, check* `notification_timeout_checkbox` *instead boolean*)
+- `notification_timeout_checkbox` - true\false value means to allow notifications in app (default is true)
+- `notification_sys_checkbox` - true\false value means to use system based notification instead of app internal (default is false)
+- `notification_position` - bottom-right\bottom-left\top-right\top-left value means the position of app internal nitifications (default is bottom-right)
+- `notification_muted` - true\false value means to mute all sounds from notifications and calls in app (default is false)
 
 # For developers
 Build depends on the platform since 0.2.9-alpha version as it brings support of the system idle detect function.

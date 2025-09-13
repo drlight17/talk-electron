@@ -7,72 +7,141 @@
 	<script src="settings.js"></script>
 </head>
 <body class="settings">
+	<div id='app_icon'><img alt="App icon" /></div>
 	<div id="app">
 		<form id="settings_form" onsubmit="return false">
-			<label id="lang_id" for="lang"></label>
-		    <select id="lang">
-			</select>
-			<br>
-			<br>
-			<label id="theme_id" for="theme"></label>
-		    <select id="theme">
-		    	<!--<option value="auto">Auto</option>
-		    	<option value="dark">Dark</option>
-		    	<option value="light">Light</option>-->
-			</select>
-		    <br>
-			<br>
-		    <label id="server_url_id" for="server_url"></label>
-		    <input type="text" name="server_url" id="server_url"><br><br>
-		    <label id="allow_domain_id" title="Несколько значений через запятую, * - wildcard (может обозначать любой поддомен)" for="allow_domain"></label>
-		    <input type="text" name="allow_domain" id="allow_domain"><br><br>
-		    <!--<input type='hidden' value=false name='saved_login'>
-		    <label id="saved_login_id" for="saved_login"></label>
-		    <input type="text" name="saved_login" id="saved_login">-->
-			<label id="notification_timeout_id" for="notification_timeout"></label>
-		    <select id="notification_timeout">
-		    	<option value="0">0</option>
-		    	<option value="5">5</option>
-		    	<option value="10">10</option>
-		    	<option value="30">30</option>
-			</select>
-			<label id="notification_timeout_end_id" for="notification_timeout_end"></label>
-		    <br>
-		    <br>
-		    <input type='hidden' value=false name='auto_login'>
-		    <input type="checkbox" value=true name="auto_login" id="auto_login">
-		    <label id="auto_login_id" for="auto_login"></label>
-			<br>
-		    <input type='hidden' value=false name='run_at_startup'>
-		    <input type="checkbox" value=true name="run_at_startup" id="run_at_startup">
-		    <label id="run_at_startup_id" for="run_at_startup"></label>
-		    <br>
-		    <input type='hidden' value=false name='use_server_icon'>
-		    <input type="checkbox" value=true name="use_server_icon" id="use_server_icon">
-		    <label id="use_server_icon_id" for="use_server_icon"></label>
-		    <br>
-		    <input type='hidden' value=false name='show_on_new_message'>
-		    <input type="checkbox" value=true name="show_on_new_message" id="show_on_new_message">
-		    <label id="show_on_new_message_id" for="show_on_new_message"></label>
-		    <br>
-		    <input type='hidden' value=false name='always_on_top'>
-		    <input type="checkbox" value=true name="always_on_top" id="always_on_top">
-		    <label id="always_on_top_id" for="always_on_top"></label>
-		    <br>
-		    <input type='hidden' value=false name='start_hidden'>
-		    <input type="checkbox" value=true name="start_hidden" id="start_hidden">
-		    <label id="start_hidden_id" for="start_hidden"></label>
-		    <br>
-		    <input type='hidden' value=false name='logging'>
-		    <input type="checkbox" value=true name="logging" id="logging">
-		    <label id="logging_id" for="logging"></label>
-		    <!--<input type='hidden' value=false name='allow_multiple'>
-		    <input type="checkbox" value=true name="allow_multiple" id="allow_multiple">
-		    <label id="allow_multiple_id" for="allow_multiple"></label>-->
-		    <br><br>
+			<div class="rounded-container-alt connection collapsed">
+		        <label id="connection" onclick="toggleContainer('connection')" class="container-title-alt collapsed"></label>
+		        <div class="container-content connection">
+				    <p><label id="server_url_id" for="server_url"></label>
+				    <input type="text" name="server_url" id="server_url"></p>
+					<div id="saved_proxy_login_group">
+						<input type="radio" name="saved_proxy_login" id="saved_proxy_login_off">
+					    <label id="saved_proxy_login_off_id" for="saved_proxy_login_off"></label>
+					    <input type="radio" name="saved_proxy_login" id="saved_proxy_login">
+					    <label id="saved_proxy_login_id" for="saved_proxy_login"></label>
+					</div>
+					<div class="hidden" id="saved_proxy_login_creds">
+						<p><label id="saved_proxy_url_id" for="saved_proxy_url"></label>
+						<input disabled type="text" name="saved_proxy_url" id="saved_proxy_url"></p>
+						<p><label id="saved_proxy_login_username_id" for="saved_proxy_login_username"></label>
+				    	<input type="text" name="saved_proxy_login_username" id="saved_proxy_login_username"></p>
+				    	<p><label id="saved_proxy_login_password_id" for="saved_proxy_login_password"></label>
+				    	<input type="password" name="saved_proxy_login_password" id="saved_proxy_login_password"></p>
+					</div>
+
+				    <p><label id="allow_domain_id" for="allow_domain"></label>
+				    <input style='max-width: 100px;' type="text" name="allow_domain" id="allow_domain"></p>
+					<p><input type='hidden' value=false name='auto_login'>
+				    <input type="checkbox" value=true name="auto_login" id="auto_login">
+				    <label id="auto_login_id" for="auto_login"></label></p>
+		        </div>
+		    </div>
+			<div class="rounded-container-alt appearance collapsed">
+		        <label id="appearance" onclick="toggleContainer('appearance')" class="container-title-alt collapsed"></label>
+		        <div class="container-content appearance">
+				    <label id="lang_id" for="lang"></label>
+				    <select id="lang">
+					</select>
+					<br>
+					<br>
+					<label id="theme_id" for="theme"></label>
+				    <select id="theme">
+				    	<!--<option value="auto">Auto</option>
+				    	<option value="dark">Dark</option>
+				    	<option value="light">Light</option>-->
+					</select>
+					<br>
+				    <input type='hidden' value=false name='use_server_icon'>
+				    <input type="checkbox" value=true name="use_server_icon" id="use_server_icon">
+				    <label id="use_server_icon_id" for="use_server_icon"></label>
+		        </div>
+		    </div>
+			<div class="rounded-container-alt notifications collapsed">
+                <label id="notifications" onclick="toggleContainer('notifications')" class="container-title-alt collapsed"></label>
+		        <div class="container-content notifications">
+					<input type='hidden' value=false name='notification_timeout_checkbox'>
+				    <input type="checkbox" value=true name="notification_timeout_checkbox" id="notification_timeout_checkbox">
+				    <label id="notification_timeout_checkbox_id" for="notification_timeout_checkbox"></label>
+				    <br>
+				    <input type='hidden' value=false name='notification_muted'>
+				    <input type="checkbox" value=true name="notification_muted" id="notification_muted">
+				    <label id="notification_muted_id" for="notification_muted"></label>
+				    <div class="hidden" id="notification_sys_checkbox_div">
+					    <input type='hidden' value=false name='notification_sys_checkbox'>
+					    <input type="checkbox" value=true name="notification_sys_checkbox" id="notification_sys_checkbox">
+					    <label id="notification_sys_checkbox_id" for="notification_sys_checkbox"></label>
+					</div>
+				    
+					 <!--<div class="hidden" id="notification_timeout_div">
+						<label id="notification_timeout_id" for="notification_timeout"></label>
+					    <select id="notification_timeout">
+					    	<option value="0">0</option>
+					    	<option value="5">5</option>
+					    	<option value="10">10</option>
+					    	<option value="30">30</option>
+						</select>
+						<label id="notification_timeout_end_id" for="notification_timeout_end"></label>
+					</div>-->
+
+					<div class="hidden" id="notification_position">
+				        <label id="notification_position_id"></label>
+				        <div class="corner-option top-left">
+				        	<label for="top-left">↖</label>
+				            <input type="radio" id="top-left" name="notification_position" value="top-left">
+				        </div>
+				        
+				        <div class="corner-option top-right">
+				            <input type="radio" id="top-right" name="notification_position" value="top-right">
+				            <label for="top-right">↗</label>
+				        </div>
+				        
+				        <div class="corner-option bottom-left">
+				        	<label for="bottom-left">↙</label>
+				            <input type="radio" id="bottom-left" name="notification_position" value="bottom-left">
+				        </div>
+				        
+				        <div class="corner-option bottom-right">
+				            <input type="radio" id="bottom-right" name="notification_position" value="bottom-right">
+				            <label for="bottom-right">↘</label>
+				        </div>
+				    </div>
+				</div>
+			</div>
+			<div class="rounded-container-alt behaviour collapsed">
+		        <label id="behaviour" onclick="toggleContainer('behaviour')" class="container-title-alt collapsed"></label>
+		        <div class="container-content behaviour">
+				    <input type='hidden' value=false name='run_at_startup'>
+				    <input type="checkbox" value=true name="run_at_startup" id="run_at_startup">
+				    <label id="run_at_startup_id" for="run_at_startup"></label>
+				    <br>
+				    <input type='hidden' value=false name='show_on_new_message'>
+				    <input type="checkbox" value=true name="show_on_new_message" id="show_on_new_message">
+				    <label id="show_on_new_message_id" for="show_on_new_message"></label>
+				    <br>
+				    <input type='hidden' value=false name='always_on_top'>
+				    <input type="checkbox" value=true name="always_on_top" id="always_on_top">
+				    <label id="always_on_top_id" for="always_on_top"></label>
+				    <br>
+				    <input type='hidden' value=false name='start_hidden'>
+				    <input type="checkbox" value=true name="start_hidden" id="start_hidden">
+				    <label id="start_hidden_id" for="start_hidden"></label>
+		        </div>
+		    </div>
+		    <div class="rounded-container-alt debug collapsed">
+		        <label id="debug" onclick="toggleContainer('debug')" class="container-title-alt collapsed"></label>
+		        <div class="container-content debug">
+				    <input type='hidden' value=false name='logging'>
+				    <input type="checkbox" value=true name="logging" id="logging">
+				    <label id="logging_id" for="logging"></label>
+		        </div>
+		    </div>
+
+
 		    <div class="buttons">
 			    <button id="save_button_id" type="submit" onclick="return saveSettings();"></button>
 			    <button id="cancel_button_id" type="cancel"></button>
+				<button id="reset_button_id" type="button" onclick="resetToDefaults();"></button>
 			</div>
 		</form>
 	</div>
