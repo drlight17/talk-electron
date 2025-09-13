@@ -116,7 +116,7 @@ UQBz_YJrj5-PCpYIqr7wsdspdSgrzETS02N2t0KSo1njX0FJ
 ```
 and/or [![GitHub stars](https://img.shields.io/github/stars/drlight17/talk-electron.svg?style=social&label=Star&logo=github)](https://github.com/drlight17/talk-electron) this repository. 
 
-As a reward for this, you can request a license using [current version]([url](https://github.com/drlight17/talk-electron/releases/latest)) of the app by providing your email, from which you will send confirmation of your attention (screenshot or something you consider important).
+As a reward for this, you can request a license using [current version](https://github.com/drlight17/talk-electron/releases/latest) of the app by providing your email, from which you will send confirmation of your attention (screenshot or something you consider important).
 
 In any case, the application's functionality is not limited in any way. Having a license will simply remove the periodic reminder (1 per week) and the button with this form from the main menu.
 
