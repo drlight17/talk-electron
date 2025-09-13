@@ -1,9 +1,7 @@
-# talk-electron
+# NC Talk Electron
 Electron wrapper app for Nextcloud Talk. Learning some nodejs and electron basics while building Nextcloud Talk Desktop app for easy enterprise deployment.
 
 ![Screenshot](https://github.com/user-attachments/assets/3fd6a5b6-2f92-45a3-a5e8-50c3e7e85fa1)
-
-
 
 Sources are mess but it works =)
 
@@ -34,7 +32,7 @@ MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x) - a
 2. Click download.
 3. Follow installation.
 
-# Supported settings
+# ⚙️ Supported settings
 All app settings are saved in the local user folder in file config.json:
 - MacOS: `~/Library/Application Support/NC Talk Electron`
 - Windows 7 and newer: `%AppData%\NC Talk Electron`
@@ -60,7 +58,7 @@ Supported setting arguments (see example.config.json):
 - `notification_position` - bottom-right\bottom-left\top-right\top-left value means the position of app internal nitifications (default is bottom-right)
 - `notification_muted` - true\false value means to mute all sounds from notifications and calls in app (default is false)
 
-# For developers
+# 🔨 For developers
 Build depends on the platform since 0.2.9-alpha version as it brings support of the system idle detect function.
 
 For Windows:
@@ -111,7 +109,7 @@ If there are any module errors try to `npx electron-rebuild` before every `npm s
 
 Also check [package.json.linux](package.json.linux) and [package.json.windows](package.json.windows). Pay attention: [package.json.windows](package.json.windows) should be used for macos development and build.
 
-# Support
+# 💰 Support
 This application is absolutely free. But any attention motivates me to support the application. You can send a donation of $1 or more to a TON wallet:
 ```
 UQBz_YJrj5-PCpYIqr7wsdspdSgrzETS02N2t0KSo1njX0FJ
