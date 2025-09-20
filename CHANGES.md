@@ -1,3 +1,7 @@
+0.6.1
+- [x] BUG(macos): fix strange behaviour of any win_ with traffic lights buttons - leave only close button as 
+- [x] BUG(macos): if close win while any other win_ is opened then win_ won't be accessible anymore (only app restart) - leave only close button, prevent use of main (modal mode for macos?)
+
 0.6.0
 - [x] NEW: global proxy detect with url and port fetch
 - [x] BUG: delayed donateClick at first runeven with started licensing flow

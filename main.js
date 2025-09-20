@@ -166,7 +166,7 @@ try {
         return path.join(process.cwd())
       } else {
         return path.join(process.resourcesPath, "app.asar.unpacked");
-      }
+      }ƒƒ
     };
 
     async function restartApp(removed) {
@@ -1025,8 +1025,8 @@ WantedBy=graphical-session.target`;
                 const y = Math.round(bounds.y + (bounds.height - height) / 2);
 
                 const win_donate = new BrowserWindow({
-                    modal: !isMac,
-                    //modal: true,
+                    //modal: isMac,
+                    modal: true,
                     icon: icon,
                     title: '💰  '+i18n.__('donate_title'),
                     // macOS & Windows 10/11 only
@@ -1037,6 +1037,9 @@ WantedBy=graphical-session.target`;
                     width: width,
                     height: height,
                     resizable:false,
+                    minimizable: (isMac) ? false : true,
+                    maximizable: (isMac) ? false : true,
+                    fullScreenable: (isMac) ? false : true,
                     movable: false,
                     //transparent: true,
                     x: x,
@@ -2303,10 +2306,10 @@ WantedBy=graphical-session.target`;
         }
 
         function openSettings(flag,errored) {
-          let modal = !isMac;
+          /*let modal = isMac;
           if (errored) {
             modal = true;
-          }
+          }*/
           let width = 500;
           let height = 550;
 
@@ -2325,12 +2328,16 @@ WantedBy=graphical-session.target`;
 
           if (!(settings_opened)) {
             let win_settings = new BrowserWindow({
-              modal: modal,
+              //modal: modal,
+              modal: true,
               icon:icon,
               title:'⚙️  '+i18n.__('preferences'),
               width: width,
               height: height,
               resizable:false,
+              minimizable: (isMac) ? false : true,
+              maximizable: (isMac) ? false : true,
+              fullScreenable: (isMac) ? false : true,
               parent: win,
               x: x,
               y: y
@@ -2726,7 +2733,10 @@ WantedBy=graphical-session.target`;
                 height: height,
                 minHeight: 200,
                 resizable:true,
-                modal: !isMac,
+                minimizable: (isMac) ? false : true,
+                maximizable: (isMac) ? false : true,
+                fullScreenable: (isMac) ? false : true,
+                modal: true,
                 icon:icon,
                 title:'🔴 🎥  '+i18n.__('title5'),
                 parent: win,
@@ -2878,10 +2888,13 @@ WantedBy=graphical-session.target`;
           const bounds = store.get('bounds');
 
           let win_popup = new BrowserWindow({
-            modal: !isMac,
+            modal: true,
             icon:icon,
             title:title,
             parent: win,
+            minimizable: (isMac) ? false : true,
+            maximizable: (isMac) ? false : true,
+            fullScreenable: (isMac) ? false : true,
             width: bounds.width,
             height: bounds.height,
             x: bounds.x,
@@ -3108,8 +3121,8 @@ WantedBy=graphical-session.target`;
             }*/
 
             let win_noti = new BrowserWindow({
-              modal: !isMac,
-              //modal: true,
+              //modal: isMac,
+              modal: true,
               icon: icon,
               title: data.title,
               // macOS & Windows 10/11 only
