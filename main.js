@@ -2373,7 +2373,17 @@ WantedBy=graphical-session.target`;
               settings_opened = true;
               getSettings(win_settings,flag);
               win_settings.webContents.on('console-message', (event, level, message, line, sourceId) => {
-                setSettings(message,win_settings);
+                if (JSON.parse(message).action === 'save_settings' ) {
+                  setSettings(message,win_settings);
+                }
+                if (JSON.parse(message).action === 'show_message_example' ) {
+                  let data = {
+                    title: i18n.__("notification_ex_title"),
+                    body: i18n.__("notification_ex_body")/*,
+                    tag: 86953*/
+                  };
+                  createNotification(data,JSON.parse(message).position);               
+                }
               });
             });
 
@@ -2382,6 +2392,8 @@ WantedBy=graphical-session.target`;
               if (flag) {
                 restartApp();
               }
+              // to make sure all notification examples are closed
+              DismissAllNoti();
             });
 
 
@@ -3084,7 +3096,7 @@ WantedBy=graphical-session.target`;
             );`);
         }
 
-        function createNotification(data) {
+        function createNotification(data,position) {
           if (store.get("notification_timeout_checkbox")){
 
             const width = 360
@@ -3095,23 +3107,28 @@ WantedBy=graphical-session.target`;
             let x = 0;
             let y = 0;
 
-            if (store.get("notification_position")) {
-              if (store.get("notification_position") == 'top-left') {
-                x = workArea.x;
-                y = workArea.y + 5;
-              }
-              else if (store.get("notification_position") == 'top-right') {
-                x = workArea.x + workArea.width - width;
-                y = workArea.y + 5;
-              }
-              else if (store.get("notification_position") == 'bottom-left') {
-                x = workArea.x;
-                y = workArea.y + workArea.height - height - 5;
-              }
-              else if (store.get("notification_position") == 'bottom-right') {
-                x = workArea.x + workArea.width - width;
-                y = workArea.y + workArea.height - height - 5;
-              }
+            if (!position) {
+              position = store.get("notification_position")
+            } else {
+              // force close all other notification examples
+              DismissAllNoti();
+            }
+
+            if (position == 'top-left') {
+              x = workArea.x;
+              y = workArea.y + 5;
+            }
+            else if (position == 'top-right') {
+              x = workArea.x + workArea.width - width;
+              y = workArea.y + 5;
+            }
+            else if (position == 'bottom-left') {
+              x = workArea.x;
+              y = workArea.y + workArea.height - height - 5;
+            }
+            else if (position == 'bottom-right') {
+              x = workArea.x + workArea.width - width;
+              y = workArea.y + workArea.height - height - 5;
             }
 
             /*if (!isMac) {
@@ -3178,8 +3195,7 @@ WantedBy=graphical-session.target`;
                 if (notification_type == 'call') {
                   notification_message_link +='#direct-call';
                 }
-
-                win_noti.webContents.executeJavaScript(`showCustomNotification('`+win_noti.id+`', '`+JSON.stringify(data)+`', '`+i18n.__('dismiss')+`', '`+i18n.__('dismiss_all')+`', '`+i18n.__('dismiss_all_title')+`', '`+i18n.__('open')+`', '`+i18n.__('open_title')+`', '`+/*store.get('notification_timeout')+`', '`+*/theme+`', '`+icon.toDataURL()+`', '`+notification_message_icon+`', '`+/*i18n.__('close_after')+`', '`+notificationWindows.length+`', '`+*/store.get('notification_position')+`')`);
+                win_noti.webContents.executeJavaScript(`showCustomNotification('`+win_noti.id+`', '`+JSON.stringify(data)+`', '`+i18n.__('dismiss')+`', '`+i18n.__('dismiss_all')+`', '`+i18n.__('dismiss_all_title')+`', '`+i18n.__('open')+`', '`+i18n.__('open_title')+`', '`+/*store.get('notification_timeout')+`', '`+*/theme+`', '`+icon.toDataURL()+`', '`+notification_message_icon+`', '`+/*i18n.__('close_after')+`', '`+notificationWindows.length+`', '`+*/position+`')`);
                 
                 win_noti.webContents.executeJavaScript(`updateDismissTimeout(0)`);
                 win_noti.webContents.executeJavaScript(`updateDismissAllButton ('`+notificationWindows.length+`')`);

@@ -33,14 +33,37 @@ const buttonSelector = '.app-navigation-toggle-wrapper button';
 let fullscreen = false;
 let observer3 = null;
 
+function isFullscreen() {
+    return !!(document.fullscreenElement || 
+              document.webkitFullscreenElement || 
+              document.mozFullScreenElement || 
+              document.msFullscreenElement);
+}
+
+function isMaximized() {
+    // Get available screen space (excluding taskbar)
+    const availWidth = screen.availWidth;
+    const availHeight = screen.availHeight;
+    
+    // Check if window matches available screen size
+    const widthMatches = Math.abs(window.outerWidth - availWidth) <= 10;
+    const heightMatches = Math.abs(window.outerHeight - availHeight) <= 10;
+    
+    // Make sure it's not fullscreen (which would match screen size exactly)
+    const Fullscreen = isFullscreen();
+    
+    return (widthMatches && heightMatches) || Fullscreen;
+}
+
 // Function to handle the attribute change
 function handleAriaExpandedChange(elm) {
 
   clearTimeout(debounce);
   debounce = setTimeout(function() {
     // check if fullscreen - remove #body-user #header z-index
-    if (!window.screenTop && !window.screenY) {
-        //console.log('Browser is in fullscreen');
+    //if (!window.screenTop && !window.screenY) {
+    if (isMaximized()) {
+        //console.log('Browser is maximized or fullscreen.');
         document.getElementById('header').classList.add("fullscreen_fix");
         fullscreen = true;
     } else {
@@ -49,7 +72,7 @@ function handleAriaExpandedChange(elm) {
     }
 
 
-    if (!fullscreen) {
+    //if (!fullscreen) {
       if ($(window).width() <= 910)  {
         // redetect elm to observer as it is recreated
         if (!isElementInDOM(elm[0])) {
@@ -71,7 +94,7 @@ function handleAriaExpandedChange(elm) {
       } else {
         document.getElementById('app-content-vue').classList.remove("blurred");
       }
-    }
+    //}
   }, 200);
 }
 

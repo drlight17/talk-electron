@@ -99,6 +99,8 @@
     "notification_timeout": "Скрывать уведомления через:",
     "notification_timeout_checkbox": "Включить всплывающие уведомления",
     "notification_timeout_end": "сек. (0 - не скрывать)",
+    "notification_ex_title":"Пример уведомления",
+    "notification_ex_body":"Это пример расположения уведомления",
     "notifications": "Уведомления",
     "open": "Открыть",
     "open_devtools": "Открыть DevTools",

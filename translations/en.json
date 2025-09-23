@@ -99,6 +99,8 @@
     "notification_timeout": "Hide notifications after:",
     "notification_timeout_checkbox": "Use notifications",
     "notification_timeout_end": "sec (0 - do not hide)",
+    "notification_ex_title":"Notification example",
+    "notification_ex_body":"This is notification position example",
     "notifications": "Notifications",
     "open": "Open",
     "open_devtools": "Open DevTools",

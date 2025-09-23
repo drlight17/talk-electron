@@ -1,3 +1,8 @@
+0.6.2
+
+- [x] BUG(windows): blur chat zone in narrow window when navi menu is opened wont fire in case of window maximization or stick to corners
+- [x] NEW: add test win_noti position option to settings to show demo notification
+
 0.6.1
 - [x] BUG(macos): fix strange behaviour of any win_ with traffic lights buttons - leave only close button as 
 - [x] BUG(macos): if close win while any other win_ is opened then win_ won't be accessible anymore (only app restart) - leave only close button, prevent use of main (modal mode for macos?)

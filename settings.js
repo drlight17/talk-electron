@@ -458,3 +458,16 @@ function toggleContainer(selector) {
     container.classList.toggle('collapsed');
     title.classList.toggle('collapsed');
 }
+
+function showMessageExample(pos) {
+  clearTimeout(debounce);
+  debounce = setTimeout(function() {
+    if (position != pos.id) {
+      console.log(JSON.stringify({action: "show_message_example", position: pos.id}));
+      position = pos.id;
+    }
+  }, 1000);
+}
+
+let position = '';
+let debounce;
