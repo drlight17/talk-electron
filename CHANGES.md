@@ -2,6 +2,7 @@
 - [x] BUG(macos): win_popup modal fix
 - [x] BUG: prevent multiple popup windows
 - [x] BUG: fix dark theme for win_picker
+- [x] BUG: fix of slow hw accelereated rendering (in linux only)
 
 0.6.2
 - [x] BUG(windows): blur chat zone in narrow window when navi menu is opened wont fire in case of window maximization or stick to corners

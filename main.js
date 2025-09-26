@@ -4664,8 +4664,9 @@ WantedBy=graphical-session.target`;
         // To enable transparency on Linux (in KDE dont work?)
         if (isLinux) {
           app.commandLine.appendSwitch('enable-transparent-visuals');
-          app.commandLine.appendSwitch('disable-gpu');
-          app.disableHardwareAcceleration();
+          // to fix bad performance
+          /*app.commandLine.appendSwitch('disable-gpu');
+          app.disableHardwareAcceleration();*/
         }
 
         app.whenReady().then((event) => {
