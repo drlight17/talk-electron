@@ -1,5 +1,9 @@
-0.6.2
+0.6.3
+- [x] BUG(macos): win_popup modal fix
+- [x] BUG: prevent multiple popup windows
+- [x] BUG: fix dark theme for win_picker
 
+0.6.2
 - [x] BUG(windows): blur chat zone in narrow window when navi menu is opened wont fire in case of window maximization or stick to corners
 - [x] NEW: add test win_noti position option to settings to show demo notification
 

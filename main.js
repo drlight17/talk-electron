@@ -521,6 +521,7 @@ WantedBy=graphical-session.target`;
         }
 
         var win = null;
+        var win_popup = null;
         let saved_password = undefined;
         //var win_noti = null;
         //var win_loading = null;
@@ -871,6 +872,13 @@ WantedBy=graphical-session.target`;
           {
             label: "COMMANDS",
             submenu: [
+              {
+                label: "showSources",
+                click: () => {
+                  showSources();
+                  //getResponse(options);
+                  }
+              },
               {
                 label: "checkLicense_forced",
                 click: () => {
@@ -2791,7 +2799,7 @@ WantedBy=graphical-session.target`;
 
               win_picker.show();
 
-              win_picker.webContents.executeJavaScript(`showSources(`+JSON.stringify(sourcesArray)+`);`);
+              win_picker.webContents.executeJavaScript(`showSources(`+JSON.stringify(sourcesArray)+`,'`+theme+`');`);
 
               win_picker.webContents.on('console-message', (event, level, message, line, sourceId) => {
                 try {
@@ -2884,6 +2892,11 @@ WantedBy=graphical-session.target`;
 
 
         function openPopup(url) {
+          if (win_popup) {
+            //return;
+            // to force close win_popup before open new - prevent multiple popup windows
+            win_popup.close();
+          }
           // check for cloud profile link
           let allow_navi = false;
           if (url.includes('/settings/user')) {
@@ -2899,11 +2912,12 @@ WantedBy=graphical-session.target`;
 
           const bounds = store.get('bounds');
 
-          let win_popup = new BrowserWindow({
-            modal: true,
+
+          win_popup = new BrowserWindow({
+            modal: !isMac,
             icon:icon,
             title:title,
-            parent: win,
+            parent: !isMac ? win : null,
             minimizable: (isMac) ? false : true,
             maximizable: (isMac) ? false : true,
             fullScreenable: (isMac) ? false : true,

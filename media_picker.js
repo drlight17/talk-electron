@@ -1,9 +1,4 @@
-function localize(id,loc,theme) {
-  if (theme == 'dark') {
-    document.body.classList.add('dark-theme');
-  } else {
-    document.body.classList.add('light-theme');
-  }
+function localize(id,loc) {
   // localize media_picker.html
     document.getElementById(id).innerHTML = loc;
 }
@@ -17,7 +12,14 @@ function get_all_ids () {
   console.log(JSON.stringify({action: "return_localize_ids", localization_ids: JSON.stringify(objs)}));
 }
 
-function showSources(sources,) {
+function showSources(sources,theme) {
+
+  if (theme == 'dark') {
+    document.body.classList.add('dark-theme');
+  } else {
+    document.body.classList.add('light-theme');
+  }
+
   const container = document.getElementById('sources-container');
 
   for (let source of sources) {
