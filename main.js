@@ -2892,11 +2892,22 @@ WantedBy=graphical-session.target`;
 
 
         function openPopup(url) {
-          if (win_popup) {
-            //return;
-            // to force close win_popup before open new - prevent multiple popup windows
-            win_popup.close();
+          try {
+             if (win_popup) {
+             //return;
+             // to force close win_popup before open new - prevent multiple popup windows
+                win_popup.close();
+             }
           }
+          catch(e) {
+             //writeLog(e)
+          }
+
+
+          // disallow main win to be closed for macos
+          /*if (isMac) {
+             win.setClosable(false);
+          }*/
           // check for cloud profile link
           let allow_navi = false;
           if (url.includes('/settings/user')) {
@@ -2960,6 +2971,13 @@ WantedBy=graphical-session.target`;
           win_popup.on('page-title-updated', function(e) {
             e.preventDefault()
           });
+
+          // allow main win to be closed for macos
+          /*if (isMac) {
+             win_popup.on('closed', function() {
+                win.setClosable(true);
+             });
+          }*/
 
           // add app styling override for cloud
           win_popup.on('ready-to-show', () => {
