@@ -1,3 +1,78 @@
+1.0.0-RC1
+
+- [x] change of settings to support multi server (include GUI and json)
+- [x] NEW: detect old config.json ('saved_login'  as it is deprecated parameter) and force remove 'saved_login', 'server_ur'l' and 'auto_login' options and restart app
+- [x] BUG: win_popup must be recreated if another win_popup is opening
+- [x] BUG: make win_main not fullscreenable to prevent issues
+- [x] BUG(win): wrong username saved in OS account management - :server_url is somehow included - change account credential string to 'NC_Talk_Electron_v1' instead of 'NC_Talk_Electron' to prevent issues with old saved credentials on all platforms
+- [x] BUG: don't show switch_accounts (ctrl+tab) in main menu if there is only one account is configured
+- [x] BUG: don't show win index at main_win and notifications when only one account is configured
+- [x] BUG: multiple server accouns fallback call before restart app in case of account delete
+- [x] BUG(win): maximize cause glitched fullscreen (x and y get -8px somehow) - make maximizable = false for now
+- [x] BUG(win): sync windows taskbar counter with dockIcon badge logic
+- [x] BUG: removed all main forEach, replace with for
+- [x] BUG: add account window has \[false\] index in win title when asks for login and password
+- [x] BUG(win?): add_account window is not movable
+- [x] BUG: early detect of system locale in i18n
+- [x] BUG: use server_address instead of example_url after clearStorageData in case of 403 error
+- [x] add GUI to choose current win server
+- [x] new server_url add prompt with multiple parameter
+- [x] combine logout and delete server operations
+- [x] BUG: move preventUnsupportedBrowser to preload.js
+- [x] add confirmation dialog for delete server
+- [x] show loading circle using nextcloud_check.js until \\spreed endpoint is loaded instead of loading.html
+- [x] BUG: show demo notification when notification is not turned on
+- [x] BUG: status icon fix in usermenu for 31+ version
+- [x] BUG: save correct username on settings save in cases of auto_login true or false (2083) - restruct credentials fetch based on the saved in system keytar
+- [x] BUG: "Access forbidden State token does not match" error in openClientAuth flow sometimes (both main or foreground windows)
+- [x] ability to use multiple accounts of the same server
+- [x] BUG: save NC context in window title
+- [x] use createWindow for all types of windows (main and foreground)
+- [x] BUG: split main win and foreground win titles (unread check), ***mark*** foreground wins title
+- [x] BUG: use appropriate icons for windows based on account (no modal) - trayIcon must be array, start from use_server_icon
+- [x] BUG(macos): when use_server_icon is false then trayIcon wont become icon_bw on unread. After mark as read trayIcon in this case disappear. Won't change if switch from badged to non-badged
+- [x] BUG: respect borwserWindow position when prompt is appeared ([add support of x and y arguments to custom-electron-prompt](https://github.com/Araxeus/custom-electron-prompt/pull/35))
+- [x] GUI: button to show config.json in settings
+- [x] BUG(macos): fix all bw_icon_processes
+- [x] BUG: add account - force hide current win and show it on close add account win
+- [x] BUG: check add sso account sequence
+- [x] BUG: '\[ false \]' in win title in case of add account with auth flow
+- [x] BUG: fix icon resize for taskbar and window to prevent issues with large icons
+- [x] change insertServers to show/hide foreground accounts
+- [x] BUG: incoming call remove modal for multi account support - respect notification
+- [x] BUG: login errors in foreground - show non-blocking warning instead of message9 error with ability to switch to errored window
+- [x] BUG: win_picker fix for multi account support
+- [x] BUG: don't allow to add more then one SSO account (as kerneros ticket is one for current logged in domain user)
+- [x] BUG: prevent trayIcon menu to refresh after every action event
+- [x] optimize console.log messages to prevent the same multiple messages to process
+- [x] BUG: split notification process for multiple windows
+- [x] BUG: fix show_on_new_message for multiple windows
+- [x] BUG: call notification should appear even in case of focused corresponding account window
+- [x] NEW: ability to show trayIcon counter based on the current server or summarize all server's counters (sum_unread)
+- [x] BUG: no sum_unread badge in case of original icon is loaded with no unread for the selected account
+- [x] BUG: sometimes badged with sum_unread original icon instead of loaded server icon in case of use_server_icon is true
+- [x] NEW: add account_string, win index and server_color (meta theme_color) to win_noti
+- [x] BUG: won't open user settings by click user_settings_link
+- [x] BUG: respect browser persistent parition context for win_popup
+- [x] BUG: fix save bounds in case of maximize and unmaximize, multiple (linux DE special) - !!! check on other platforms!!!
+- [x] BUG(macos): account menu doesn't work properly with native check and uncheck
+- [x] BUG: fix force_online for foreground accounts
+- [x] set maximum possible configured accounts to 9
+- [x] ctrl+number show account shortcut
+- [x] ctrl+tab show accounts one-by-one shortcut
+- [x] BUG: ctrl+tab in case of one configured account
+- [x] BUG: ctrl+tab toggle works only from loaded account index to the last but not goes to the first index in the end - check showRoundRobinAccount, startForeground and createWindow funcs!
+- [x] BUG: no server_url and/or current_login in config causes error "Cannot read properties of undefined (reading 'window')", also caused by delete of the last configured account!
+- [x] BUG(macos): no sublabels in accounts menu
+- [x] BUG(macos): force control+tab for macos instead of command+tab
+- [x] add more info to User Agent (platform, os version?)
+- [x] BUG(linux): fix bounds y offset by +28 px during accounts switch (including win_popup)
+- [x] BUG(macos): loose current win_main focus and close appIcon when startForeground is run (found see 4452 in main.js)
+- [x] BUG(macos): miss dockIcon badge if no unread on current account in case sum_unread if true
+- [x] BUG: add new account in case of already configured other accounts will cause to rewrite server_url and breaks working mainWindow context (actions with window including close app)
+- [x] detect electron version newer then 22 and load electron.store appropriately
+- [x] BUG: config bounds save loop after startup in main_win before any account switch if show_on_new_message if true
+
 0.6.3
 - [x] BUG(macos): win_popup modal fix
 - [x] BUG: prevent multiple popup windows

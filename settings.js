@@ -1,3 +1,4 @@
+
 function localize(id,loc) {
 
   // localize settings.html
@@ -26,8 +27,10 @@ const defaultSettings = {
   locale: 'en',
   theme: 'auto',
   use_server_icon: false,
+  use_server_theme: false,
   saved_proxy_login: false,
   show_on_new_message: false,
+  sum_unread: false,
   notification_muted: false,
   notification_timeout_checkbox: false,
   notification_sys_checkbox: false,
@@ -50,7 +53,8 @@ function hasSettingsChanged(settings) {
   // Appearance section  
   const appearanceChanged = settings.locale !== defaultSettings.locale ||
                            settings.theme !== defaultSettings.theme ||
-                           settings.use_server_icon !== defaultSettings.use_server_icon;
+                           settings.use_server_icon !== defaultSettings.use_server_icon ||
+                           settings.use_server_theme !== defaultSettings.use_server_theme;
   if (appearanceChanged) changedSections.push('appearance');
   
   // Notifications section
@@ -64,7 +68,8 @@ function hasSettingsChanged(settings) {
   const behaviourChanged = settings.show_on_new_message !== defaultSettings.show_on_new_message ||
                           settings.always_on_top !== defaultSettings.always_on_top ||
                           settings.start_hidden !== defaultSettings.start_hidden ||
-                          settings.run_at_startup !== defaultSettings.run_at_startup;
+                          settings.run_at_startup !== defaultSettings.run_at_startup || 
+                          settings.sum_unread !== defaultSettings.sum_unread;
   if (behaviourChanged) changedSections.push('behaviour');
   
   // Debug section
@@ -109,6 +114,7 @@ function resetToDefaults() {
   document.getElementById('lang').value = defaultSettings.locale;
   document.getElementById('theme').value = defaultSettings.theme;
   document.getElementById('use_server_icon').checked = defaultSettings.use_server_icon;
+  document.getElementById('use_server_theme').checked = defaultSettings.use_server_theme;
   
   // Reset proxy settings
   document.getElementById('saved_proxy_login_off').checked = true;
@@ -128,6 +134,7 @@ function resetToDefaults() {
   // Reset behaviour settings
   document.getElementById('show_on_new_message').checked = defaultSettings.show_on_new_message;
   document.getElementById('always_on_top').checked = defaultSettings.always_on_top;
+  document.getElementById('sum_unread').checked = defaultSettings.sum_unread;
   document.getElementById('start_hidden').checked = defaultSettings.start_hidden;
   document.getElementById('run_at_startup').checked = defaultSettings.run_at_startup;
   
@@ -157,8 +164,10 @@ function resetToDefaults() {
     locale: defaultSettings.locale,
     theme: defaultSettings.theme,
     use_server_icon: defaultSettings.use_server_icon,
+    use_server_theme: defaultSettings.use_server_theme,
     saved_proxy_login: JSON.stringify(loginProxyData),
     show_on_new_message: defaultSettings.show_on_new_message,
+    sum_unread: defaultSettings.sum_unread,
     notification_muted: defaultSettings.notification_muted,
     notification_timeout_checkbox: defaultSettings.notification_timeout_checkbox,
     notification_sys_checkbox: defaultSettings.notification_sys_checkbox,
@@ -196,10 +205,22 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
   } else {
     document.getElementById('allow_domain').value = defaultSettings.allow_domain;
   }
-  if (settings.auto_login !== undefined) {
-    document.getElementById('auto_login').checked = settings.auto_login;
+
+  if (settings.current_login !== undefined) {
+    //try {
+      if (settings.current_login == "auto_login") {
+        document.getElementById('auto_login').checked = true
+        document.getElementById('current_login_p_id').classList.add('hidden');
+      } else {
+        document.getElementById('auto_login').checked = false
+      }
+      document.getElementById('current_login').value = settings.current_login;
+    //}
+    //catch(err) {
+    //}
   } else {
     document.getElementById('auto_login').checked = defaultSettings.auto_login;
+    document.getElementById('current_login_p_id').classList.add('hidden');
   }
 
   var select = document.getElementById('lang');
@@ -268,10 +289,22 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
     document.getElementById('use_server_icon').checked = defaultSettings.use_server_icon;
   }
 
+  if (settings.use_server_theme !== undefined) {
+    document.getElementById('use_server_theme').checked = settings.use_server_theme;
+  } else {
+    document.getElementById('use_server_theme').checked = defaultSettings.use_server_theme;
+  }
+
   if (settings.show_on_new_message !== undefined) {
     document.getElementById('show_on_new_message').checked = settings.show_on_new_message;
   } else {
     document.getElementById('show_on_new_message').checked = defaultSettings.show_on_new_message;
+  }
+
+  if (settings.sum_unread !== undefined) {
+    document.getElementById('sum_unread').checked = settings.sum_unread;
+  } else {
+    document.getElementById('sum_unread').checked = defaultSettings.sum_unread;
   }
 
   /*var select = document.getElementById('notification_timeout');
@@ -449,6 +482,14 @@ function saveSettings() {
   settings['saved_proxy_login'] = JSON.stringify(loginProxyData);
   //console.log(JSON.stringify(settings))
   console.log(JSON.stringify({action: "save_settings", settings: JSON.stringify(settings)}));
+}
+
+function openConfigFile() {
+  console.log(JSON.stringify({action: "open_config_file"}));
+}
+
+function openNotificationSettingsNC() {
+  console.log(JSON.stringify({action: "open_nofification_settings"}));
 }
 
 function toggleContainer(selector) {

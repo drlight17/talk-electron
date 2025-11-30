@@ -1,7 +1,9 @@
-# NC Talk Electron
+# talk-electron
 Electron wrapper app for Nextcloud Talk. Learning some nodejs and electron basics while building Nextcloud Talk Desktop app for easy enterprise deployment.
 
 ![Screenshot](https://github.com/user-attachments/assets/3fd6a5b6-2f92-45a3-a5e8-50c3e7e85fa1)
+
+
 
 Sources are mess but it works =)
 
@@ -16,14 +18,14 @@ MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x) - a
 
 | Platform   | Type | Download link                               |
 |-------------|--------------|---------------------------------------------------|
-| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.0.6.3.msi)   |
-| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_0.6.3_amd64.deb)     |
-| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.6.3.x86_64.rpm)    |
-| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.6.3.AppImage)     |
-| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.6.3.tar.gz)      |
-| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.6.3-win.zip)       |
-| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.6.3.dmg)     |
-| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.6.3-arm64.dmg)     |
+| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.0.6.0.msi)   |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_0.6.0_amd64.deb)     |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.6.0.x86_64.rpm)    |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.6.0.AppImage)     |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-0.6.0.tar.gz)      |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.6.0-win.zip)       |
+| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.6.0.dmg)     |
+| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-0.6.0-arm64.dmg)     |
 
 
 ---
@@ -32,7 +34,7 @@ MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x) - a
 2. Click download.
 3. Follow installation.
 
-# ⚙️ Supported settings
+# Supported settings
 All app settings are saved in the local user folder in file config.json:
 - MacOS: `~/Library/Application Support/NC Talk Electron`
 - Windows 7 and newer: `%AppData%\NC Talk Electron`
@@ -57,8 +59,10 @@ Supported setting arguments (see example.config.json):
 - `notification_sys_checkbox` - true\false value means to use system based notification instead of app internal (default is false)
 - `notification_position` - bottom-right\bottom-left\top-right\top-left value means the position of app internal nitifications (default is bottom-right)
 - `notification_muted` - true\false value means to mute all sounds from notifications and calls in app (default is false)
+- `sum_unread` - true\false value means to sum unread message counters from all configured accounts and show this sum on the app tray icon only; corresponding account unread counter will remain at taskbar and macos dock icon *(availlable since v.1.0.0-RC1)*
+- `use_server_theme` - true\false value means to get main theme color from the NC server and use it to customize background color of the app notification *(availlable since v.1.0.0-RC1)*
 
-# 🔨 For developers
+# For developers
 Build depends on the platform since 0.2.9-alpha version as it brings support of the system idle detect function.
 
 For Windows:
@@ -88,8 +92,6 @@ npm install -g node-gyp
 npm install --save-dev electron-rebuild
 npx electron-rebuild
 ```
-OR run `prepare.sh`
-
 To build win32 x86 (32bit) app remove **node_modules\sharp\\** after previous common commands, use **package.json.win32-ia32** as package.json and run: 
 ```
 npm install --force --platform=win32 --arch=ia32 sharp
@@ -109,15 +111,6 @@ If there are any module errors try to `npx electron-rebuild` before every `npm s
 
 Also check [package.json.linux](package.json.linux) and [package.json.windows](package.json.windows). Pay attention: [package.json.windows](package.json.windows) should be used for macos development and build.
 
-# 💰 Support
-This application is absolutely free. But any attention motivates me to support the application. You can send a donation of $1 or more to a TON wallet:
-```
-UQBz_YJrj5-PCpYIqr7wsdspdSgrzETS02N2t0KSo1njX0FJ
-```
-and/or [![GitHub stars](https://img.shields.io/github/stars/drlight17/talk-electron.svg?style=social&label=Star&logo=github)](https://github.com/drlight17/talk-electron) this repository. 
 
-As a reward for this, you can request a license using [current version](https://github.com/drlight17/talk-electron/releases/latest) of the app by providing your email, from which you will send confirmation of your attention (screenshot or something you consider important).
-
-In any case, the application's functionality is not limited in any way. Having a license will simply remove the periodic reminder (1 per week) and the button with this form from the main menu.
 
 

@@ -3,7 +3,18 @@ const { ipcRenderer } = require('electron');
 // Save original Notification constructor
 const OriginalNotification = window.Notification;
 
+
+// prevent unsupportedBrowser
+try {
+    localStorage.setItem("nextcloud_vol_Y29yZQ==_unsupported-browser-ignore", true);
+    console.log('Nextcloud unsupported browser ignore set');
+} catch (error) {
+    console.error('Failed to set localStorage:', error);
+}
+
+
 //window.addEventListener('DOMContentLoaded', () => {
+
   const isSysNotiEnabled = process.argv.find(arg => arg.startsWith('--isSysNotiEnabled'));
 
   if (!isSysNotiEnabled) {

@@ -1,7 +1,16 @@
 const path = require("path");
 const electron = require('electron');
 const fs = require('fs');
-const Store = require('electron-store');
+
+let Store = undefined;
+
+if (process.versions.electron != "22.3.27") {
+    Store = require('electron-store').default;
+} else {
+    Store = require('electron-store');
+}
+
+
 const { dialog } = require('electron');
 
 let loadedLanguage;
@@ -19,14 +28,30 @@ lang_files.forEach((locale) => {
     lang_files_processed.push(locale.replace('.json', ''));
 });
 
+let debounce;
+
+function getPreReadyLocale() {
+  // Priority: Intl (most reliable) > env vars > fallback
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().locale;
+  } catch (e) {
+    // Fallback for very old environments (unlikely in Electron)
+    return process.env.LC_ALL ||
+           process.env.LC_MESSAGES ||
+           process.env.LANG ||
+           'en-US';
+  }
+}
+
 function i18n() {
+    
     // check if no saved locale
     try {
         if ((store.get('locale') == undefined) || (store.get('locale') == "")) {
             // Attempt to use the country code if the file exists
             // app.getLocaleCountryCode() can be null, so we use app.getLocale()
             // and split by '-' or '_' to get the country code
-            let systemLocale = app.getLocale(); // e.g., 'en-US', 'ru-RU'
+            let systemLocale = app.getLocale() || getPreReadyLocale() ; // e.g., 'en-US', 'ru-RU'
             let localeParts = systemLocale.split(/[-_]/);
             let countryCode = localeParts[0]?.toLowerCase(); // Take the first part (usually the language)
 
@@ -48,6 +73,7 @@ function i18n() {
             loadedLanguageTag = store.get('locale');
             loadedLanguage = JSON.parse(fs.readFileSync(path.join(__dirname, loadedLanguageTag + '.json'), 'utf8'));
         }
+        
     } catch (err) {
         console.error('Error loading language file:', err);
         dialog.showErrorBox('Error', 'Lang file processing fail! Check for existence of translations dir with lang json files and their consistency!');
@@ -60,6 +86,12 @@ function i18n() {
         // app.relaunch();
         app.exit(1); // Use exit code 1 for error
     }
+    /*finally {
+        clearTimeout(debounce);
+        debounce = setTimeout(()=>{
+            console.log('Used locale:', loadedLanguageTag);
+        }, 100);
+    }*/
 }
 
 /**

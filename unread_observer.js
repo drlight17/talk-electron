@@ -87,15 +87,18 @@ async function get_avatar(conversation) {
       });
 }
 
-async function recalc_counters_summary (removed) {
+// Store the previous total for comparison
+let previousTotalUnreadMessages = null; // Используем null как начальное значение
 
+async function recalc_counters_summary (removed) {
     let totalUnreadMessages = 0;
     try {
         let found_key = getItemsByPartialKey('_cachedConversations')[0].key
         const cachedConversationsStr = localStorage.getItem(found_key);
         if (!cachedConversationsStr) {
             //console.warn('Ключ "_cachedConversations" не найден в localStorage.');
-            return;
+            console.log(JSON.stringify({'action': {'unread': 0, 'removed': removed}}));
+            return found_key;
         }
 
         let cachedConversations;
@@ -103,12 +106,14 @@ async function recalc_counters_summary (removed) {
             cachedConversations = JSON.parse(cachedConversationsStr);
         } catch (parseError) {
             //console.error('Не удалось распарсить "_cachedConversations" как JSON:', parseError);
-            return;
+            console.log(JSON.stringify({'action': {'unread': 0, 'removed': removed}}));
+            return found_key;
         }
 
         if (!Array.isArray(cachedConversations)) {
             //console.warn('Ожидается, что "_cachedConversations" будет массивом.');
-            return;
+            console.log(JSON.stringify({'action': {'unread': 0, 'removed': removed}}));
+            return found_key;
         }
         
         cachedConversations.forEach((conversation, index) => {
@@ -138,24 +143,29 @@ async function recalc_counters_summary (removed) {
                 }
             }
 
-
             // last message chat id and token fetch
             if ((conversation.unreadMessages != 0) && (typeof conversation.unreadMessages === 'number')) {
                 console.log(JSON.stringify({'action': {'token': conversation.lastMessage.token, 'id':conversation.lastMessage.id}}));
             }
-
         });
 
         //console.log(`Общее количество непрочитанных сообщений: ${totalUnreadMessages}`);
+        
+        if (totalUnreadMessages !== previousTotalUnreadMessages) {
+            console.log(JSON.stringify({'action': {'unread': totalUnreadMessages, 'removed': removed}}));
+            previousTotalUnreadMessages = totalUnreadMessages;
+        }
+        
         if (removed) {
             localStorage.removeItem(found_key);
         }
-        console.log(JSON.stringify({'action': {'unread': totalUnreadMessages, 'removed': removed}}));
+        
         return found_key;
 
     } catch (error) {
         console.log(JSON.stringify({'action': {'unread': 0, 'removed': removed}}));
         //console.error('Произошла ошибка при обработке "_cachedConversations":', error);
+        //return found_key;
     }
 }
 

@@ -9,7 +9,8 @@ let timerDisplay;
 let src_body_opacity;
 let new_body_opacity;
 
-function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss_all_title, open, open_title, theme, appIcon, avatar, /*close_after, notification_counter,*/ notification_position) {
+function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss_all_title, open, open_title, theme, appIcon, avatar, notification_position, win_main_index, account_string, server_color, notification_type) {
+
   const container = document.getElementById('notification-container');
 
   if (theme == 'dark') {
@@ -37,7 +38,7 @@ function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss
 
     notif.className = 'notification';
     let ava_html = '';
-    if (avatar) {
+    if (avatar != '') {
       ava_html = `<img src="${avatar}" alt="Avatar" />`
     }
     notif.title=open_title;
@@ -47,6 +48,9 @@ function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss
         <button title="${dismiss_all_title}" id="dismiss_all">${dismiss_all}</button>
         <button title="${dismiss}" class="close-btn">&times;</button>
       </span>
+      <div class="win_index">[ ${win_main_index} ]
+        <div class="account_id">${account_string}</div>
+      </div>
       <p class="title">${ava_html}&nbsp;&nbsp;<strong>${data.title}</strong></p>
       <p class="data-body">${data.body}</p>
       <div class="timer-container hidden">
@@ -61,6 +65,17 @@ function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss
     
     if (isTextLongAndHasSpace(notif.querySelector('.data-body'),50)) {
       notif.querySelector('.data-body').classList.add('fade-mask');
+    }
+
+    // if notification_type is call set .notification p.title white-space
+    if (notification_type == 'call') {
+      notif.querySelector('p.title').classList.add('call');
+    }
+    
+    // apply color theme
+    if (server_color) {
+      notif.classList.add('mix-color');
+      notif.style.setProperty('--mix-color', server_color);
     }
 
     notif.classList.add(animation_direction_in);
@@ -112,27 +127,15 @@ function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss
 }
 
 function isTextLongAndHasSpace(element, minLength) {
-  // Проверяем, является ли аргумент элементом
   if (!element || typeof element !== 'object' || element.nodeType !== Node.ELEMENT_NODE) {
-    console.error('Первый аргумент должен быть DOM элементом');
+    //console.error('Первый аргумент должен быть DOM элементом');
     return false;
   }
 
-  // Получаем текстовое содержимое элемента
-  // textContent включает текст всех потомков
-  // innerText учитывает стили (например, display: none), но может быть менее надежным
-  // innerHTML вернет HTML, что нам не нужно
   const text = element.textContent || element.innerText || "";
-
-  // Проверяем длину текста
   const isLongEnough = text.length > minLength;
+  const hasSpace = /\s/.test(text);
 
-  // Проверяем наличие хотя бы одного пробела
-  // \s соответствует любому пробельному символу (пробел, табуляция, новая строка и т.д.)
-  // Если нужно проверить именно обычный пробел ' ', используйте text.includes(' ')
-  const hasSpace = /\s/.test(text); // Или text.includes(' ') для обычного пробела
-
-  // Возвращаем true, если оба условия выполнены
   return isLongEnough && hasSpace;
 }
 

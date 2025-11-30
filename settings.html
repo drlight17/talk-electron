@@ -14,7 +14,9 @@
 		        <label id="connection" onclick="toggleContainer('connection')" class="container-title-alt collapsed"></label>
 		        <div class="container-content connection">
 				    <p><label id="server_url_id" for="server_url"></label>
-				    <input type="text" name="server_url" id="server_url"></p>
+				    <input disabled type="text" name="server_url" id="server_url"></p>
+				    <p id="current_login_p_id" ><label id="current_login_id" for="current_login"></label>
+				    <input disabled type="text" name="current_login" id="current_login"></p>
 					<div id="saved_proxy_login_group">
 						<input type="radio" name="saved_proxy_login" id="saved_proxy_login_off">
 					    <label id="saved_proxy_login_off_id" for="saved_proxy_login_off"></label>
@@ -52,9 +54,16 @@
 				    	<option value="light">Light</option>-->
 					</select>
 					<br>
-				    <input type='hidden' value=false name='use_server_icon'>
-				    <input type="checkbox" value=true name="use_server_icon" id="use_server_icon">
-				    <label id="use_server_icon_id" for="use_server_icon"></label>
+					<p style="margin: 0;">
+					    <input type='hidden' value=false name='use_server_icon'>
+					    <input type="checkbox" value=true name="use_server_icon" id="use_server_icon">
+					    <label id="use_server_icon_id" for="use_server_icon"></label>
+					</p>
+				    <p style="margin: 0;">
+					    <input type='hidden' value=false name='use_server_theme'>
+					    <input type="checkbox" value=true name="use_server_theme" id="use_server_theme">
+					    <label id="use_server_theme_id" for="use_server_theme"></label>
+					</p>
 		        </div>
 		    </div>
 			<div class="rounded-container-alt notifications collapsed">
@@ -72,7 +81,6 @@
 					    <input type="checkbox" value=true name="notification_sys_checkbox" id="notification_sys_checkbox">
 					    <label id="notification_sys_checkbox_id" for="notification_sys_checkbox"></label>
 					</div>
-				    
 					 <!--<div class="hidden" id="notification_timeout_div">
 						<label id="notification_timeout_id" for="notification_timeout"></label>
 					    <select id="notification_timeout">
@@ -106,6 +114,8 @@
 				            <label for="bottom-right">↘</label>
 				        </div>
 				    </div>
+				    <br>
+					<button id="notification_settings_id" type="submit" onclick="return openNotificationSettingsNC();"></button>
 				</div>
 			</div>
 			<div class="rounded-container-alt behaviour collapsed">
@@ -118,6 +128,10 @@
 				    <input type='hidden' value=false name='show_on_new_message'>
 				    <input type="checkbox" value=true name="show_on_new_message" id="show_on_new_message">
 				    <label id="show_on_new_message_id" for="show_on_new_message"></label>
+				    <br>
+				    <input type='hidden' value=false name='sum_unread'>
+				    <input type="checkbox" value=true name="sum_unread" id="sum_unread">
+				    <label id="sum_unread_id" for="sum_unread"></label>
 				    <br>
 				    <input type='hidden' value=false name='always_on_top'>
 				    <input type="checkbox" value=true name="always_on_top" id="always_on_top">
@@ -134,6 +148,7 @@
 				    <input type='hidden' value=false name='logging'>
 				    <input type="checkbox" value=true name="logging" id="logging">
 				    <label id="logging_id" for="logging"></label>
+				    <button id="open_config_file_id" type="submit" onclick="return openConfigFile();"></button>
 		        </div>
 		    </div>
 
