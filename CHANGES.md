@@ -14,6 +14,7 @@
 - [x] NEW: unread counter white/grey corner for contrast at icon (createBadge function)
 - [x] BUG: current_login removes in case of settings save; also make auto_login checkbox readonly to prevent issues
 - [x] NEW: override srv background image with server_color (#body-user -> background-image: inherit!important)
+- [x] BUG(macos): don't start on app ready
 
 1.0.0-RC1
 - [x] change of settings to support multi server (include GUI and json)

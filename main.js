@@ -5351,8 +5351,9 @@ WantedBy=graphical-session.target`;
           app.disableHardwareAcceleration();*/
         }
 
-        //app.whenReady().then((event) => {
-        app.on('ready', async () => {
+        app.whenReady().then(async (event) => {
+        // below commented code don't work on macos...
+        //app.on('ready', async () => {
           writeLog('PID = ' + process.pid);
 
           writeLog('Checking internet...');
