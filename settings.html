@@ -14,9 +14,9 @@
 		        <label id="connection" onclick="toggleContainer('connection')" class="container-title-alt collapsed"></label>
 		        <div class="container-content connection">
 				    <p><label id="server_url_id" for="server_url"></label>
-				    <input disabled type="text" name="server_url" id="server_url"></p>
+				    <input readonly type="text" name="server_url" id="server_url"></p>
 				    <p id="current_login_p_id" ><label id="current_login_id" for="current_login"></label>
-				    <input disabled type="text" name="current_login" id="current_login"></p>
+				    <input readonly type="text" name="current_login" id="current_login"></p>
 					<div id="saved_proxy_login_group">
 						<input type="radio" name="saved_proxy_login" id="saved_proxy_login_off">
 					    <label id="saved_proxy_login_off_id" for="saved_proxy_login_off"></label>
@@ -25,7 +25,7 @@
 					</div>
 					<div class="hidden" id="saved_proxy_login_creds">
 						<p><label id="saved_proxy_url_id" for="saved_proxy_url"></label>
-						<input disabled type="text" name="saved_proxy_url" id="saved_proxy_url"></p>
+						<input readonly type="text" name="saved_proxy_url" id="saved_proxy_url"></p>
 						<p><label id="saved_proxy_login_username_id" for="saved_proxy_login_username"></label>
 				    	<input type="text" name="saved_proxy_login_username" id="saved_proxy_login_username"></p>
 				    	<p><label id="saved_proxy_login_password_id" for="saved_proxy_login_password"></label>
@@ -34,8 +34,8 @@
 
 				    <p><label id="allow_domain_id" for="allow_domain"></label>
 				    <input style='max-width: 100px;' type="text" name="allow_domain" id="allow_domain"></p>
-					<p><input type='hidden' value=false name='auto_login'>
-				    <input type="checkbox" value=true name="auto_login" id="auto_login">
+					<p id="auto_login_p_id"><input type='hidden' value=false name='auto_login'>
+				    <input onclick="return false;" type="checkbox" value=true name="auto_login" id="auto_login">
 				    <label id="auto_login_id" for="auto_login"></label></p>
 		        </div>
 		    </div>

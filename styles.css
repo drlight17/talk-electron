@@ -74,6 +74,11 @@
 	padding-left: 30px!important;
 }
 
+/*override body-user background-image with background-color*/
+#body-user {
+  background-image:inherit!important;
+}
+
 body.dark-theme a {
     color: white;
 }

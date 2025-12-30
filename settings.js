@@ -213,6 +213,7 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
         document.getElementById('current_login_p_id').classList.add('hidden');
       } else {
         document.getElementById('auto_login').checked = false
+        document.getElementById('auto_login_p_id').classList.add('hidden');
       }
       document.getElementById('current_login').value = settings.current_login;
     //}

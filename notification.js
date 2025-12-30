@@ -112,6 +112,7 @@ function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss
     // Restart timer on mouse leave
     notif.addEventListener('mouseleave', () => {
       startDismissTimer(win_noti_id); // Reset countdown
+      console.log(JSON.stringify({'action': 'mouse_leave'}));
     });
 
     // Start initial timer

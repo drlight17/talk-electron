@@ -1,5 +1,21 @@
-1.0.0-RC1
+1.0.0-RC2
+- [x] BUG(linux): add `--no-sandbox` to app shortcut to avoid AppArmor related errors like [this](https://github.com/drlight17/talk-electron/issues/5). Got workaround from [jitsi-meet electron](https://github.com/jitsi/jitsi-meet-electron/commit/4cc851dc75ec15fdb054aa46e4132d8fbfa3a9e5#diff-423e46c9c92d87429736867be8c57c7e2daa8467b9f1940223a80927b401391aR1-R23)
+- [x] BUG: make checkInactivity usable in foreground wins
+- [x] remove desktop-idle usage, use powerMonitor instead
+- [x] remove timeouts from open_message and get_Notifications
+- [x] NEW: check internet connectivity and ping all configured servers reach before start main_win and foregrounds
+- [x] BUG(linux): checkInactivity wrong fires for win_noti and starts dismiss counter - workaround delay with 5 seconds after noti is showed beforce inactivity checking starts
+- [x] BUG: don't run noti timeout counter on the noti_wins under the visible one if there are more then one notification - this will prevent unread of earlier notifications
+- [x] BUG(linux): for the first run (without configured accounts) appImage causes `terminate called after throwing an instance of 'Napi::Error'` during app restart after login procedure (both SSO or non-SSO), then add_account appear again because no server_url is saved - [keytar issue](https://github.com/microsoft/vscode/issues/125850) issue - check saveCredentials() function
+- [x] BUG: delete current_login from config in case aulo_login is switched off in settings
+- [x] BUG(macos): add delay before app restart after mac is wake up to prevent accounts load issues
+- [x] BUG: force open any links from reminder (notifications) menu in the system browser instead of app (see test account), check win_noti click on links also to fix this
+- [x] BUG: force dismiss all notifications when show_on_new_message is true and it is fired
+- [x] NEW: unread counter white/grey corner for contrast at icon (createBadge function)
+- [x] BUG: current_login removes in case of settings save; also make auto_login checkbox readonly to prevent issues
+- [x] NEW: override srv background image with server_color (#body-user -> background-image: inherit!important)
 
+1.0.0-RC1
 - [x] change of settings to support multi server (include GUI and json)
 - [x] NEW: detect old config.json ('saved_login'  as it is deprecated parameter) and force remove 'saved_login', 'server_ur'l' and 'auto_login' options and restart app
 - [x] BUG: win_popup must be recreated if another win_popup is opening

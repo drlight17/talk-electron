@@ -11,13 +11,14 @@
   ],
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "1.0.0-RC1",
+  "version": "1.0.0-RC2",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "homepage": "https://github.com/drlight17/talk-electron",
   "build": {
     "npmRebuild": false,
     "appId": "com.electron.talk-electron",
     "productName": "NC Talk Electron",
+    "afterPack": "./linux-sandbox-fix.js",
     "asar": true,
     "asarUnpack": [
       "**/node_modules/sharp/**/*",
@@ -53,6 +54,12 @@
         }
       ],
       "asarUnpack": "./icon.png"
+    },
+    "deb": {
+      "afterInstall": "package-after-install.sh"
+    },
+    "rpm": {
+      "afterInstall": "package-after-install.sh"
     },
     "mac": {
       "category": "public.app-category.social-networking",
@@ -99,7 +106,6 @@
     "@electron/packager": "latest",
     "@paymoapp/electron-shutdown-handler": "latest",
     "custom-electron-prompt": "latest",
-    "desktop-idle": "^1.3.0",
     "electron-fetch": "^1.9.1",
     "electron-store": "^8.2.0",
     "https-proxy-agent": "latest",
@@ -107,6 +113,7 @@
     "puppeteer": "latest",
     "sharp": "^0.32.6",
     "socks-proxy-agent": "latest",
+    "systeminformation": "latest",
     "ws": "latest"
   },
   "devDependencies": {

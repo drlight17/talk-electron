@@ -56,7 +56,7 @@
  } = require('child_process');
 
  //const SystemIdleTime = require('@paulcbetts/system-idle-time');
- const SystemIdleTime = require('desktop-idle');
+ //const SystemIdleTime = require('desktop-idle');
 
 
  const fs = require("fs");
@@ -300,6 +300,7 @@ if (process.versions.electron != "22.3.27") {
         let controller = {};
         let auto_login_error = false
         let idleTime_non_active = 0;
+        let delayedIdleTime = {};
         // to check gui_blocked status
         //let gui_blocked = false
         //let is_notification = false;
@@ -319,6 +320,7 @@ if (process.versions.electron != "22.3.27") {
         let notificationWindowsIds = [];
         let notificationWindows = [];
         let checkInactivityInterval = {};
+        let delayedIdleTimeInterval = {};
         let src_title = [];
         let dismissed = {};
         let call = {};
@@ -363,6 +365,7 @@ if (process.versions.electron != "22.3.27") {
           store.delete('saved_login');
           store.delete('server_url');
           store.delete('auto_login');
+
           restartApp();
         }
 
@@ -929,79 +932,177 @@ WantedBy=graphical-session.target`;
             label: "COMMANDS",
             submenu: [
               {
-                label: "showSumUnread",
+                label: "DismissAllNotiForced",
                 click: () => {
-                  sumUnreadCounters();
+                  DismissAllNoti();
+                  writeLog("Forced dismiss all notifications")
                 }
+              },
+              {
+                label: "checkNetwork",
+                click: () => {
+                  checkNetwork();
+                }
+                
               }
             ]
           },*/
         ];
 
-        function checkInactivity(activity_check_interval, win_noti, account, url, isForeground) {
-          let idleTime = SystemIdleTime.getIdleTime();
+        function delayedNotiActivityCheck() {
+          return powerMonitor.getSystemIdleTime();
+        }
 
-          if (!win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.isVisible() || !win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.isFocused()) {
-            idleTime_non_active = idleTime_non_active + activity_check_interval;
-          } else {
-            idleTime_non_active = 0;
+        function checkNotiInactivity(win_noti, activity_check_interval) {
+          let idleTime = powerMonitor.getSystemIdleTime();
+
+          //writeLog(`delayedIdleTime: ${delayedIdleTime[win_noti.id]}`)
+          if (isLinux) {
+            idleTime = delayedIdleTime[win_noti.id];
           }
 
-          if (win_noti) {
-            //writeLog(`Current idle time for notification ID ${win_noti.id } with interval ${activity_check_interval/1000}s is: ${idleTime}s`);
-            if ((idleTime < 1) && (!(dismissed[win_noti.id]))) {
+          //writeLog(`Current idle time for notification ID ${win_noti.id } with interval ${activity_check_interval}s is: ${idleTime}s`);
+
+          if ((idleTime < 1) && (!(dismissed[win_noti.id]))) {
+            // start counter in case of the last win_noti only
+            if (win_noti.id === Math.max(...notificationWindowsIds)) {
               win_noti.webContents.executeJavaScript(`updateDismissTimeout(10,${win_noti.id})`);
               dismissed[win_noti.id] = true;
             }
-          } else {
-            //writeLog(`Current idle time for app with interval ${activity_check_interval}s is: ${idleTime}s`);
           }
+          //writeLog(`Current idle time for app with interval ${activity_check_interval}s is: ${idleTime}s`);
+        }
 
+        function checkInactivity(activity_check_interval, account, url, isForeground) {
+          let idleTime = powerMonitor.getSystemIdleTime();
+
+          if (!win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.isVisible() || !win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.isFocused()) {
+            idleTime_non_active += activity_check_interval;
+          } else {
+            idleTime_non_active = 0;
+          }
           //writeLog(`Current hidden or unfocused time is: ${idleTime_non_active} s`);
 
-          if ((idleTime_non_active > 4 * 60) && (!isLocked_suspend)) {
-            if (idleTime <= 4 * 60) {
+          if ((idleTime_non_active > 4*60) && (!isLocked_suspend)) {
+            if (idleTime <= 4*60) {
               idleTime_non_active = 0;
-              //writeLog("Window is hidden or unfocused for more than 4 minutes, but user was active - forcing online status");
-              // do force_online for all accounts
-              //win_main[`${store.get('current_login')}:${store.get('server_url')}:false`].webContents.executeJavaScript(`force_online();`);
+              //writeLog(`Window ${account}:${url} is hidden or unfocused for more than 4 minutes, but user was active - forcing online status`);
+              // do force_online for account
               win_main.id[`${account}:${url}`].window.webContents.executeJavaScript(`force_online();`);
             }
           }
         }
 
-        function checkMaximize(win,click) {
+        async function checkNetwork(urls_to_checks) {
+          const doCheckNetwork = async (urls = []) => {
+            /*const defaultUrls = [
+              'https://www.google.com',  // Removed trailing spaces
+              'https://1.1.1.1',        // Cloudflare DNS
+              'https://www.cloudflare.com'  // Removed trailing spaces
+            ];*/
+            
+            // Combine default URLs with preconfigured ones
+            const allUrls = [...new Set([/*...defaultUrls,*/ ...urls])]; // Remove duplicates
+            const results = {};
+            let overallResult = true;
 
-          if (win.isMaximized()) {
-            if (click) {
-              //mainMenuTemplate[1].submenu[3].label = '⛶  ' + i18n.__("fullscreen");
-              win.unmaximize()
-            }/* else {
-              mainMenuTemplate[1].submenu[3].label = '⿻  ' + i18n.__("restore");
-            }*/
-          } else {
-            if (click) {
-              //mainMenuTemplate[1].submenu[3].label = '⿻  ' + i18n.__("restore");
-              if (isLinux || isMac) {
-                let {
-                  bounds,
-                  workArea
-                } = screen.getDisplayMatching(store.get('bounds'));
+            // Function to create a timeout promise
+            const timeoutPromise = (ms) => {
+              return new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Request timeout')), ms);
+              });
+            };
 
-                workArea.height -= 30;
-                workArea.width -= 2;
-                win.setBounds(workArea);
-              } else {
-                win.maximize()
+            // Function to ping a single URL with timeout
+            const pingUrl = async (url) => {
+              const startTime = Date.now();
+              
+              try {
+                // Race the fetch request against a timeout promise
+                const response = await Promise.race([
+                  fetch(url, { method: 'HEAD', mode: 'no-cors' }),
+                  timeoutPromise(5000) // 5 seconds timeout
+                ]);
+                
+                const responseTime = Date.now() - startTime;
+                // Note: with 'no-cors', we can't check response status, so we'll consider it successful if no exception occurred
+                return { url, status: 'reachable', responseTime };
+              } catch (error) {
+                const responseTime = Date.now() - startTime;
+                // Check if the error is a timeout
+                if (error.message === 'Request timeout') {
+                  return { url, status: 'timeout', responseTime, error: error.message };
+                }
+                return { url, status: 'unreachable', responseTime, error: error.message };
               }
-            }/* else {
-              mainMenuTemplate[1].submenu[3].label = '⛶  ' + i18n.__("fullscreen");
-            }*/
+            };
+
+            // Execute all ping checks concurrently
+            const pingPromises = allUrls.map(url => pingUrl(url));
+            const pingResults = await Promise.allSettled(pingPromises);
+
+            // Process results
+            pingResults.forEach((result, index) => {
+
+              if (result.status === 'fulfilled') {
+                if (result.value.status !== 'reachable') {
+                  overallResult = false;
+                }
+                results[allUrls[index]] = result.value;
+              } else {
+                results[allUrls[index]] = { 
+                  url: allUrls[index], 
+                  status: 'error', 
+                  error: result.reason.message 
+                };
+                overallResult = false;
+              }
+            });
+            //writeLog (results, true);
+            //writeLog (overallResult);
+            return overallResult;
           }
 
-          //MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
-          //Menu.setApplicationMenu(MainMenu);
-          //checkNewVersion(app.getVersion());
+          let networkStatus = await doCheckNetwork(urls_to_checks);
+          return networkStatus;
+        }
+
+        function checkMaximize(win,click) {
+          try {
+            if (win.isMaximized()) {
+              if (click) {
+                //mainMenuTemplate[1].submenu[3].label = '⛶  ' + i18n.__("fullscreen");
+                win.unmaximize()
+              }/* else {
+                mainMenuTemplate[1].submenu[3].label = '⿻  ' + i18n.__("restore");
+              }*/
+            } else {
+              if (click) {
+                //mainMenuTemplate[1].submenu[3].label = '⿻  ' + i18n.__("restore");
+                if (isLinux || isMac) {
+                  let {
+                    bounds,
+                    workArea
+                  } = screen.getDisplayMatching(store.get('bounds'));
+
+                  workArea.height -= 70; // -70 to prevent height issues
+                  workArea.width -= 2;
+                  // comment out setBound below to prevent maximization on linux (workaround as maximizable is not supported by linux, mac and win only) ?
+                  win.setBounds(workArea);
+                } else {
+                  win.maximize()
+                }
+              }/* else {
+                mainMenuTemplate[1].submenu[3].label = '⛶  ' + i18n.__("fullscreen");
+              }*/
+            }
+            //MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+            //Menu.setApplicationMenu(MainMenu);
+            //checkNewVersion(app.getVersion());
+          }
+          catch(err) {
+            writeLog(err);
+          }
         }
 
         function isInternalLink(url) {
@@ -1031,22 +1132,24 @@ WantedBy=graphical-session.target`;
               const targetWindow = win_main.id[nextObject];
 
               // Hide current foreground window
-              win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.hide();
-              win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].isForeground = true;
-              targetWindow.isForeground = false;
-              
-              targetWindow.window.show();
+              //if (!targetWindow.window.isDestroyed()) {
+                win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.hide();
+                win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].isForeground = true;
+                targetWindow.isForeground = false;
+                
+                targetWindow.window.show();
 
-              store.set('current_login', keysArray[next_index-1].split(/:(.+)/)[0]);
-              store.set('server_url', keysArray[next_index-1].split(/:(.+)/)[1]);
+                store.set('current_login', keysArray[next_index-1].split(/:(.+)/)[0]);
+                store.set('server_url', keysArray[next_index-1].split(/:(.+)/)[1]);
 
-              MainMenu.getMenuItemById(`show-${keysArray[next_index-1]}`).checked = true;
-              guiInit(true);
+                MainMenu.getMenuItemById(`show-${keysArray[next_index-1]}`).checked = true;
+                guiInit(true);
+              //}
 
-            /*}
-            catch(err) {
-              writeLog(`Error during showRoundRobinAccount: ${err}`)
-            }*/
+            //}
+            //catch(err) {
+            //  writeLog(`Error during showRoundRobinAccount: ${err}`)
+            //}
           }
         }
 
@@ -1298,7 +1401,7 @@ WantedBy=graphical-session.target`;
 
         async function getConfiguredAccounts(fallback) {
           const savedCreds = await getCredentials();
-          writeLog(savedCreds,true)
+          //writeLog(savedCreds,true)
           if (savedCreds) {
             try {
               //loginData = JSON.parse(savedServers);
@@ -2352,11 +2455,11 @@ WantedBy=graphical-session.target`;
                 } else if (key == "auto_login") {
                   if (obj[key]) {
                     store.set("current_login", "auto_login");
-                  } else {
+                  }/* else {
                     // remove auto_login from keytar and 
                     deleteCredentials("auto_login", store.get("server_url"))
                     store.delete("current_login");
-                  }
+                  }*/
                   /*loginData.server[store.get("server_url")] = {
                     user: obj[key] ? "auto_login" : JSON.parse(store.get('current_login')).server[store.get("server_url")].user
                   };
@@ -2465,7 +2568,6 @@ WantedBy=graphical-session.target`;
 
         async function saveCredentials(username, password, server_address) {
           try {
-            await keytar.setPassword("NC_Talk_Electron_v1", username+":"+server_address , password);
             if (username=='auto_login') {
               writeLog('✅ Server '+server_address+' is set to SSO.');
             } else {
@@ -2473,9 +2575,13 @@ WantedBy=graphical-session.target`;
             }
             store.set("current_login", username);
             store.set("server_url", server_address);
-           
+            // moved keytar.setPassword after store.set to prevent appImage terminate called after throwing an instance of 'Napi::Error'
+            // TODO need test?
+            await keytar.setPassword("NC_Talk_Electron_v1", username+":"+server_address , password);
           } catch (error) {
             writeLog('❌ Error during cred save: ' + error);
+            store.delete("current_login");
+            store.delete("server_url");
           }
         }
 
@@ -2617,7 +2723,12 @@ WantedBy=graphical-session.target`;
                   writeLog(`Start ${account.username}:${account.url} with index ${index} in foreground`)
                   //createForegroundWindow(account.url,account.username)
                   createWindow(account.url,account.username,true,index)
-                  
+                  let activity_check_interval = 5;
+
+                  setInterval(function() {
+                    checkInactivity(activity_check_interval, account, theURL, true)
+                  }, activity_check_interval * 1000);
+
                   pendingTimeouts--; // Decrement counter when timeout executes
                   
                   // Check if this was the last timeout to execute
@@ -2675,7 +2786,7 @@ WantedBy=graphical-session.target`;
         async function deleteCredentials(username, url) {
           try {
             await keytar.deletePassword("NC_Talk_Electron_v1", username + ":" + url);
-            writeLog('🗑️ Credentials are removed');
+            writeLog(`🗑️ ${username}:${url} account is removed`);
           } catch (error) {
             writeLog('❌ Error removing creds: ' + error);
           }
@@ -3008,7 +3119,7 @@ WantedBy=graphical-session.target`;
 
 
             // check page loading 
-            monitorLoadingStatus(win);
+            monitorLoadingStatus(win, server_address);
 
             // force cookies clear and app restart to supress "Access forbidden State token does not match" error
             win.webContents.session.webRequest.onCompleted((details) => {
@@ -3228,8 +3339,17 @@ WantedBy=graphical-session.target`;
           })
         }
 
+        function checkAppArmorStatus() {
+          return new Promise((resolve) => {
+            const child = spawn('aa-status', ['--enabled']);
+            child.on('close', (code) => {
+              resolve(code === 0); // 0 means enabled
+            });
+          });
+        }
+
         // monitor loading with 10 sec timeout
-        function monitorLoadingStatus(win, timeout = 10000) {
+        function monitorLoadingStatus(win, server_address, timeout = 10000) {
           const startTime = Date.now();
 
           // Start monitoring the loading status every second
@@ -3248,7 +3368,7 @@ WantedBy=graphical-session.target`;
 
                 // If the timeout is reached, handle the timeout scenario
                 if (elapsedTime >= timeout) {
-                  writeLog(`Timeout: Page failed to load within ${timeout/1000} seconds.`);
+                  writeLog(`Timeout: Page ${server_address} failed to load within ${timeout/1000} seconds.`);
                   clearInterval(intervalId);
                   if (win && !win.isDestroyed()) {
                     // Optionally reload the page or show an error message
@@ -3256,9 +3376,12 @@ WantedBy=graphical-session.target`;
                       "Error",
                       "The page failed to load. Please check your internet connection or try again later."
                     );*/
-                    dialog.showErrorBox(i18n.__('error'),i18n.__('message1'));
+                    dialog.showErrorBox(i18n.__('error'),i18n.__('message1', {
+                        server_url: server_address
+                      }));
                     win.close();
                     isLoading = false;
+
                     //win.loadURL("about:blank"); // Fallback to a blank page
                   }
                 }
@@ -3288,7 +3411,7 @@ WantedBy=graphical-session.target`;
           }*/
           // check for cloud profile link
           let allow_navi = false;
-          if (url.includes('/settings/user')) {
+          if (url.includes('/settings/')) {
             title = '⚙️  ' + i18n.__("user_settings") + " - " + store.get('server_url');
             allow_navi = true;
           } else if (url.includes('/u/')) {
@@ -3435,7 +3558,7 @@ WantedBy=graphical-session.target`;
                 var text_color = "white"
               }
 
-              var font_size = "65"
+              var font_size = "60"
             }
 
             // tray icon title
@@ -3458,13 +3581,18 @@ WantedBy=graphical-session.target`;
             }
             // colored text
             let font_family = !isLinux ? "system-ui, -apple-system, 'Segoe UI', Roboto, Oxygen-Sans, Cantarell, Ubuntu, 'Helvetica Neue', 'Noto Sans', 'Liberation Sans', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'" : "Noto Sans"
-            var SVGtext = `<text style="fill: ` + text_color + `; stroke: ` + text_color + `; /*stroke-width:3*/" font-family="` + font_family + `" font-size="` + font_size + `" text-anchor="middle" x="40" y="65" >` + unread + `</text>`
+            var SVGtext = `<text style="fill: ` + text_color + `; stroke: ` + text_color + `; /*stroke-width:3*/" font-family="` + font_family + `" font-size="` + font_size + `" text-anchor="middle" x="41" y="63" >` + unread + `</text>`
             // transparent text
             //var SVGtext = `<mask id="clip"><rect width="100%" height="100%" fill="`+text_color+`"/><text font-size="`+font_size+`" font-weight="bold" text-anchor="middle" x="40" y="65">`+unread+`</text></mask>`
 
 
             // for colored text
-            var badge = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="82" height="82"><circle cx="41" cy="41" r="40.5" fill="` + badge_color + `" />` + SVGtext + `</svg>`;
+            //var badge = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="82" height="82"><circle cx="41" cy="41" r="40.5" fill="` + badge_color + `" />` + SVGtext + `</svg>`;
+            var badge = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="82" height="82">
+              <circle cx="41" cy="41" r="41" fill="${badge_color}" />
+              <circle cx="41" cy="41" r="41" fill="none" stroke="${text_color}" stroke-width="5" />
+              ${SVGtext}
+            </svg>`;
 
             // for transparent text
             //var badge = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="82" height="82"><circle  cx="41" cy="41" r="40.5" fill="`+text_color+`" /><circle mask="url(#clip)" stroke-width="2" style="stroke:`+badge_color+`;" cx="41" cy="41" r="40.5" fill="`+badge_color+`" />`+SVGtext+`</svg>`
@@ -3552,8 +3680,8 @@ WantedBy=graphical-session.target`;
               newImage = await sharp(newImage).resize(120, 120).toBuffer();
               newImage = await sharp(newImage).composite([{
                 input: Buffer.from(badge),
-                top: 45,
-                left: 45,
+                top: 35,
+                left: 35,
                 blend: 'over'
               }]).toBuffer();
 
@@ -3690,7 +3818,7 @@ WantedBy=graphical-session.target`;
               `);
 
               win.webContents.executeJavaScript(`get_Notifications(${data.tag});`);
-              setTimeout(() => {
+              //setTimeout(() => {
                 if (notification_type[account_string] == 'call') {
                   notification_message_link[account_string] += '#direct-call';
                 }
@@ -3718,13 +3846,24 @@ WantedBy=graphical-session.target`;
                   win_noti.webContents.executeJavaScript(`updateDismissAllButton ('${notificationWindows.length}')`);
 
                   checkInactivityInterval[win_noti.id] = setInterval(function() {
-                    checkInactivity(1000, win_noti, false, false, false)
+                    checkNotiInactivity(win_noti, 1);
                   }, 1000);
+                  
+                  // to avoid false activity in linux after 5 seconds of showed notification
+                  if (isLinux) {
+                    delayedIdleTime[win_noti.id] = 5;
+                    setTimeout(()=>{
+                      delayedIdleTimeInterval[win_noti.id] = setInterval(function() {
+                        delayedIdleTime[win_noti.id] = delayedNotiActivityCheck();
+                      }, 1000);
+                    }, 6000)
+                  }
+                  
                   // cleanup avatar after notification apper
                   notification_message_icon[account_string] = '';
                   notification_type[account_string] = '';
                 }
-              }, 1000);
+              //}, 1000);
 
 
             })
@@ -3733,7 +3872,7 @@ WantedBy=graphical-session.target`;
               // open message from notify process
               if (JSON.parse(message).action.open_message) {
                 //writeLog("Notify #"+JSON.parse(message).action.open_message+" is clicked")
-                setTimeout(function() {
+                //setTimeout(function() {
                   win.webContents.executeJavaScript(`open_message("${notification_message_link[account_string]}");`);
                   // force close other call dialogs if answer current call
                   for (const [key, value] of Object.entries(controller)) {
@@ -3764,7 +3903,7 @@ WantedBy=graphical-session.target`;
                       }
                     }
                   }
-                }, 1000);
+                //}, 1000);
               }
 
               // dismiss button process
@@ -3779,6 +3918,8 @@ WantedBy=graphical-session.target`;
                 }
                 dismissed[win_noti.id] = false;
                 clearTimeout(checkInactivityInterval[win_noti.id]);
+                clearTimeout(delayedIdleTimeInterval[win_noti.id]);
+                delayedIdleTime[win_noti.id] = 5;
 
                 // to remove all dismissed_all buttons in case of there is only one notification remain
                 notificationWindows.forEach((noti_win) => {
@@ -3790,10 +3931,18 @@ WantedBy=graphical-session.target`;
                 });
               }
 
+              // force counter on noti mouse hover leave
+              if (JSON.parse(message).action == "mouse_leave") {
+                clearTimeout(delayedIdleTimeInterval[win_noti.id]);
+                delayedIdleTime[win_noti.id] = 5;
+                win_noti.webContents.executeJavaScript(`updateDismissTimeout(10,${win_noti.id})`);
+                dismissed[win_noti.id] = true;
+              }
+
               // dismiss all button process
               if (JSON.parse(message).action == "dismissed_all") {
                 DismissAllNoti();
-                dismissed[win_noti.id] = false;
+                
               }
             })
 
@@ -3808,6 +3957,9 @@ WantedBy=graphical-session.target`;
             try {
               noti_win.webContents.executeJavaScript(`slideAway('` + noti_win.id + `');`);
               clearTimeout(checkInactivityInterval[win_noti.id]);
+              clearTimeout(delayedIdleTimeInterval[win_noti.id]);
+              dismissed[noti_win.id] = false;
+              delayedIdleTime[win_noti.id] = 5;
             } catch (err) {
               //writeLog(err)
             }
@@ -3848,6 +4000,9 @@ WantedBy=graphical-session.target`;
               if (unread_prev[`${account}:${theURL}`] != unread[`${account}:${theURL}`]) {
                 // check if win_main is in not hidden of minimized
                 if (!win.isVisible() || win.isMinimized() /*|| !win.isFocused()*/ ) {
+                  // force dismiss all notifications when show_on_new_message is true and is fired
+                  DismissAllNoti();
+                  //dismissed[win_noti.id] = false;
                   // bounce 1s to prevent config bounds save loop
                   debounce = setTimeout(function() {
                     // do all multiple win stuff before show
@@ -4080,7 +4235,7 @@ WantedBy=graphical-session.target`;
           let activity_check_interval = 5;
 
           setInterval(function() {
-            checkInactivity(activity_check_interval, false, account, theURL, isForeground)
+            checkInactivity(activity_check_interval, account, theURL, false)
           }, activity_check_interval * 1000);
 
           // apply context menus
@@ -4135,6 +4290,8 @@ WantedBy=graphical-session.target`;
               if (Object.keys(loginData).length !== 0) {
                 win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.show();
                 win_main.id[`${account}:${theURL}`].window.destroy();
+                // additional cleanup of win_main object from the reference to 
+                delete win_main.id[`${account}:${theURL}`];
                 return;
               } else {
                 app.exit(0);
@@ -4327,7 +4484,11 @@ WantedBy=graphical-session.target`;
 
             writeLog(`Failed to load ${validatedURL}: ${errorDescription} (${errorCode})`);
             if (!validatedURL.includes('unsupported?redirect_url')) {
-              win_main.id[`${account}:${theURL}`].window.loadURL("about:blank"); // Fallback to a blank page
+              dialog.showErrorBox(i18n.__('error'),i18n.__('message1', {
+                  server_url: server_address
+                }));
+              win_main.id[`${account}:${theURL}`].window.close();
+              //win_main.id[`${account}:${theURL}`].window.loadURL("about:blank"); // Fallback to a blank page
             }
             //win_main.close();
             //appIcon.destroy();
@@ -4781,8 +4942,6 @@ WantedBy=graphical-session.target`;
                     }
                     //dialog.showErrorBox(i18n.__('error'),i18n.__('message6'));
                     auto_login_error = true;
-                  } else {
-
                   }
                 } else {
                   //win_main.destroy();
@@ -4801,7 +4960,9 @@ WantedBy=graphical-session.target`;
                       title: i18n.__('error'),
                       useHtmlLabel: true,
                       //icon:icon,
-                      message: i18n.__('message1'),
+                      message: i18n.__('message1', {
+                        server_url: theURL
+                      }),
                       detail: i18n.__('message9'),
                     };
                     prompted = true;
@@ -4816,7 +4977,6 @@ WantedBy=graphical-session.target`;
                     //setServerUrl (theURL||url_example);
                   }
                 }
-
               }
             } catch (err) {
               // Don't write this errors in log as they are useless with some json parse issues
@@ -4833,6 +4993,14 @@ WantedBy=graphical-session.target`;
             url = this.details.getURL();
             //console.log("\nCurrent URL: " + url)
             //console.log("Redirect URL: " + redirectUrl + "\n")
+            if (!redirectUrl.includes(`${theURL}`)) {
+              event.preventDefault();
+              //writeLog("This is external site. Opening in system browser...")
+              shell.openExternal(redirectUrl);
+              return {
+                action: 'deny'
+              };
+            }
             /*if (!gui_blocked) {
               block_gui_loading(true);
             }*/
@@ -4850,7 +5018,7 @@ WantedBy=graphical-session.target`;
               };
             }
             // open settings process
-            if (redirectUrl.includes('/settings/user')) {
+            if (redirectUrl.includes('/settings/')) {
               event.preventDefault();
               // dirty prevent PageLoaders appear
               win_main.id[`${account}:${theURL}`].window.webContents.insertCSS('#side-menu-loader-bar { width:0!important;}');
@@ -5149,13 +5317,13 @@ WantedBy=graphical-session.target`;
                     prompted = false;
 
                     store.set("current_login", "auto_login");
-
-                    // save autologin as account for server
-                    saveCredentials('auto_login','auto_login', address);
-
                     if (input !== null) {
                       store.set('allow_domain', input)
                     }
+                    // save autologin as account for server
+                    saveCredentials('auto_login','auto_login', address);
+
+
                     restartApp();
                   })
                   .catch((err) => {
@@ -5183,75 +5351,101 @@ WantedBy=graphical-session.target`;
           app.disableHardwareAcceleration();*/
         }
 
-        app.whenReady().then((event) => {
-          //app.on('ready', async () => {
+        //app.whenReady().then((event) => {
+        app.on('ready', async () => {
           writeLog('PID = ' + process.pid);
 
-          /*process.on('SIGTERM', () => {
-            app.exit(0);
-          })
-          process.on('SIGINT', () => {
-            app.exit(0);
-          })*/
+          writeLog('Checking internet...');
 
-           // check license at app startup and in every hour
-          setTimeout(() => {
-            checkLicense(store.get('license_key'));
-            setInterval(() => {
+          let check_result = await checkNetwork(['https://8.8.8.8'])
+
+          if (check_result) {
+            writeLog('Internet is available.');
+            /*process.on('SIGTERM', () => {
+              app.exit(0);
+            })
+            process.on('SIGINT', () => {
+              app.exit(0);
+            })*/
+
+             // check license at app startup and in every hour
+            setTimeout(() => {
               checkLicense(store.get('license_key'));
-            }, 60 * 60 * 1000);
-          }, 1 * 1000);
+              setInterval(() => {
+                checkLicense(store.get('license_key'));
+              }, 60 * 60 * 1000);
+            }, 1 * 1000);
 
-          // to set app.name instead of electron.app.Electron in Windows notifications
-          if (!isMac) app.setAppUserModelId(app.name);
+            // to set app.name instead of electron.app.Electron in Windows notifications
+            if (!isMac) app.setAppUserModelId(app.name);
 
-          // to detect lock screen and suspend (mac)
-          if (isMac) {
-            powerMonitor.on('lock-screen', () => {
-              isLocked_suspend = true;
-              //writeLog('The screen is locked');
-            });
-            powerMonitor.on('unlock-screen', () => {
-              sLocked_suspend = false;
-              writeLog('The screen of Mac is unlocked. Force restart app...');
-              restartApp();
-            });
-            powerMonitor.on('suspend', () => {
-              sLocked_suspend = true;
-              //writeLog('The system is suspended');
-            });
-            powerMonitor.on('resume', () => {
-              sLocked_suspend = false;
-              writeLog('The Mac system is resumed. Force restart app...');
-              restartApp();
-            });
-          }
-          if (url == "") {
-            setServerUrl(url_example);
-          } else {
-            url += "/apps/spreed";
-            createWindow(store.get('server_url'), store.get('current_login'),false);
-
-            //try to start another configured servers
-            startForeground();
-
-            // handle Windows shutdown/logout to prevent crush
-            if (isWindows) {
-              app.on('before-quit', e => {
-                e.preventDefault();
-              })
-              ShutdownHandler.setWindowHandle(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.getNativeWindowHandle());
-              ShutdownHandler.blockShutdown('');
-              ShutdownHandler.on('shutdown', () => {
-                writeLog('Shutdown/logout is detected! Exiting app!');
-                ShutdownHandler.releaseShutdown();
-                store.delete('latestVersion');
-                store.delete('releaseUrl');
-                app.exit(0);
-              })
+            // to detect lock screen and suspend (mac)
+            if (isMac) {
+              powerMonitor.on('lock-screen', () => {
+                isLocked_suspend = true;
+                //writeLog('The screen is locked');
+              });
+              powerMonitor.on('unlock-screen', () => {
+                isLocked_suspend = false;
+                writeLog('The screen of Mac is unlocked. Force restart app with 2 seconds delay...');
+                setTimeout(()=>{
+                  restartApp();
+                }, 2000)
+              });
+              powerMonitor.on('suspend', () => {
+                isLocked_suspend = true;
+                //writeLog('The system is suspended');
+              });
+              powerMonitor.on('resume', () => {
+                isLocked_suspend = false;
+                writeLog('The Mac system is resumed. Force restart app with 2 seconds delay...');
+                setTimeout(()=>{
+                  restartApp();
+                }, 2000)
+              });
             }
-            guiInit();
 
+            if (url == "") {
+              setServerUrl(url_example);
+            } else {
+              writeLog(`Checking ${store.get('server_url')}...`);
+              check_result = await checkNetwork([store.get('server_url')])
+              if (check_result) {
+                writeLog(`${store.get('server_url')} is available. Continue app loading...`);
+                url += "/apps/spreed";
+                createWindow(store.get('server_url'), store.get('current_login'),false);
+
+                //try to start another configured servers
+                startForeground();
+
+                // handle Windows shutdown/logout to prevent crush
+                if (isWindows) {
+                  app.on('before-quit', e => {
+                    e.preventDefault();
+                  })
+                  ShutdownHandler.setWindowHandle(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.getNativeWindowHandle());
+                  ShutdownHandler.blockShutdown('');
+                  ShutdownHandler.on('shutdown', () => {
+                    writeLog('Shutdown/logout is detected! Exiting app!');
+                    ShutdownHandler.releaseShutdown();
+                    store.delete('latestVersion');
+                    store.delete('releaseUrl');
+                    app.exit(0);
+                  })
+                }
+                guiInit();
+              } else {
+                writeLog(`${store.get('server_url')} is unreachable. Exit app.`)
+                dialog.showErrorBox(i18n.__('error'), i18n.__('message1', {
+                  server_url: store.get('server_url')
+                }));
+                app.exit(0);
+              }
+            }
+          } else {
+            writeLog(`Internet (8.8.8.8) is unreachable. Exit app.`)
+            dialog.showErrorBox(i18n.__('error'), i18n.__('message22'));
+            app.exit(0);
           }
         })
 
@@ -5274,14 +5468,16 @@ WantedBy=graphical-session.target`;
 
 
       } catch (err) {
+        dialog.showErrorBox(i18n.__('error'), i18n.__('message12'));
         writeLog(err)
-        dialog.showErrorBox(i18n.__('error'), i18n.__('message5'));
+        //dialog.showErrorBox(i18n.__('error'), i18n.__('message5'));
         //fs.unlinkSync(app.getPath('userData')+"/config.json")
-        fs.rmSync(app.getPath('userData'), {
+        /*fs.rmSync(app.getPath('userData'), {
           recursive: true,
           force: true
         });
-        restartApp();
+        restartApp();*/
+        app.exit(0);
       }
     }
   }
