@@ -88,8 +88,8 @@ function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss
         setTimeout(() => {
           notif.remove();
           self.close();
-          console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
         }, 300);
+        console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
     });
 
     // open message tag link at read-btn
@@ -99,9 +99,9 @@ function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss
       setTimeout(() => {
         notif.remove();
         self.close();
-        console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
       }, 300);
       console.log(JSON.stringify({'action': {'open_message': data.tag }}));
+      console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
     });
 
     // Pause timer on hover
@@ -138,6 +138,12 @@ function isTextLongAndHasSpace(element, minLength) {
   const hasSpace = /\s/.test(text);
 
   return isLongEnough && hasSpace;
+}
+
+function checkStaleNoti(){
+  if (notif.classList.contains(animation_direction_out)) {
+    console.log(JSON.stringify({'action': 'stale_noti_found'}));
+  }
 }
 
 function updateDismissAllButton (counter){
@@ -224,9 +230,9 @@ function startDismissTimer(win_noti_id) {
             if (notif && notif.parentNode) {
               notif.remove();
               self.close();
-              console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
             }
           }, 300);
+          console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
         }
       }
     } else {
@@ -238,7 +244,6 @@ function startDismissTimer(win_noti_id) {
 };
 
 function slideAway(id) {
-  console.log(JSON.stringify({'action': {'dismissed': id }}));
   if (notif && notif.parentNode) {
     notif.classList.remove(animation_direction_in);
     notif.classList.add(animation_direction_out);
@@ -249,4 +254,5 @@ function slideAway(id) {
         }
       }, 300);
   }
+  console.log(JSON.stringify({'action': {'dismissed': id }}));
 }

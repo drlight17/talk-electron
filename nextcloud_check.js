@@ -411,6 +411,34 @@ function create_spinner() {
   document.head.appendChild(style);
 }
 
+function switchAccountClick() {
+  console.log(JSON.stringify({action: "switch_account"}));
+}
+
+function createAccSwitch(){
+  // add showRoundRobinAccount switch button before .unified-search-menu if there are more then one account is configured
+
+  let switch_button = document.createElement("button");
+  switch_button.addEventListener('click', switchAccountClick);
+  switch_button.setAttribute('type', 'button');
+  switch_button.setAttribute('id', 'switch_acc_button');
+  //switch_button.style.display = "none";
+  switch_button.classList.add("header-menu__trigger","button-vue", "button-vue--size-normal", "button-vue--icon-only", "button-vue--vue-tertiary-no-background");
+  switch_button.style.background = "#ff00"
+  switch_button.textContent += '🔄 ' + switch_acc_loc;
+  switch_button.title = "Ctrl+Tab";
+
+  /*let img = document.createElement("img");
+  img.setAttribute('src', '/core/img/favicon-mask.svg');
+  switch_button.insertBefore(img, switch_button.firstChild);*/
+
+  let div = document.createElement("div");
+  div.classList.add("header-menu");
+
+  div.appendChild(switch_button);
+  document.querySelector('.unified-search-menu').prepend(div)
+}
+
 function checkURL(auto_login/*,login,password*/){
   // check current page is spreed
   const loginForms = document.querySelectorAll('form.login-form');
@@ -464,6 +492,34 @@ catch (err) {
 
 }
 
+/*async function getAppManifestName() {
+  const manifestLink = document.querySelector('link[rel="manifest"]');
+  if (!manifestLink) {
+    console.warn('No manifest found');
+    return null;
+  }
+
+  try {
+    const response = await fetch(manifestLink.href);
+    const manifest = await response.json();
+    return manifest.name || manifest.short_name || null;
+  } catch (err) {
+    console.error('Failed to fetch manifest:', err);
+    return null;
+  }
+}*/
+
+async function getNameFromUrl(url) {
+    try {
+        const response = await fetch(url);
+        const data = await response.json();
+        return data.name;
+    } catch (error) {
+        //console.error('Error fetching data:', error);
+        return null;
+    }
+}
+
 // test set 500ms timeout for _oc_config fetch
 setTimeout (()=>{
   if (typeof _oc_config === "undefined") {
@@ -484,6 +540,26 @@ setTimeout (()=>{
 
       // fetch theme_color
       console.log(JSON.stringify({action: {color_theme: document.querySelector(`head > meta[name="theme-color"]`).content}}));
+
+      // fetch NC title
+      //let nc_title = document.querySelector(`head > title`).textContent;
+      getNameFromUrl('/apps/theming/manifest/spreed')
+      .then(name => {
+        console.log(JSON.stringify({action: {nc_title: name}}));
+        let span_title = document.createElement("span");
+        span_title.innerText = name;
+        span_title.id = "nc_title";
+        //console.log(document.querySelector(`.header-left, .header-start`))
+        document.querySelector(`.header-left, .header-start`).appendChild(span_title)
+      });
+
+      //console.log(JSON.stringify({action: {nc_title: nc_title}}));
+      // add server_title to .header-left
+
+      /*getAppManifestName().then(name => {
+        console.log(JSON.stringify({action: {nc_title: name}}));
+      });*/
+      
 
       // add open user settings menu link instead of default to prevent default behaviour
       if (!document.getElementById('user_settings_link')) {
@@ -506,7 +582,7 @@ setTimeout (()=>{
           firstrunwizardAbout.parentNode.insertBefore(li, firstrunwizardAbout);
         }
       }
-      
+
       // add open NC in default browser menu link 
       if (!document.getElementById('nc_link')) {
         let li = document.createElement("li");

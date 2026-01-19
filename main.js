@@ -15,8 +15,6 @@
  const isWindows = process.platform === 'win32'
  const isLinux = process.platform === 'linux'
 
-
-
  /*if ((isMac) || (isLinux)) {
    var { app, clipboard, BrowserWindow, Menu, Tray, nativeImage, Notification, dialog, session, shell, powerMonitor, nativeTheme } = require('electron')
  }
@@ -338,6 +336,7 @@ if (process.versions.electron != "22.3.27") {
         let saved_proxy_password = false;
         let proxies = undefined;
         let isDialogOpen = false;
+        let pass_sso = false;
 
         // check version in every hour with 3 sec delay for the first time
         setTimeout(() => {
@@ -381,6 +380,8 @@ if (process.versions.electron != "22.3.27") {
           url = validateAndFixProtocol(store.get('server_url'));
           store.set('server_url', url)
         }
+
+        //
 
         // save current app exec path in config file
         if (!store.get('exec_path')) {
@@ -596,7 +597,7 @@ WantedBy=graphical-session.target`;
 
         var win_main = {id:{}};
         var win_popup = null;
-        let saved_password = undefined;
+        //let saved_password = undefined;
         //var win_noti = null;
         //var win_loading = null;
         var appIcon = null;
@@ -856,11 +857,10 @@ WantedBy=graphical-session.target`;
           {
             type: 'separator'
           },
-          // TODO this doesn't look and doesn't update properly, disabled for now
-          /*{
+          {
             label: '👥  ' + i18n.__('current_account'),
             submenu: []
-          },*/
+          },
           {
             label: '⚙️  ' + i18n.__('preferences'),
             click: () => {
@@ -1115,6 +1115,10 @@ WantedBy=graphical-session.target`;
 
         // ctrl+tab shortcut handle to switch windows
         function showRoundRobinAccount(current_win) {
+          if (settings_opened) {
+            return;
+            //win_settings.close();
+          }
           //writeLog(Object.keys(loginData.accounts).length)
 
           if (Object.keys(loginData.accounts).length > 1) {
@@ -1125,7 +1129,7 @@ WantedBy=graphical-session.target`;
                 next_index = 1;
               }
 
-              MainMenu.getMenuItemById(`show-${keysArray[current_win.index-1]}`).checked = false;
+              //MainMenu.getMenuItemById(`show-${keysArray[current_win.index-1]}`).checked = false;
 
 
               const nextObject = keysArray[next_index-1 % Object.keys(win_main.id).length];
@@ -1142,7 +1146,8 @@ WantedBy=graphical-session.target`;
                 store.set('current_login', keysArray[next_index-1].split(/:(.+)/)[0]);
                 store.set('server_url', keysArray[next_index-1].split(/:(.+)/)[1]);
 
-                MainMenu.getMenuItemById(`show-${keysArray[next_index-1]}`).checked = true;
+                //MainMenu.getMenuItemById(`show-${keysArray[next_index-1]}`).checked = true;
+                markCurrentAccMenu(keysArray[next_index-1].split(/:(.+)/)[0], keysArray[next_index-1].split(/:(.+)/)[1])
                 guiInit(true);
               //}
 
@@ -1399,6 +1404,26 @@ WantedBy=graphical-session.target`;
           win_main = {id:sortedObj};
         }
 
+        function hasAutoLoginAndAnotherWithSameUrl(loginData) {
+            const autoLoginAccounts = loginData.accounts.filter(account => 
+                account.username === 'auto_login'
+            );
+            
+            for (const autoAccount of autoLoginAccounts) {
+
+                const hasAnotherWithSameUrl = loginData.accounts.some(account => 
+                    account.username !== 'auto_login' && 
+                    account.url === autoAccount.url
+                );
+                
+                if (hasAnotherWithSameUrl) {
+                    return autoAccount.url;
+                }
+            }
+            
+            return false;
+        }
+
         async function getConfiguredAccounts(fallback) {
           const savedCreds = await getCredentials();
           //writeLog(savedCreds,true)
@@ -1416,6 +1441,21 @@ WantedBy=graphical-session.target`;
                   };
                 })
               };
+              // check if there is auto_login with the same server_url to prevent issued state with both SSO and non-SSO account for the same server_url
+              //writeLog('Hi!')
+              check_remain_auto_login_url = hasAutoLoginAndAnotherWithSameUrl(loginData);
+
+              if (check_remain_auto_login_url) {
+                writeLog(`Found auto_login with another account having the same URL ${check_remain_auto_login_url}. Remove auto_login account for this URL to prevent issued state and restart app.`);
+                deleteCredentials('auto_login', check_remain_auto_login_url)
+                session.defaultSession.clearStorageData([], (data) => {});
+                getConfiguredAccounts(true);
+                //store.delete('current_login');
+                //store.delete('server_url');
+                restartApp();
+
+                //deleteAccount('auto_login',check_remain_auto_login_url, true)
+              }
               //writeLog(loginData.accounts,true)
               insertServers(fallback);
             } catch (e) {
@@ -1442,6 +1482,98 @@ WantedBy=graphical-session.target`;
               restartApp();
 
             }
+          }
+        }
+
+        function markCurrentAccMenu(account,url) {
+          try {
+            // at first force uncheck all accounts
+            mainMenuTemplate[0].submenu[0]
+                ?.submenu.forEach(sub => {
+              if (sub.id) {
+                if (sub.label.includes('✓')) {
+                  sub.label = sub.label.replace('✓ ', '');
+                }
+              }
+            });
+
+            let newItem = mainMenuTemplate[0].submenu[0]
+                ?.submenu?.find(sub => sub.id === `show-${account}:${url}`);
+            if (newItem) {
+                if (!newItem.label.includes('✓')) {
+                  newItem.label = '✓ '+newItem.label;
+                } else {
+                  newItem.label = newItem.label.replace('✓ ', '');
+                }
+            }
+
+            // rebuild man and appicon menus
+            const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate);
+            appIcon.setContextMenu(contextMenu);
+
+            MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+            Menu.setApplicationMenu(MainMenu);
+          }
+          catch(err) {
+            writeLog(err)
+          }
+          
+          /*const submenu = appIcon.menu.items;
+          submenu.forEach(item => {
+            if (item.type === 'checkbox' && item.id !== menuItem.id) {
+              item.checked = false;
+            }
+          });*/
+          // Set the current item to checked (this overrides the default toggle)
+          //menuItem.checked = true;
+        }
+
+        function deleteAccount(username, url, forced) {
+          if (!isForegroundLoading) {
+            if (settings_opened) {
+              return;
+              //win_settings.close();
+            }
+            const options = {
+              type: 'question',
+              buttons: [i18n.__('yes_button'), i18n.__('no_button')],
+              defaultId: 0,
+              title: i18n.__('delete_account'),
+              message: i18n.__('delete_account_confirm', {
+                server_url: url,
+                saved_login: username
+              }),
+            };
+
+            dialog.showMessageBox(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, options)
+              .then((result) => {
+                switch (result.response) {
+                  case 0: // Yes
+                    deleteCredentials(username, url)
+                    session.defaultSession.clearStorageData([], (data) => {});
+                    //removeServerFromLoginData(url);
+
+                    if (!forced) {
+                      getConfiguredAccounts(true);
+                    } else {
+                      store.delete('current_login');
+                      store.delete('server_url');
+                      restartApp();
+                    }
+                    
+                    break;
+                  case 1: // No
+                    if (forced) {
+                      restartApp();
+                    }
+                    break;
+                }
+              })
+              .catch((err) => {
+                writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
+              })
+          } else {
+            dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
           }
         }
 
@@ -1473,38 +1605,8 @@ WantedBy=graphical-session.target`;
               let delete_account = {
                 label: '❌  ' + i18n.__('delete_account'),
                 click: () => {
-                  if (!isForegroundLoading) {
-                    const options = {
-                      type: 'question',
-                      buttons: [i18n.__('yes_button'), i18n.__('no_button')],
-                      defaultId: 0,
-                      title: i18n.__('delete_account'),
-                      message: i18n.__('delete_account_confirm', {
-                        server_url: account.url,
-                        saved_login: account.username
-                      }),
-                    };
-
-                    dialog.showMessageBox(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, options)
-                      .then((result) => {
-                        switch (result.response) {
-                          case 0: // Yes
-                            deleteCredentials(account.username, account.url)
-                            session.defaultSession.clearStorageData([], (data) => {});
-                            //removeServerFromLoginData(url);
-                            getConfiguredAccounts(true);
-                            
-                            break;
-                          case 1: // No
-                            break;
-                        }
-                      })
-                      .catch((err) => {
-                        writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
-                      })
-                  } else {
-                    dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
-                  }
+                  // try to delete account func
+                  deleteAccount(account.username, account.url);
                 }
               }
 
@@ -1528,24 +1630,30 @@ WantedBy=graphical-session.target`;
               }*/
 
               saved_login_submenu = {
-                label: label,
+                label: isForeground ? label : '✓ '+label,
                 sublabel: '🌐  ' + account.url,
                 id: `show-${account.username}:${account.url}`,
-                type: 'checkbox',
-                checked: !isForeground,
+                type: 'normal',
+                //checked: !isForeground,
                 //visible: !isForeground,
                 accelerator: (Object.keys(loginData.accounts).length <= 1) ? null : `Ctrl+${index}`,
                 click: (menuItem, browserWindow, event, isForeground) => {
                   if (!isForegroundLoading) {
+                    if (settings_opened) {
+                      return;
+                      //win_settings.close();
+                    }
+                    markCurrentAccMenu(account.username,account.url);
+
                     // First, uncheck all other checkboxes in the same submenu
-                    const submenu = menuItem.menu.items;
+                    /*const submenu = menuItem.menu.items;
                     submenu.forEach(item => {
                       if (item.type === 'checkbox' && item.id !== menuItem.id) {
                         item.checked = false;
                       }
                     });
                     // Set the current item to checked (this overrides the default toggle)
-                    menuItem.checked = true;
+                    menuItem.checked = true;*/
 
                     const windowKey = `${account.username}:${account.url}`;
                     const targetWindow = win_main.id[windowKey];
@@ -1571,7 +1679,7 @@ WantedBy=graphical-session.target`;
                     }
                   } else {
                     setTimeout(() => {
-                      menuItem.checked = false;
+                      //menuItem.checked = false;
                     }, 0);
                     dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
                   }
@@ -1580,17 +1688,18 @@ WantedBy=graphical-session.target`;
                 }
               }
 
-              // TODO this doesn't look and doesn't update properly, disabled for now
-              /*appIconMenuTemplate[4].submenu.push(
+              appIconMenuTemplate[3].submenu.push(
                 saved_login_submenu,
                 {
                   label: '🌐  ' + account.url,
                   enabled: false,
+                  visible: isMac,
                 },
+                delete_account,
                 {
                   type: 'separator'
                 }
-              );*/
+              );
 
               mainMenuTemplate[0].submenu[0].submenu.push(
                 saved_login_submenu,
@@ -1624,25 +1733,28 @@ WantedBy=graphical-session.target`;
               label: '+  ' + i18n.__('add_account'),
               click: () => {
                 if (!isForegroundLoading) {
+                  if (settings_opened) {
+                    return;
+                    //win_settings.close();
+                  }
                   setServerUrl(url_example, true);
                 } else {
                   dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
                 }
               }
             }
-            // TODO this doesn't look and doesn't update properly, disabled for now
-            //appIconMenuTemplate[4].submenu.push(add_account)
 
             mainMenuTemplate[0].submenu[0].submenu.push(tab_help)
+            appIconMenuTemplate[3].submenu.push(tab_help)
 
             // set maximum possible configured accounts to 9
             if (loginData.accounts.length < 9) {
               mainMenuTemplate[0].submenu[0].submenu.push(add_account)
+              appIconMenuTemplate[3].submenu.push(add_account)
             }
             
-            // TODO this doesn't look and doesn't update properly, disabled for now
-            //const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate);
-            //appIcon.setContextMenu(contextMenu);
+            const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate);
+            appIcon.setContextMenu(contextMenu);
 
             MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
             Menu.setApplicationMenu(MainMenu);
@@ -1668,6 +1780,7 @@ WantedBy=graphical-session.target`;
               {
                 //label: 'Add to dictionary',
                 label: '📙  ' + i18n.__('add_to_dict'),
+                accelerator: !isMac ? `CmdOrCtrl+d` : null,
                 click: () => win.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord),
               },
               {
@@ -1683,11 +1796,13 @@ WantedBy=graphical-session.target`;
             const menuImageItems = [{
                 //label: 'Copy image',
                 label: '✍️  ' + i18n.__('copy_image'),
+                accelerator: !isMac ? `CmdOrCtrl+i` : null,
                 click: () => win.webContents.copyImageAt(params.x, params.y),
               },
               {
                 //label: 'Save image',
                 label: '🖼️  ' + i18n.__('save_image'),
+                accelerator: !isMac ? `CmdOrCtrl+s` : null,
                 click: () => win.webContents.downloadURL(params.srcURL),
               },
               {
@@ -1703,11 +1818,13 @@ WantedBy=graphical-session.target`;
             const menuLinkItems = [{
                 //label: 'Copy link address',
                 label: '📋🔗  ' + i18n.__('copy_link_address'),
+                accelerator: !isMac ? `CmdOrCtrl+l` : null,
                 click: () => clipboard.writeText(params.linkURL),
               },
               {
                 //label: 'Copy link text',
                 label: '📋📄  ' + i18n.__('copy_link_text'),
+                accelerator: !isMac ? `CmdOrCtrl+t` : null,
                 click: () => clipboard.writeText(params.linkText.trim() || params.linkURL),
               },
               {
@@ -1723,22 +1840,26 @@ WantedBy=graphical-session.target`;
             const menuClipboardItems = [{
                 role: 'copy',
                 label: '📋  ' + i18n.__('copy'),
+                accelerator: !isMac ? `CmdOrCtrl+c`:null,
                 enabled: params.selectionText && params.editFlags.canCopy,
               },
               {
                 role: 'cut',
                 label: '✂  ' + i18n.__('cut'),
+                accelerator: !isMac ? `CmdOrCtrl+x`:null,
                 enabled: params.selectionText && params.isEditable && params.editFlags.canCut,
                 visible: params.isEditable,
               },
               {
                 role: 'selectAll',
                 label: '✔  ' + i18n.__('select_all'),
+                accelerator: !isMac ? `CmdOrCtrl+a` : null,
                 enabled: params.editFlags.canSelectAll,
               },
               {
                 role: 'paste',
                 label: '⤵  ' + i18n.__('paste'),
+                accelerator: !isMac ? `CmdOrCtrl+v` : null,
                 enabled: params.isEditable && params.editFlags.canPaste,
                 visible: params.isEditable,
               },
@@ -1756,6 +1877,14 @@ WantedBy=graphical-session.target`;
 
             if (haveContext) {
               Menu.buildFromTemplate(menuItems).popup()
+              // add to mainmenu
+              /*writeLog(mainMenuTemplate[1], true)
+              //writeLog(menuItems, true)
+              mainMenuTemplate[1].submenu.push(menuItems)
+              writeLog(mainMenuTemplate[1], true)
+              MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
+              Menu.setApplicationMenu(MainMenu);
+              //isMac ? Menu.buildFromTemplate(menuItems).popup()*/
             }
           })
         }
@@ -2195,9 +2324,9 @@ WantedBy=graphical-session.target`;
           try {
 
             if ((releaseUrl) && (latestVersion) && (!licensed)) {
-              appIconMenuTemplate[5].submenu[1].label = '🔥  ' + i18n.__('new_version') + ": " + latestVersion;
-              appIconMenuTemplate[5].submenu[1].enabled = true;
-              appIconMenuTemplate[5].submenu[1].click = () => {
+              appIconMenuTemplate[6].submenu[1].label = '🔥  ' + i18n.__('new_version') + ": " + latestVersion;
+              appIconMenuTemplate[6].submenu[1].enabled = true;
+              appIconMenuTemplate[6].submenu[1].click = () => {
                 shell.openExternal(releaseUrl);
               };
               mainMenuTemplate[2].submenu[3].submenu[1].label = '🔥  ' + i18n.__('new_version') + ": " + latestVersion;
@@ -2212,15 +2341,16 @@ WantedBy=graphical-session.target`;
                 // remove donate_menu_element from main menu
                 mainMenuTemplate.splice(4, 1);
                 // remove donate_menu_element from tray menu
-                appIconMenuTemplate[5].submenu.splice(2, 2)
+
+                appIconMenuTemplate[6].submenu.splice(2, 2)
               }
             } else {
               if (licensed === false) {
                 // add donate_menu_element to main menu
                 mainMenuTemplate.splice(4, 0, donate_menu_element)
                 // add donate_menu_element to tray menu
-                appIconMenuTemplate[5].submenu.splice(2, 0, donate_menu_element.submenu[0])
-                appIconMenuTemplate[5].submenu.splice(3, 0, donate_menu_element.submenu[1])
+                appIconMenuTemplate[6].submenu.splice(2, 0, donate_menu_element.submenu[0])
+                appIconMenuTemplate[6].submenu.splice(3, 0, donate_menu_element.submenu[1])
               }
             }
 
@@ -2536,10 +2666,11 @@ WantedBy=graphical-session.target`;
                   promted = false;
                 }
                 break;
-              /*case 3: // continue authorization (to manually enter credentials)
-                setServerUrl(store.get('server_url'), true)
+              case 3: // delete account and start over
+                //setServerUrl(store.get('server_url'), true)
+                deleteAccount(store.get('current_login'), store.get('server_url'), true)
                 //restartApp();
-                break;*/
+                break;
               default:
                 //writeLog('Default action (auto-retry)');
                 restartApp();
@@ -2576,7 +2707,6 @@ WantedBy=graphical-session.target`;
             store.set("current_login", username);
             store.set("server_url", server_address);
             // moved keytar.setPassword after store.set to prevent appImage terminate called after throwing an instance of 'Napi::Error'
-            // TODO need test?
             await keytar.setPassword("NC_Talk_Electron_v1", username+":"+server_address , password);
           } catch (error) {
             writeLog('❌ Error during cred save: ' + error);
@@ -2645,6 +2775,13 @@ WantedBy=graphical-session.target`;
                   return creds; // Return immediately on success
                 } else {
                   writeLog('❌ No saved creds found after attempt at all.');
+                  // TODO force autologin save and restart to prevent run of setServerUrl
+                  if (store.get('current_login') == 'auto_login') {
+                    pass_sso = true;
+                    writeLog(`Force save auto_login credential for current server_url ${store.get('server_url')} and restart app.`)
+                    saveCredentials('auto_login','auto_login', store.get('server_url'));
+                    restartApp();
+                  }
                   return null; // No creds found, not an error per se, return null
                 }
               } else {
@@ -2699,19 +2836,20 @@ WantedBy=graphical-session.target`;
         }
 
         async function startForeground() {
+
           try {
             isForegroundLoading = true;
             // get configured servers at app startup
             await getConfiguredAccounts();
 
             //writeLog(loginData.accounts,true)
-            // TODO random timeout to avoid login errors - maybe some more robust solution???
+            // random timeout to avoid login errors - maybe some more robust solution???
             let randomIncrement = 1;
             let pendingTimeouts = 0; // Track number of pending timeouts
             
             //if (loginData.length > 0) {
             //loginData.accounts.forEach((account, index) => {
-            for (let [index, account] of Object.entries(loginData.accounts)) { 
+            for (let [index, account] of Object.entries(loginData.accounts)) {
               // change index to 1-based
               //index += 1;
               index++;
@@ -2736,13 +2874,17 @@ WantedBy=graphical-session.target`;
                     isForegroundLoading = false;
                     // force sort win_main.id by index value
                     sortObjectsByIdx(win_main);
-                    // TODO dirty force refresh to update unread counter in case of sum_unread enabled
+                    // dirty force refresh to update unread counter in case of sum_unread enabled
                     if (store.get('sum_unread')) {
                       
                       setTimeout(() => {
                         refreshBadge(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, store.get('current_login'), store.get('server_url'))
                         }, 3000); // dirty wait 3 seconds after the last foreground server is started to load
                     }
+                    // do create createAccSwitch at current after foreground is loaded
+                    //setTimeout(() => {
+                    //  win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.webContents.executeJavaScript(`createAccSwitch();`)
+                    //}, 2000); // dirty wait 2 seconds after the last foreground server is started to load
                   }
                 }, 1000+randomIncrement*1000);
               } else {
@@ -2751,18 +2893,22 @@ WantedBy=graphical-session.target`;
                 win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].index = index
               }
             };
-            
+
+
             // If no accounts needed to be started, set loading to false immediately
             if (pendingTimeouts === 0) {
               isForegroundLoading = false; 
             }
           }
           catch (err) {
-            writeLog("Error to create foreground windows: "+err)
-            // force remove server_url and restart to force adding new server
-            store.delete('server_url');
-            store.delete('current_login');
-            restartApp();
+            // check if SSO were added
+            if (!pass_sso) {
+              writeLog("Error to create foreground windows: "+err)
+              // force remove server_url and restart to force adding new server
+              store.delete('server_url');
+              store.delete('current_login');
+              restartApp();
+            } 
           }
         }
 
@@ -3176,11 +3322,14 @@ WantedBy=graphical-session.target`;
           })
         }
 
-        function checkExistedSSO() {
+        function checkExistedSSO(address) {
           //loginData.accounts.forEach((account, index) => {
           if (Object.keys(loginData).length !== 0) {
             for (let [index, account] of Object.entries(loginData.accounts)) {
               if (account.username == 'auto_login') {
+                return true;
+              }
+              if (account.url == address) {
                 return true;
               }
             }
@@ -3891,7 +4040,7 @@ WantedBy=graphical-session.target`;
                         win_main.id[`${account.username}:${account.url}`].window.hide();
                       } else {
 
-                        MainMenu.getMenuItemById(`show-${store.get('current_login')}:${store.get('server_url')}`).checked = false;
+                        //MainMenu.getMenuItemById(`show-${store.get('current_login')}:${store.get('server_url')}`).checked = false;
                         win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].isForeground = true
                         win_main.id[`${account.username}:${account.url}`].window.show();
                         win_main.id[`${account.username}:${account.url}`].isForeground = false;
@@ -3899,7 +4048,8 @@ WantedBy=graphical-session.target`;
                         store.set('current_login', account.username);
                         store.set('server_url', account.url);
 
-                        MainMenu.getMenuItemById(`show-${account.username}:${account.url}`).checked = true;
+                        //MainMenu.getMenuItemById(`show-${account.username}:${account.url}`).checked = true;
+                        markCurrentAccMenu(account.username, account.url)
                       }
                     }
                   }
@@ -3916,7 +4066,9 @@ WantedBy=graphical-session.target`;
                   notificationWindowsIds.splice(index, 1)
                   notificationWindows.splice(index, 1)
                 }
-                dismissed[win_noti.id] = false;
+                //dismissed[win_noti.id] = false;
+                delete dismissed[win_noti.id];
+
                 clearTimeout(checkInactivityInterval[win_noti.id]);
                 clearTimeout(delayedIdleTimeInterval[win_noti.id]);
                 delayedIdleTime[win_noti.id] = 5;
@@ -3925,8 +4077,12 @@ WantedBy=graphical-session.target`;
                 notificationWindows.forEach((noti_win) => {
                   try {
                     noti_win.webContents.executeJavaScript(`updateDismissAllButton ('` + notificationWindows.length + `')`);
+                    // to force close and destroy win_noti
+                    //setTimeout (()=>{
+                    //  noti_win.close();
+                    //}, 2000);
                   } catch (err) {
-                    //writeLog(err)
+                    writeLog(`Error during updateDismissAllButton: ${err}`)
                   }
                 });
               }
@@ -3944,12 +4100,41 @@ WantedBy=graphical-session.target`;
                 DismissAllNoti();
                 
               }
+
+              // if stale noti is found
+              if (JSON.parse(message).action == "stale_noti_found") {
+                writeLog('Stale noti if found. Force close its window...')
+              }
             })
 
             //win_noti.webContents.openDevTools()
           } else {
             writeLog(`Got notification ${data.tag} but notifications are turned off by user.`)
           }
+        }
+
+        // TODO stale win noti wathcer
+        function stale_win_noti_watcher() {
+          //writeLog('stale_win_noti_watcher is started...')
+          setInterval(function() {
+            //writeLog(`notificationWindowsIds length: ${notificationWindowsIds.length}`)
+            //writeLog(`notificationWindows length: ${notificationWindows.length}`)
+            //if ((Object.keys(dismissed).length === 0) && (notificationWindows.length > 0)) {
+            if ((notificationWindowsIds.length == 0) && (notificationWindows.length > 0)) {
+              writeLog("Found stale notification window. Force close all noti_wins...")
+              try {
+                notificationWindows.forEach((noti_win) => {
+                  noti_win.close();
+                })
+              }
+              catch(err) {
+                writeLog(`Error while force close stale noti_wins: ${err}`)
+              }
+            }
+            //notificationWindows.forEach((noti_win) => {
+            //  noti_win.webContents.executeJavaScript(`checkStaleNoti()`);
+            //})
+          }, 10*1000); // check for stale noti_wins every 10 sec
         }
 
         function DismissAllNoti() {
@@ -4007,7 +4192,7 @@ WantedBy=graphical-session.target`;
                   debounce = setTimeout(function() {
                     // do all multiple win stuff before show
                     win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.hide();
-                    MainMenu.getMenuItemById(`show-${store.get('current_login')}:${store.get('server_url')}`).checked = false;
+                    //MainMenu.getMenuItemById(`show-${store.get('current_login')}:${store.get('server_url')}`).checked = false;
                     win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].isForeground = true
 
                     win.show();
@@ -4016,8 +4201,8 @@ WantedBy=graphical-session.target`;
                     store.set('current_login', account);
                     store.set('server_url', theURL);
 
-                    MainMenu.getMenuItemById(`show-${account}:${theURL}`).checked = true;
-                  
+                    //MainMenu.getMenuItemById(`show-${account}:${theURL}`).checked = true;
+                    markCurrentAccMenu(account,theURL)
                     if (isMac) app.dock.show();
                     // open corresponding message
                     //writeLog(message_link)
@@ -4105,7 +4290,8 @@ WantedBy=graphical-session.target`;
             }),
             isForeground: isForeground,
             index: index,
-            server_color: undefined
+            server_color: undefined,
+            server_title: undefined
           }
 
           // set always on top
@@ -4135,6 +4321,7 @@ WantedBy=graphical-session.target`;
 
 
           let authenticated = false;
+          let saved_password = undefined;
 
           let ses = undefined;
 
@@ -4216,6 +4403,11 @@ WantedBy=graphical-session.target`;
                 }
               }
             } else {
+              // TODO force autologin save and restart
+              //if (store.get('current_login') == 'auto_login') {
+
+              //}
+
               writeLog("Autologin is enabled. Log in using SSO.")
               if (proxyUrl) {
                 loadURLWithProxy(win_main.id[`${account}:${theURL}`].window, theURL, proxyAgent)
@@ -4510,6 +4702,7 @@ WantedBy=graphical-session.target`;
 
             // check nc and talk status and version and run pinger
             if (!add) {
+
               win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'nextcloud_check.js')), true)
 
               // get unread messages count
@@ -4520,6 +4713,12 @@ WantedBy=graphical-session.target`;
 
               // localize NC user_menu
               win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`var nc_link_loc = "` + i18n.__("nc_link") + `";`);
+              win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`var switch_acc_loc = "` + i18n.__("switch_accounts") + `";`);
+              // add roundrobin account switch button if there more then one account is configured
+             if (Object.keys(loginData.accounts).length > 1) {
+                win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`createAccSwitch();`);
+              }
+              
               win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`var user_settings_link_loc = "` + i18n.__("user_settings_link") + `";`);
             } 
 
@@ -4652,7 +4851,7 @@ WantedBy=graphical-session.target`;
               }
 
               // incoming call process
-              // TODO temporary disable this incoming call process to respect notification instead
+              // temporary disable this incoming call process to respect notification instead
 
               /*if (JSON.parse(message).action.call) {
                 let token = JSON.parse(message).action.call.token
@@ -4865,6 +5064,16 @@ WantedBy=graphical-session.target`;
                 // dirty but it works
                 win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript('window.location.replace("/apps/spreed")')
               }
+
+              if (JSON.parse(message).action == 'switch_account') {
+                //win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript('window.location.replace("/apps/spreed")')
+                if (!isForegroundLoading) {
+                  showRoundRobinAccount(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`]);
+                } else {
+                  dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
+                }
+              }
+
               // to force show app window if not logged in
               if (JSON.parse(message).action == 'force_show_app_win') {
 
@@ -4889,6 +5098,12 @@ WantedBy=graphical-session.target`;
               if (JSON.parse(message).action.color_theme) {
                 win_main.id[`${account}:${theURL}`].server_color = JSON.parse(message).action.color_theme
                 //writeLog(`Current color theme for ${account}:${theURL} is ${win_main.id[`${account}:${theURL}`].server_color}`)
+              }
+              // get NC title
+              if (JSON.parse(message).action.nc_title) {
+                win_main.id[`${account}:${theURL}`].server_title = JSON.parse(message).action.nc_title
+                // add index to ?
+                //writeLog(`Current server title for ${account}:${theURL} is ${win_main.id[`${account}:${theURL}`].server_title}`)
               }
               // css fix after NC 29
               if (JSON.parse(message).action == 'css_fix') {
@@ -4923,7 +5138,7 @@ WantedBy=graphical-session.target`;
                     // ask to retry, exit or check settings?
                     const options = {
                       type: 'question',
-                      buttons: [i18n.__('retry'), i18n.__('exit'), i18n.__('check_preferences')/*, i18n.__('continue_credentials')*/],
+                      buttons: [i18n.__('retry'), i18n.__('exit'), i18n.__('check_preferences'), i18n.__('delete_account')],
                       defaultId: 0,
                       title: i18n.__('error'),
                       //icon:icon,
@@ -5276,7 +5491,7 @@ WantedBy=graphical-session.target`;
 
               // if yes
               if (result.response === 0) {
-                if (checkExistedSSO()) {
+                if (checkExistedSSO(address)) {
                   dialog.showErrorBox(i18n.__('error'), i18n.__('message10'));
                   return;
                 }
@@ -5413,11 +5628,32 @@ WantedBy=graphical-session.target`;
               check_result = await checkNetwork([store.get('server_url')])
               if (check_result) {
                 writeLog(`${store.get('server_url')} is available. Continue app loading...`);
+
+                // check configured sso login with server_url to prevent run of setServerUrl 
+                if (store.get('auto_login')) {
+                  writeLog("Found old auto_login parameter. Change SSO setting to support 1.0 version of NC Talk Electron and restart app.")
+                  store.set('current_login', 'auto_login');
+                  store.delete('auto_login');
+                  // save autologin as account for server
+                  saveCredentials('auto_login','auto_login', url);
+                  restartApp();
+                }
+
+                // TODO force autologin save and restart to prevent run of setServerUrl
+                //if (store.get('current_login') == 'auto_login') {
+                //  writeLog(`Force save auto_login credential for current server_url ${store.get('server_url')} and restart app.`)
+                //  saveCredentials('auto_login','auto_login', store.get('server_url'));
+                //  restartApp();
+                //}
+
                 url += "/apps/spreed";
                 createWindow(store.get('server_url'), store.get('current_login'),false);
 
                 //try to start another configured servers
                 startForeground();
+
+                // start stale_win_noti_watcher
+                stale_win_noti_watcher();
 
                 // handle Windows shutdown/logout to prevent crush
                 if (isWindows) {

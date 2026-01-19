@@ -1,8 +1,41 @@
 /* styles.css */
 /*hide some elements*/
 /*NC 31 add app-menu, cm-opener, cm-loader*/
-.app-menu, .cm-opener, .cm-loader, .side-menu-opener, #nextcloud, .toast-error, #accessibility_settings, #settings,#admin_settings, #core_apps, #core_users,#help,#logout, #body-login > footer,#header > div.header-left > nav {
+.app-menu, .cm-opener, .cm-loader, .side-menu-opener, /*#nextcloud,*/ .toast-error, #accessibility_settings, #settings,#admin_settings, #core_apps, #core_users,#help,#logout, #body-login > footer,#header > div.header-left > nav {
 	display:none!important;
+}
+
+/* nc_title */
+#nc_title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+  margin-left: 70px;
+  /*margin-bottom: 20px;*/
+  white-space: nowrap;
+  backdrop-filter: blur(3px);
+  text-shadow: 0px 0px 10px black;
+  color: white;
+}
+
+#switch_acc_button {
+  opacity: 0.9;
+  color: white;
+}
+
+#switch_acc_button:hover {
+  opacity: 1;
+}
+/*.header-start {
+  justify-content: space-between;
+}
+.header-left {
+  justify-content: flex-end;
+}*/
+
+#nextcloud {
+  left:10px!important;
+  pointer-events: none!important;
 }
 
 #header-menu-user-menu > div > ul > li:nth-child(3)

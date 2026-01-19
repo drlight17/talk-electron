@@ -1,3 +1,21 @@
+1.0.0-RC3
+
+- [x] NEW: add cloud `<title>` to the top of talk to the `.header-left`
+- [x] BUG: switch lang and theme is broken - fix saved_password in account context
+- [x] BUG: in some conditions win_noti is invisible and not destroyed blocking OS content behind it - check stale_win_noti_watcher
+- [x] BUG: do not change cloud `<title>` in .header-left after account is loaded - get from server_url/apps/theming/manifest/spreed -> name element instead of head > title
+- [x] BUG: logo icon delete click listener to prevent issues
+- [x] BUG: force roundrobin switch button color to white
+- [x] BUG: broken update license menu because of changed trayIcon menu structure (after added account management to trayIcon)
+- [x] BUG: black `<title>` in case of light-theme
+- [x] BUG: automatically set auto_login credential (set `current_login='auto_login'`) in case of configured in config.json `server_url` and `auto_login` set to `true` to prevent add server master  (no other accounts configured) - check TODOs
+- [x] NEW: add delete account suggestion to message6 + message9 dialog
+- [x] BUG: no account roundrobin switch button in case of window reload
+- [x] NEW: add account management to trayIcon menu and change existed account management properly (sync menus states)
+- [x] NEW: add key shortcuts for copy/paste and so on (except macos)
+- [x] NEW: add account roundrobin switch button near cloud title
+- [x] BUG: block accounts actions while settings are opened to prevent issues
+
 1.0.0-RC2
 - [x] BUG(linux): add `--no-sandbox` to app shortcut to avoid AppArmor related errors like [this](https://github.com/drlight17/talk-electron/issues/5). Got workaround from [jitsi-meet electron](https://github.com/jitsi/jitsi-meet-electron/commit/4cc851dc75ec15fdb054aa46e4132d8fbfa3a9e5#diff-423e46c9c92d87429736867be8c57c7e2daa8467b9f1940223a80927b401391aR1-R23)
 - [x] BUG: make checkInactivity usable in foreground wins
