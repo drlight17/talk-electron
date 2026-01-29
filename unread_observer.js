@@ -46,24 +46,35 @@ async function getBase64FromImageUrl(url) {
   }
 }
 
-async function get_Notifications(tag) {
-    const response = await fetch('/ocs/v2.php/apps/notifications/api/v2/notifications/'+tag+'?format=json', {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'OCS-APIRequest': 'true',
-        'requesttoken': OC.requestToken,
-        'Content-Type': 'application/json'
-      }/*,
-      body: JSON.stringify({ statusType: 'online' })*/
-    })
-    const resp = await response.json();
-    getBase64FromImageUrl(resp.ocs.data.subjectRichParameters.call['icon-url']).then(base64 => {
-      console.log(JSON.stringify({'action': {'notification': resp.ocs.data, 'avatar': base64}}));
-    });
+async function get_Notifications(data, win_noti_id, position, win_index) {
+    let data_parsed = JSON.parse(data);
+    if (data_parsed.tag === undefined) {
+        console.log(JSON.stringify({'action': {'notification': "demo", 'avatar': "", 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index}}));
+        return;
+    }
+    try {
+        const response = await fetch('/ocs/v2.php/apps/notifications/api/v2/notifications/'+data_parsed.tag+'?format=json', {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'OCS-APIRequest': 'true',
+            'requesttoken': OC.requestToken,
+            'Content-Type': 'application/json'
+          }/*,
+          body: JSON.stringify({ statusType: 'online' })*/
+        })
+        const resp = await response.json();
+        getBase64FromImageUrl(resp.ocs.data.subjectRichParameters.call['icon-url']).then(base64 => {
+            //console.log(resp.ocs.data)
+            console.log(JSON.stringify({'action': {'notification': resp.ocs.data, 'avatar': base64, 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index}}));
+        });
+    }
+    catch(error) {
+        console.error("Error getting notification by tag "+data_parsed.tag+": ", error);
+    }
 }
 
-async function get_avatar(conversation) {
+/*async function get_avatar(conversation) {
 
     const response = await fetch('/ocs/v2.php/apps/spreed/api/v1/room/'+conversation.lastMessage.token+'/avatar?format=json', {
       method: 'GET',
@@ -72,8 +83,7 @@ async function get_avatar(conversation) {
         'OCS-APIRequest': 'true',
         'requesttoken': OC.requestToken,
         'Content-Type': 'application/json'
-      }/*,
-      body: JSON.stringify({ statusType: 'online' })*/
+      }
     })
 
     const blob = await response.blob();
@@ -85,7 +95,7 @@ async function get_avatar(conversation) {
       .catch(err => {
         console.error("Conversion failed:", err);
       });
-}
+}*/
 
 // Store the previous total for comparison
 let previousTotalUnreadMessages = null; // Используем null как начальное значение
@@ -135,13 +145,13 @@ async function recalc_counters_summary (removed) {
             let onehourago = new Date(Date.now() - (60 * 60 * 1000));
             let lastMessagetimestamp = new Date(conversation.lastMessage.timestamp*1000);
 
-            if ((conversation) && ((conversation.lastMessage.systemMessage.includes('call_started'))||(conversation.lastMessage.systemMessage.includes('call_missed')) || (conversation.lastMessage.systemMessage.includes('call_ended'))) && (conversation.participantFlags != 7)) {
+            /*if ((conversation) && ((conversation.lastMessage.systemMessage.includes('call_started'))||(conversation.lastMessage.systemMessage.includes('call_missed')) || (conversation.lastMessage.systemMessage.includes('call_ended'))) && (conversation.participantFlags != 7)) {
 
                 //console.log(conversation.name + " is calling!")
                 if (lastMessagetimestamp > onehourago) {
                     get_avatar(conversation);
                 }
-            }
+            }*/
 
             // last message chat id and token fetch
             if ((conversation.unreadMessages != 0) && (typeof conversation.unreadMessages === 'number')) {

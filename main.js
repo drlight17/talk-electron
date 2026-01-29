@@ -3,7 +3,8 @@
  const prompt = require('custom-electron-prompt');
 
  const sharp = require('sharp');
- const puppeteer = require('puppeteer');
+
+ const semver = require('semver');
 
  // for password save function
  const keytar = require('keytar');
@@ -40,11 +41,11 @@
   nativeTheme,
   desktopCapturer
  } = require('electron')
- //const WebSocket = require('ws');
+
  const {
   HttpsProxyAgent
  } = require('https-proxy-agent');
- //const { SocksProxyAgent } = require('socks-proxy-agent');
+
  const os = require('os');
  const {
   exec
@@ -239,14 +240,14 @@ if (process.versions.electron != "22.3.27") {
         var iconPath = path.join(__dirname, store.get('app_icon_name') || 'iconTemplate.png');
       }
     } catch (err) {
-      writeLog("Empty config.json file. Recreating user app home folder.")
-      //dialog.showErrorBox(i18n.__('error'), i18n.__('message5'));
-      //fs.unlinkSync(app.getPath('userData')+"/config.json")
-      fs.rmSync(app.getPath('userData'), {
+      // show error in console and exit app instead of forced recreation userData folder
+      writeLog("Empty or broken config.json file. App will now exit. If this error will appear again try to remove config.json from userData path: "+app.getPath('userData'));
+      app.exit(0);
+      /*fs.rmSync(app.getPath('userData'), {
         recursive: true,
         force: true
       });
-      restartApp();
+      restartApp();*/
     }
 
     var i18n = new(require('./translations/i18n'));
@@ -316,7 +317,8 @@ if (process.versions.electron != "22.3.27") {
         let notification_message_icon = [];
         let notification_type = [];
         let notificationWindowsIds = [];
-        let notificationWindows = [];
+        //let notificationWindows = [];
+        let notificationWindows = {id:{}};
         let checkInactivityInterval = {};
         let delayedIdleTimeInterval = {};
         let src_title = [];
@@ -356,11 +358,6 @@ if (process.versions.electron != "22.3.27") {
         // check old config before 1.0.0-RC1 - cleanup userdata and restart app to prevent issues
         if (store.get('saved_login')) {
           dialog.showErrorBox(i18n.__('error'), i18n.__('message21'));
-          //fs.unlinkSync(app.getPath('userData')+"/config.json")
-          /*fs.rmSync(app.getPath('userData'), {
-            recursive: true,
-            force: true
-          });*/
           store.delete('saved_login');
           store.delete('server_url');
           store.delete('auto_login');
@@ -706,6 +703,12 @@ WantedBy=graphical-session.target`;
                 },
               },
               {
+                label: '↩️  ' + i18n.__('restart_app'),
+                click: () => {
+                  restartApp();
+                }
+              },
+              {
                 label: '🚪  ' + i18n.__('exit'),
                 accelerator: isMac ? 'Cmd+Q' : 'Alt+X',
                 click: () => {
@@ -909,6 +912,12 @@ WantedBy=graphical-session.target`;
             },
           },
           {
+            label: '↩️  ' + i18n.__('restart_app'),
+            click: () => {
+              restartApp();
+            }
+          },
+          {
             label: '🚪  ' + i18n.__('exit'),
             click: () => {
               //store.set('bounds', win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.getBounds());
@@ -920,8 +929,8 @@ WantedBy=graphical-session.target`;
               }
               app.exit(0);
             },
-          },
-          /*{
+          }/*,
+          {
             type: 'separator'
           },
           {
@@ -939,9 +948,9 @@ WantedBy=graphical-session.target`;
                 }
               },
               {
-                label: "checkNetwork",
+                label: "showConfigErrorDialog",
                 click: () => {
-                  checkNetwork();
+                  showConfigErrorDialog();
                 }
                 
               }
@@ -1922,6 +1931,8 @@ WantedBy=graphical-session.target`;
           let copyright = "Lisense AGPLv3 ©2024" + " - " + new Date().getFullYear();
           if (store.get('license_key')) {
             copyright = i18n.__('donate_key') + ' ' + store.get('license_key') + '\n\n' + copyright
+          } else {
+            copyright = i18n.__('unregistered') + '\n\n' + copyright
           }
           app.setAboutPanelOptions({
             applicationName: app.getName(),
@@ -1980,11 +1991,6 @@ WantedBy=graphical-session.target`;
               //auth: `${proxies[0].username}:${proxies[0].password}`,
               auth: auth,
             });
-            //writeLog(proxyAgent,true)
-
-            /*proxyWsAgent = new SocksProxyAgent(
-              `socks5://${auth}@${host}:1080`
-            );*/
           }
         }
 
@@ -2467,7 +2473,7 @@ WantedBy=graphical-session.target`;
               releaseUrl = cachedUrl;
             }
 
-            const comparison = compareVersions(currentVersion, latestVersion);
+            const comparison = semver.compare(currentVersion, latestVersion)
             if (comparison === 0) {
               //writeLog("You are using the latest version.");
             } else if (comparison < 0) {
@@ -2480,32 +2486,6 @@ WantedBy=graphical-session.target`;
           } catch (error) {
             writeLog('Error fetching the latest release:' + error);
           }
-        }
-
-        function compareVersions(version1, version2) {
-
-          const cleanVersion1 = version1.replace(/^v/, '');
-          const cleanVersion2 = version2.replace(/^v/, '');
-
-
-          const parts1 = cleanVersion1.split('.');
-          const parts2 = cleanVersion2.split('.');
-
-
-          for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-            const part1 = parts1[i] || '0';
-            const part2 = parts2[i] || '0';
-
-
-            const comparison = part1.localeCompare(part2, undefined, {
-              numeric: true
-            });
-
-            if (comparison !== 0) {
-              return comparison;
-            }
-          }
-          return 0;
         }
 
         function sumUnreadCounters() {
@@ -2612,6 +2592,38 @@ WantedBy=graphical-session.target`;
             //dialog.showErrorBox('Ошибка', "Подробнее: "+JSON.stringify(err));
           }
 
+        }
+
+        function showConfigErrorDialog() {
+          const options = {
+            type: 'question',
+            buttons: [i18n.__('retry'), i18n.__('cleanup'), i18n.__('exit')],
+            defaultId: 0,
+            title: i18n.__('error'),
+            message: i18n.__('message5'),
+          };
+
+          dialog.showMessageBox(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, options)
+          .then((result) => {
+            switch (result.response) {
+              case 0: // Retry
+                restartApp();
+                break;
+              case 1: // clean up userData folder and restart
+                fs.rmSync(app.getPath('userData'), {
+                  recursive: true,
+                  force: true
+                });
+                restartApp();
+                break;
+              case 2: // exit
+                app.exit(0);
+                break;
+            }
+          })
+          .catch((err) => {
+            writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
+          })
         }
 
         function showAutoRetryDialog(win, options, autoRetryTimeout = 10000, promted_value) {
@@ -2920,7 +2932,6 @@ WantedBy=graphical-session.target`;
               return creds;
             } else {
               writeLog('❌ No saved proxy creds');
-              //removeProxyServerFromLoginData(proxyUrl);
               return null;
             }
           } catch (error) {
@@ -2941,7 +2952,6 @@ WantedBy=graphical-session.target`;
         async function deleteProxyCredentials(username) {
           try {
             writeLog("Proxy login to remove: " + username)
-            //await keytar.deletePassword("NC_Talk_Electron/"+store.get("server_url"), username);
             await keytar.deletePassword(`NC_Talk_Electron/proxy_server/${proxyUrl}}`, username);
             writeLog('🗑️ Proxy credentials are removed');
           } catch (error) {
@@ -3048,8 +3058,6 @@ WantedBy=graphical-session.target`;
                   let data = {
                     title: i18n.__("notification_ex_title"),
                     body: i18n.__("notification_ex_body")
-                    /*,
-                                      tag: 86953*/
                   };
                   createNotification(data, JSON.parse(message).position, true, win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].index, `${store.get('current_login')}:${store.get('server_url')}`);
                 }
@@ -3058,9 +3066,9 @@ WantedBy=graphical-session.target`;
                   openFile(path.join(app.getPath('userData'), 'config.json'));
                 }
                 if (JSON.parse(message).action === 'open_nofification_settings') {
-                  writeLog(`Opening extra notification settings in NC`);
+                  //writeLog(`Opening extra notification settings in NC`);
                   //win_settings.close();
-                  openPopup(store.get('server_url')+'/settings/user/notifications', win_settings/*win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window*/);
+                  openPopup(store.get('server_url')+'/settings/user/notifications', win_settings);
                 }
               });
             });
@@ -3093,14 +3101,6 @@ WantedBy=graphical-session.target`;
               }
             });
 
-            /*statusCode: response.statusCode,
-            statusMessage: response.statusMessage,
-            headers: response.headers,
-             jsonData*/
-
-            //writeLog(testResponse.statusCode,true);
-            //return 0;
-            //writeLog(testResponse.status)
 
             if (testResponse.statusCode !== 200) {
               writeLog("Token is not found, invalid, expired or revoked. Switch to another configured server")
@@ -3118,26 +3118,6 @@ WantedBy=graphical-session.target`;
               // try to Custom Fetch Wrapper (solution 2)
               win.loadURL("about:blank"); // Fallback to a blank page
             }
-            /*win.webContents.executeJavaScript(`
-              // Create a styled error container
-              const errorContainer = document.createElement('div');
-              errorContainer.style.position = 'fixed';
-              errorContainer.style.top = '0';
-              errorContainer.style.left = '0';
-              errorContainer.style.height = '100%';
-              errorContainer.style.backgroundColor = 'rgba(0,0,0, 0.8);';
-              errorContainer.style.color = 'white';
-              errorContainer.style.display = 'flex';
-              errorContainer.style.justifyContent = 'center';
-              errorContainer.style.alignItems = 'center';
-              errorContainer.style.zIndex = '9999';
-              errorContainer.style.fontSize = '20px';
-              errorContainer.style.textAlign = 'center';
-              errorContainer.style.padding = '20px';
-              errorContainer.textContent = '${i18n.__('error')}: ${error.message}';
-
-              document.body.appendChild(errorContainer);
-            `);*/
             return false;
           }
         }
@@ -3231,15 +3211,6 @@ WantedBy=graphical-session.target`;
             recalc_counters_summary ();
           }, 2000);
         `);
-          // force logged out
-          //mainMenuTemplate[0].submenu[3].label = '👤  ' + i18n.__('logged_out')
-          //mainMenuTemplate[0].submenu[3].enabled = false;
-          //MainMenu = Menu.buildFromTemplate(mainMenuTemplate);
-          //Menu.setApplicationMenu(MainMenu);
-
-          //appIconMenuTemplate[8].label = '👤  ' + i18n.__('logged_out')
-          //appIconMenuTemplate[8].enabled = false
-          //const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
           try {
             appIcon.setContextMenu(contextMenu)
           } catch (err) {
@@ -3323,7 +3294,6 @@ WantedBy=graphical-session.target`;
         }
 
         function checkExistedSSO(address) {
-          //loginData.accounts.forEach((account, index) => {
           if (Object.keys(loginData).length !== 0) {
             for (let [index, account] of Object.entries(loginData.accounts)) {
               if (account.username == 'auto_login') {
@@ -3340,7 +3310,6 @@ WantedBy=graphical-session.target`;
         }
 
         function parseLoginRedirectUrl(url) {
-          // nc://login/server:URL&user:USER&password:PASSWORD
           const re = /^nc:\/\/login\/server:(.*)&user:(.*)&password:(.*)$/
           const parsed = url.match(re)
           if (parsed.length < 4) {
@@ -3366,13 +3335,6 @@ WantedBy=graphical-session.target`;
               }).toDataURL()
             }));
 
-            //writeLog(JSON.stringify(sourcesArray));
-
-            /*for (let [key, value] of Object.entries(Object.entries(sources))) {
-              console.log(`${key} = ${value}`);
-            }*/
-
-            //writeLog(JSON.stringify(selectOptions));
             let width = 500;
             let height = 600;
 
@@ -3457,34 +3419,6 @@ WantedBy=graphical-session.target`;
             })
 
             //win_picker.webContents.openDevTools()
-
-            // simple prompt media source picker
-            /*prompt({
-              title: i18n.__('title5'),
-              label: i18n.__('message8'),
-              useHtmlLabel: true,
-              //value: server_url,
-              type: 'select',
-              buttonLabels: {
-                ok: i18n.__('save_button'),
-                cancel: i18n.__('cancel_button')
-              },
-              selectOptions: selectOptions,
-              icon: trayIcon[`${store.get('current_login')}:${store.get('server_url')}`],
-              height : 200
-            }, win)
-            .then((select) => {
-              if(select !== null) {
-                //writeLog (JSON.stringify(sources.find(media => media.id === input)))
-                callback({ video: sources.find(media => media.id === select) })
-              } else {
-                return callback(null);
-              }
-            })
-            .catch((err) => {
-              writeLog(err)
-              dialog.showErrorBox(i18n.__('error'), i18n.__("more")+":"+JSON.stringify(err));
-            });*/
           })
         }
 
@@ -3952,7 +3886,11 @@ WantedBy=graphical-session.target`;
 
             //writeLog("This notification win id is: "+win_noti.id);
             notificationWindowsIds.push(win_noti.id.toString());
-            notificationWindows.push(win_noti);
+            //writeLog(notificationWindows, true)
+            //notificationWindows.push(win_noti)
+            notificationWindows.id[win_noti.id] = win_noti;
+
+            //writeLog(notificationWindows, true)
 
             win_noti.on('ready-to-show', () => {
               win_noti.showInactive();
@@ -3966,55 +3904,14 @@ WantedBy=graphical-session.target`;
                 }
               `);
 
-              win.webContents.executeJavaScript(`get_Notifications(${data.tag});`);
-              //setTimeout(() => {
-                if (notification_type[account_string] == 'call') {
-                  notification_message_link[account_string] += '#direct-call';
-                }
-                if (!notification_message_icon[account_string]) {
-                  notification_message_icon[account_string] = '';
-                }
-                let server_icon = undefined;
-                if (isMac) {
-                  server_icon = (dockIcon[account_string]) ? dockIcon[account_string] : dockIcon['original_icon'];
-                } else {
-                  server_icon = (original_server_icon[account_string]) ? original_server_icon[account_string] : original_icon;
-                }
-
-                // temp server_color set
-                let server_color = undefined;
-                if (store.get('use_server_theme')) {
-                  server_color = win_main.id[account_string].server_color;
-                }
-
-                // check if win_main is in not hidden, minimized, unfocused or notification_type is call
-                if (!win.isVisible() || win.isMinimized() || !win.isFocused() ||(notification_type[account_string] == 'call')) {
-                  win_noti.webContents.executeJavaScript(`showCustomNotification('${win_noti.id}', '${JSON.stringify(data)}', '${i18n.__('dismiss')}', '${i18n.__('dismiss_all')}', '${i18n.__('dismiss_all_title')}', '${i18n.__('open')}', '${i18n.__('open_title')}', '${theme}', '${server_icon.toDataURL()}', '${notification_message_icon[account_string]}', '${position}', '${win_index}', '${account_string}', '${server_color}','${notification_type[account_string]}')`);
-
-                  win_noti.webContents.executeJavaScript(`updateDismissTimeout(0)`);
-                  win_noti.webContents.executeJavaScript(`updateDismissAllButton ('${notificationWindows.length}')`);
-
-                  checkInactivityInterval[win_noti.id] = setInterval(function() {
-                    checkNotiInactivity(win_noti, 1);
-                  }, 1000);
-                  
-                  // to avoid false activity in linux after 5 seconds of showed notification
-                  if (isLinux) {
-                    delayedIdleTime[win_noti.id] = 5;
-                    setTimeout(()=>{
-                      delayedIdleTimeInterval[win_noti.id] = setInterval(function() {
-                        delayedIdleTime[win_noti.id] = delayedNotiActivityCheck();
-                      }, 1000);
-                    }, 6000)
-                  }
-                  
-                  // cleanup avatar after notification apper
-                  notification_message_icon[account_string] = '';
-                  notification_type[account_string] = '';
-                }
-              //}, 1000);
-
-
+              //win.webContents.executeJavaScript(`get_Notifications(${data.tag});`);
+              try {
+                win.webContents.executeJavaScript(`get_Notifications('${JSON.stringify(data)}', '${win_noti.id.toString()}','${position}', '${win_index}');`);
+              }
+              catch(err){
+                writeLog(err)
+              }
+              
             })
 
             win_noti.webContents.on('console-message', (event, level, message, line, sourceId) => {
@@ -4022,7 +3919,7 @@ WantedBy=graphical-session.target`;
               if (JSON.parse(message).action.open_message) {
                 //writeLog("Notify #"+JSON.parse(message).action.open_message+" is clicked")
                 //setTimeout(function() {
-                  win.webContents.executeJavaScript(`open_message("${notification_message_link[account_string]}");`);
+                  win.webContents.executeJavaScript(`open_message("${notification_message_link[`${account_string}:${data.tag}`]}");`);
                   // force close other call dialogs if answer current call
                   for (const [key, value] of Object.entries(controller)) {
                     //writeLog(`Force close call from: ${call[key].displayName}`)
@@ -4060,12 +3957,15 @@ WantedBy=graphical-session.target`;
               if (JSON.parse(message).action.dismissed) {
 
                 //writeLog("Notify window with id "+JSON.parse(message).action.dismissed+" is dismissed")
-                let index = notificationWindowsIds.indexOf(JSON.parse(message).action.dismissed)
+                //let index = notificationWindowsIds.indexOf(JSON.parse(message).action.dismissed)
+                let index = JSON.parse(message).action.dismissed;
 
                 if (index !== -1) {
                   notificationWindowsIds.splice(index, 1)
-                  notificationWindows.splice(index, 1)
+                  //notificationWindows.splice(index, 1)
+                  delete notificationWindows.id[index]
                 }
+
                 //dismissed[win_noti.id] = false;
                 delete dismissed[win_noti.id];
 
@@ -4074,9 +3974,12 @@ WantedBy=graphical-session.target`;
                 delayedIdleTime[win_noti.id] = 5;
 
                 // to remove all dismissed_all buttons in case of there is only one notification remain
-                notificationWindows.forEach((noti_win) => {
+                //notificationWindows.forEach((noti_win) => {
+                for (let [ind, noti_win] of Object.entries(notificationWindows.id)) {
                   try {
-                    noti_win.webContents.executeJavaScript(`updateDismissAllButton ('` + notificationWindows.length + `')`);
+                    //noti_win.webContents.executeJavaScript(`updateDismissAllButton ('` + notificationWindows.length + `')`);
+                    let dismiss_all_w_counter = `${i18n.__('dismiss_all')} ${Object.keys(notificationWindows.id).length}`
+                    noti_win.webContents.executeJavaScript(`updateDismissAllButton ('${Object.keys(notificationWindows.id).length}','${dismiss_all_w_counter}')`);
                     // to force close and destroy win_noti
                     //setTimeout (()=>{
                     //  noti_win.close();
@@ -4084,7 +3987,8 @@ WantedBy=graphical-session.target`;
                   } catch (err) {
                     writeLog(`Error during updateDismissAllButton: ${err}`)
                   }
-                });
+                };
+
               }
 
               // force counter on noti mouse hover leave
@@ -4102,9 +4006,9 @@ WantedBy=graphical-session.target`;
               }
 
               // if stale noti is found
-              if (JSON.parse(message).action == "stale_noti_found") {
+              /*if (JSON.parse(message).action == "stale_noti_found") {
                 writeLog('Stale noti if found. Force close its window...')
-              }
+              }*/
             })
 
             //win_noti.webContents.openDevTools()
@@ -4114,12 +4018,9 @@ WantedBy=graphical-session.target`;
         }
 
         // TODO stale win noti wathcer
-        function stale_win_noti_watcher() {
+        /*function stale_win_noti_watcher() {
           //writeLog('stale_win_noti_watcher is started...')
           setInterval(function() {
-            //writeLog(`notificationWindowsIds length: ${notificationWindowsIds.length}`)
-            //writeLog(`notificationWindows length: ${notificationWindows.length}`)
-            //if ((Object.keys(dismissed).length === 0) && (notificationWindows.length > 0)) {
             if ((notificationWindowsIds.length == 0) && (notificationWindows.length > 0)) {
               writeLog("Found stale notification window. Force close all noti_wins...")
               try {
@@ -4131,26 +4032,27 @@ WantedBy=graphical-session.target`;
                 writeLog(`Error while force close stale noti_wins: ${err}`)
               }
             }
-            //notificationWindows.forEach((noti_win) => {
-            //  noti_win.webContents.executeJavaScript(`checkStaleNoti()`);
-            //})
+
           }, 10*1000); // check for stale noti_wins every 10 sec
-        }
+        }*/
 
         function DismissAllNoti() {
-          notificationWindows.forEach((noti_win) => {
+          //writeLog(notificationWindows, true)
+          //notificationWindows.forEach((noti_win) => {
+          for (let [ind, noti_win] of Object.entries(notificationWindows.id)) {
             try {
               noti_win.webContents.executeJavaScript(`slideAway('` + noti_win.id + `');`);
-              clearTimeout(checkInactivityInterval[win_noti.id]);
-              clearTimeout(delayedIdleTimeInterval[win_noti.id]);
+              clearTimeout(checkInactivityInterval[noti_win.id]);
+              clearTimeout(delayedIdleTimeInterval[noti_win.id]);
               dismissed[noti_win.id] = false;
-              delayedIdleTime[win_noti.id] = 5;
+              delayedIdleTime[noti_win.id] = 5;
             } catch (err) {
-              //writeLog(err)
+              writeLog(`Error during DismissAllNoti: ${err}`)
             }
-          });
+          };
 
-          notificationWindows.length = 0
+          //notificationWindows.length = 0
+
           notificationWindowsIds = [];
 
           //writeLog("All notify windows are dismissed")
@@ -4389,12 +4291,8 @@ WantedBy=graphical-session.target`;
                     }
                 } catch (err) {
                   writeLog(err)
-                  dialog.showErrorBox(i18n.__('error'), i18n.__('message5'));
-                  fs.rmSync(app.getPath('userData'), {
-                    recursive: true,
-                    force: true
-                  });
-                  restartApp();
+                  // suggest actions instead of forced profile cleanup and restart
+                  showConfigErrorDialog();
                 }
               } else {
                 if (!blockAuthCall) {
@@ -4562,16 +4460,17 @@ WantedBy=graphical-session.target`;
           win_main.id[`${account}:${theURL}`].window.on('focus', function() {
             let isFocused = false;
             // check if there are notifications with zero timeout - dismiss them all after 5s
-            if (notificationWindows.length > 0) {
+            if (Object.keys(notificationWindows.id).length > 0) {
               //writeLog("Check notification focus");
               setTimeout(() => {
                 // if notifications if in focus
-                notificationWindows.forEach((noti_win) => {
+                //notificationWindows.forEach((noti_win) => {
+                for (let [ind, noti_win] of Object.entries(notificationWindows.id)) {
                   if (noti_win.isFocused()) {
                     isFocused = true;
                   }
                   //writeLog("notification focused: "+isFocused);
-                })
+                }
 
                 if (!isFocused) {
                   if ((store.get('notification_timeout')) && (store.get('notification_timeout') == 0)) {
@@ -4759,7 +4658,6 @@ WantedBy=graphical-session.target`;
             try {
               if (message.includes('Connecting to wss://')) {
 
-                //writeLog('WebSocket connecting...');
                 lastWebSocketConnectMessage = message;
                 waitingForError = true;
 
@@ -4771,10 +4669,6 @@ WantedBy=graphical-session.target`;
 
               } else if (waitingForError && message.includes('Error [object Event]')) {
 
-                /*writeLog('🎯 WebSocket connection failed!');
-                writeLog('URL:'+ trackedWebSocketUrl);
-                writeLog('Connect message:'+ lastWebSocketConnectMessage);
-                writeLog('Error message:'+ message);*/
                 if ((!prompted) && (!(settings_opened))) {
                   const options = {
                     type: 'error',
@@ -4845,195 +4739,73 @@ WantedBy=graphical-session.target`;
 
               // get notification metadata
               if (JSON.parse(message).action.notification) {
-                notification_message_link[`${account}:${theURL}`] = JSON.parse(message).action.notification.link
-                notification_message_icon[`${account}:${theURL}`] = JSON.parse(message).action.avatar
-                notification_type[`${account}:${theURL}`] = JSON.parse(message).action.notification.object_type
-              }
+                try{
+                  //writeLog(notificationWindows, true)
+                  // fetch transmitted info of win_noti from NC server
+                  let win_noti = notificationWindows.id[JSON.parse(message).action.win_noti_id]
+                  let data = JSON.parse(message).action.data_parsed
+                  let position = JSON.parse(message).action.position
+                  let win_index = JSON.parse(message).action.win_index
+                  let account_string = `${account}:${theURL}`;
+                  let tag = JSON.parse(message).action.notification.notification_id
 
-              // incoming call process
-              // temporary disable this incoming call process to respect notification instead
+                  notification_message_link[`${account_string}:${tag}`] = JSON.parse(message).action.notification.link
+                  notification_message_icon[`${account_string}:${tag}`] = JSON.parse(message).action.avatar
+                  notification_type[`${account_string}:${tag}`] = JSON.parse(message).action.notification.object_type
 
-              /*if (JSON.parse(message).action.call) {
-                let token = JSON.parse(message).action.call.token
+                  if (notification_type[`${account_string}:${tag}`] == 'call') {
+                    notification_message_link[`${account_string}:${tag}`] += '#direct-call';
+                  }
 
-                call[token] = JSON.parse(message).action.call
-                avatar[token] = JSON.parse(message).action.avatar
+                  if (!notification_message_icon[`${account_string}:${tag}`]) {
+                    notification_message_icon[`${account_string}:${tag}`] = '';
+                  }
 
-                // check call status
-                //writeLog(call.lastMessage.systemMessage)
-                // 5 sec delay
-                setTimeout(function() {
-                  if (call[token].lastMessage.systemMessage.includes('call_started')) {
-                    //writeLog('Started call: '+ call[token].displayName)
-                    try {
-                      //writeLog('Prev token:' + call_prev[token].token)
-                    } catch (err) {
-                      //writeLog(err)
-                    }
-
-
-
-                    if (call_prev[token]) {
-                      if (call_prev[token].token == token) {
-                        //writeLog('Prev call = current')
-                        return;
-                      }
-                    }
-                    //writeLog(controller,true)
-                    if (!controller[token]) {
-                      controller[token] = new AbortController();
-                    }
-
-                    // convert avatar to round shape. used puppeteer to support svg format
-                    const avatar_process = async avatar => {
-                      let crop = 200; // set crop pixels, bigger value means more crop
-                      const browser = await puppeteer.launch();
-                      const page = await browser.newPage();
-                      // Wrap SVG in a scaling HTML container
-                      const htmlContent = `
-                        <!DOCTYPE html>
-                        <html style="width: ${crop}px; height: ${crop}px; background: transparent;">
-                          <body style="margin:0; padding:0; background: transparent; display: flex; align-items: center; justify-content: center; height: 100%;">
-                            <div id="svg-wrapper" style="width: 100%; height: 100%; overflow: hidden;">
-                              <img src="${avatar}" style="width: 100%; height: auto; display: block;" />
-                            </div>
-                          </body>
-                        </html>
-                      `;
-                      const dataUri = 'data:text/html,' + encodeURIComponent(htmlContent);
-
-                      // Enable transparency
-                      await page.goto(dataUri, {
-                        waitUntil: 'networkidle0',
-                        timeout: 30000,
-                      });
-
-                      await page.setViewport({
-                        width: crop,
-                        height: crop
-                      });
-
-                      // Take screenshot as buffer
-                      const pngBuffer = await page.screenshot({
-                        type: 'png'
-                      });
-
-                      await browser.close();
-
-                      const outputBuffer = await sharp(pngBuffer)
-                        .resize(crop, crop) // resize
-                        .composite([{
-                          input: Buffer.from(
-                            `<svg><circle cx="100" cy="100" r="100" fill="white"/></svg>`
-                          ),
-                          blend: 'dest-in'
-                        }])
-                        .png() // Ensure output is PNG for transparency
-                        .toBuffer();
-
-                      avatar = nativeImage.createFromBuffer(outputBuffer);
-
-                      //writeLog(controller[token].signal,true)
-                      // if modal - win_main, then there will be priority around all call windows, otherwise - no
-                      if (!isMac) win_main.id[`${account}:${theURL}`].window.setEnabled(false);
-                      win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`blur_on_call_dialog(true)`)
-
-                      dialog.showMessageBox(
-                          (isMac) ? win_main.id[`${account}:${theURL}`].window : false,
-                          {
-                            //'type': 'warning',
-                            'title': '📞  ' + i18n.__('call_title') + ' ' + call[token].displayName,
-                            'message': i18n.__("call_message") + call[token].displayName,
-                            'defaultId': 1,
-                            'buttons': [
-                              '❌  ' + i18n.__('cancel_button'),
-                              '📞  ' + i18n.__('answer_button')
-                            ],
-                            'icon': avatar,
-                            'signal': controller[token].signal
-                          })
-                        .then((result) => {
-                          // if yes
-                          if (result.response === 1) {
-                            if (proxyUrl) {
-                              loadURLWithProxy(win_main.id[`${account}:${theURL}`].window, theURL + '/call/' + token + '#direct-call', proxyAgent)
-                            } else {
-                              win_main.id[`${account}:${theURL}`].window.loadURL(theURL + '/call/' + token + '#direct-call')
-                            }
-                            // force close other call dialogs if answer current call
-                            for (const [key, value] of Object.entries(controller)) {
-                              //writeLog(`Force close call from: ${call[key].displayName}`)
-                              value.abort();
-                              delete value[key];
-                            }
-                          } else {
-
-                            if (controller) {
-                              controller[token].abort();
-                              delete controller[token];
-                              for (const [key, value] of Object.entries(controller)) {
-                                //writeLog(call[key].displayName)
-                                if (key) return;
-                              }
-                            }
-
-                          }
-
-                          if (!isMac) win_main.id[`${account}:${theURL}`].window.setEnabled(true);
-                          win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`blur_on_call_dialog(false)`)
-                        });
-                      call_prev[token] = call[token];
-
-                    }
-                    avatar_process(avatar[token]);
-                    // do all the multiple related stuff
-                    win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.hide();
-                    MainMenu.getMenuItemById(`show-${store.get('current_login')}:${store.get('server_url')}`).checked = false;
-                    win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].isForeground = true
-
-                    win_main.id[`${account}:${theURL}`].isForeground = false;
-                    win_main.id[`${account}:${theURL}`].window.show();
-
-                    store.set('current_login', account);
-                    store.set('server_url', theURL);
-
-                    MainMenu.getMenuItemById(`show-${account}:${theURL}`).checked = true;
-                    guiInit();
-                    
+                  let server_icon = undefined;
+                  if (isMac) {
+                    server_icon = (dockIcon[account_string]) ? dockIcon[account_string] : dockIcon['original_icon'];
                   } else {
-                    //writeLog('Prev call: '+call_prev[token].token)
-                    if (call[token].lastMessage.systemMessage.includes('call_missed')) {
-                      //writeLog('Missed call: '+ call[token].displayName)
-                      if (controller) {
-                        controller[token].abort();
-                        delete controller[token];
-                        delete call_prev[token];
-                        for (const [key, value] of Object.entries(controller)) {
-                          //writeLog(call[key].displayName)
-                          if (key) return;
-                        }
-                      }
-                      if (!isMac) win_main.id[`${account}:${theURL}`].window.setEnabled(true);
-                      win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`blur_on_call_dialog(false)`)
-                    }
+                    server_icon = (original_server_icon[account_string]) ? original_server_icon[account_string] : original_icon;
+                  }
 
-                    if (call[token].lastMessage.systemMessage.includes('call_ended')) {
-                      //writeLog('Ended call: '+call[token].displayName)
-                      if (controller) {
-                        controller[token].abort();
-                        delete controller[token];
-                        delete call_prev[token];
-                        for (const [key, value] of Object.entries(controller)) {
-                          //writeLog(call[key].displayName)
-                          if (key) return;
-                        }
-                      }
-                      if (!isMac) win_main.id[`${account}:${theURL}`].window.setEnabled(true);
-                      win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`blur_on_call_dialog(false)`)
+                  // temp server_color set
+                  let server_color = undefined;
+                  if (store.get('use_server_theme')) {
+                    server_color = win_main.id[`${account_string}`].server_color;
+                  }
+
+                  // check if win_main is in not hidden, minimized, unfocused or notification_type is call
+                  if (!win_main.id[`${account_string}`].window.isVisible() || win_main.id[`${account_string}`].window.isMinimized() || !win_main.id[`${account_string}`].window.isFocused() ||(notification_type[`${account_string}:${tag}`] == 'call')) {
+                    // validate all parameters for showCustomNotification to prevent invisible stale noti_wins
+                    win_noti.webContents.executeJavaScript(`showCustomNotification('${win_noti.id}', '${JSON.stringify(data)}', '${i18n.__('dismiss')}', '${i18n.__('dismiss_all')}', '${i18n.__('dismiss_all_title')}', '${i18n.__('open')}', '${i18n.__('open_title')}', '${theme}', '${server_icon.toDataURL()}', '${notification_message_icon[`${account_string}:${tag}`]}', '${position}', '${win_index}', '${account_string}', '${server_color}','${notification_type[`${account_string}:${tag}`]}')`);
+
+                    // cleanup avatar after notification apper
+                    notification_message_icon[`${account_string}:${tag}`] = '';
+                    notification_type[`${account_string}:${tag}`] = '';
+
+                    win_noti.webContents.executeJavaScript(`updateDismissTimeout(0)`);
+                    let dismiss_all_w_counter = `${i18n.__('dismiss_all')} ${Object.keys(notificationWindows.id).length}`
+                    win_noti.webContents.executeJavaScript(`updateDismissAllButton ('${Object.keys(notificationWindows.id).length}','${dismiss_all_w_counter}')`);
+
+                    checkInactivityInterval[win_noti.id] = setInterval(function() {
+                      checkNotiInactivity(win_noti, 1);
+                    }, 1000);
+                    
+                    // to avoid false activity in linux after 5 seconds of showed notification
+                    if (isLinux) {
+                      delayedIdleTime[win_noti.id] = 5;
+                      setTimeout(()=>{
+                        delayedIdleTimeInterval[win_noti.id] = setInterval(function() {
+                          delayedIdleTime[win_noti.id] = delayedNotiActivityCheck();
+                        }, 1000);
+                      }, 6000)
                     }
                   }
-                }, 3000)
-              }*/
+                }
+                catch(err) {
+                  writeLog(err)
+                }
+              }
 
               if (JSON.parse(message).action == 'not_alive') {
                 /*if (!gui_blocked) {
@@ -5603,10 +5375,10 @@ WantedBy=graphical-session.target`;
               });
               powerMonitor.on('unlock-screen', () => {
                 isLocked_suspend = false;
-                writeLog('The screen of Mac is unlocked. Force restart app with 2 seconds delay...');
-                setTimeout(()=>{
-                  restartApp();
-                }, 2000)
+                //writeLog('The screen of Mac is unlocked. Force restart app with 2 seconds delay...');
+                //setTimeout(()=>{
+                //  restartApp();
+                //}, 2000)
               });
               powerMonitor.on('suspend', () => {
                 isLocked_suspend = true;
@@ -5614,10 +5386,10 @@ WantedBy=graphical-session.target`;
               });
               powerMonitor.on('resume', () => {
                 isLocked_suspend = false;
-                writeLog('The Mac system is resumed. Force restart app with 2 seconds delay...');
+                writeLog('The Mac system is resumed. Force restart app with 10 seconds delay...');
                 setTimeout(()=>{
                   restartApp();
-                }, 2000)
+                }, 10000)
               });
             }
 
@@ -5653,7 +5425,7 @@ WantedBy=graphical-session.target`;
                 startForeground();
 
                 // start stale_win_noti_watcher
-                stale_win_noti_watcher();
+                //stale_win_noti_watcher();
 
                 // handle Windows shutdown/logout to prevent crush
                 if (isWindows) {
@@ -5707,13 +5479,6 @@ WantedBy=graphical-session.target`;
       } catch (err) {
         dialog.showErrorBox(i18n.__('error'), i18n.__('message12'));
         writeLog(err)
-        //dialog.showErrorBox(i18n.__('error'), i18n.__('message5'));
-        //fs.unlinkSync(app.getPath('userData')+"/config.json")
-        /*fs.rmSync(app.getPath('userData'), {
-          recursive: true,
-          force: true
-        });
-        restartApp();*/
         app.exit(0);
       }
     }

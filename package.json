@@ -11,7 +11,7 @@
   ],
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "1.0.0-RC3",
+  "version": "1.0.0",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "homepage": "https://github.com/drlight17/talk-electron",
   "build": {
@@ -116,11 +116,8 @@
     "electron-store": "^8.2.0",
     "https-proxy-agent": "latest",
     "keytar": "^7.9.0",
-    "puppeteer": "latest",
-    "sharp": "^0.32.6",
-    "socks-proxy-agent": "latest",
-    "systeminformation": "latest",
-    "ws": "latest"
+    "semver": "latest",
+    "sharp": "^0.32.6"
   },
   "devDependencies": {
     "@paymoapp/electron-shutdown-handler": "latest",

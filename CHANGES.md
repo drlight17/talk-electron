@@ -1,5 +1,13 @@
-1.0.0-RC3
+1.0.0
+- [x] NEW: add unregistered to version in about if no license key
+- [x] NEW: button to force restart app in case of any troubles
+- [x] BUG: wrong avatar icon in win_noti sometimes (check in case of system noti and user noti afterwards) 
+- [x] NEW: amount of currently shown notifications in dismiss_all button
+- [x] BUG: prevent userdata folder recreated in case of login failed (in case of sleep or after awake mainly on macos)
+- [x] BUG: in some conditions win_noti is invisible and not destroyed blocking OS content behind it - check stale_win_noti_watcher - remove, check URL with undefined data.tag
+- [x] NEW: use semver to compare app versions
 
+1.0.0-RC3
 - [x] NEW: add cloud `<title>` to the top of talk to the `.header-left`
 - [x] BUG: switch lang and theme is broken - fix saved_password in account context
 - [x] BUG: in some conditions win_noti is invisible and not destroyed blocking OS content behind it - check stale_win_noti_watcher

@@ -140,29 +140,36 @@ function isTextLongAndHasSpace(element, minLength) {
   return isLongEnough && hasSpace;
 }
 
-function checkStaleNoti(){
+/*function checkStaleNoti(){
   if (notif.classList.contains(animation_direction_out)) {
     console.log(JSON.stringify({'action': 'stale_noti_found'}));
   }
-}
+}*/
 
-function updateDismissAllButton (counter){
+function updateDismissAllButton (counter, label_w_counter){
   // if counter > 1 show dismiss all button
-  let dismiss_all_button = notif.querySelector('#dismiss_all')
-  if (counter > 1) {
-    dismiss_all_button.classList.add('visible');
-    notif.classList.add('multiple');
-    document.body.classList.add('multiple');
-  } else {
-    dismiss_all_button.classList.remove('visible');
-    notif.classList.remove('multiple');
-    document.body.classList.remove('multiple');
+  try {
+    let dismiss_all_button = notif.querySelector('#dismiss_all')
+    if (counter > 1) {
+      dismiss_all_button.classList.add('visible');
+      notif.classList.add('multiple');
+      document.body.classList.add('multiple');
+      dismiss_all_button.textContent = label_w_counter;
+    } else {
+      dismiss_all_button.classList.remove('visible');
+      notif.classList.remove('multiple');
+      document.body.classList.remove('multiple');
+    }
+    // dismiss all notifications action
+    dismiss_all_button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      console.log(JSON.stringify({'action': 'dismissed_all'}));
+    })
   }
-  // dismiss all notifications action
-  dismiss_all_button.addEventListener('click', (event) => {
-    event.stopPropagation();
-    console.log(JSON.stringify({'action': 'dismissed_all'}));
-  })
+  catch(err) {
+    // do not show any errors in console for demo notif dismiss
+    //console.log(err)
+  }
 }
 
 function updateDismissTimeout(timeout,win_noti_id) {
