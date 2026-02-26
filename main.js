@@ -42,6 +42,8 @@
   desktopCapturer
  } = require('electron')
 
+ const DBus = require('dbus-next');
+
  const {
   HttpsProxyAgent
  } = require('https-proxy-agent');
@@ -290,9 +292,20 @@ if (process.versions.electron != "22.3.27") {
         });*/
 
         //  turn off console.log errors in case of app.exit(0) in AppImage
-        process.on('uncaughtException', (error) => {
-          //writeLog(error)
+        process.on('uncaughtException', (reason, promise) => {
+          /*writeLog(`Uncaught Exception at:`)
+          writeLog(promise, true); 
+          writeLog(`reason: ${reason}`);*/
         });
+
+        process.on('unhandledRejection', (reason, promise) => {
+         /* writeLog(`Unhandled Rejection at:`)
+          writeLog(promise, true); 
+          writeLog(`reason: ${reason}`);*/
+          // Optional: log to file, show dialog, or exit gracefully
+          // app.exit(1); // if you want to crash on error
+        });
+
 
         // to check prompted status for dialogs
         let prompted = false;
@@ -317,6 +330,7 @@ if (process.versions.electron != "22.3.27") {
         let notification_message_icon = [];
         let notification_type = [];
         let notificationWindowsIds = [];
+        //let unread_observer_loaded = [];
         //let notificationWindows = [];
         let notificationWindows = {id:{}};
         let checkInactivityInterval = {};
@@ -394,6 +408,15 @@ if (process.versions.electron != "22.3.27") {
         }
         if (store.get('logging')) {
           writeLog("Writing app log to file " + path.join(app.getPath('userData'), 'app.log'))
+        }
+        // check if restart_after_suspend is configured and set default false if not
+        if (store.get('restart_after_suspend') === undefined) {
+          store.set('restart_after_suspend', false);
+        }
+
+        // check if turn_off_pinger is configured and set default false if not
+        if (store.get('turn_off_pinger') === undefined) {
+          store.set('turn_off_pinger', false);
         }
 
         // check if notification_timeout_checkbox is configured and set default true if not
@@ -506,12 +529,13 @@ if (process.versions.electron != "22.3.27") {
             let shortcut_contents = `[Desktop Entry]
 Categories=Network;
 Comment=Talk web embedded app
-Exec=bash -c 'systemctl --user start ` + appNameLC + `.service'
+Exec=bash -c 'systemctl --user start ${appNameLC}.service'
 Name=NC Talk Electron
 StartupWMClass=NC Talk Electron
+MimeType=x-scheme-handler/${appNameLC}
 Terminal=false
 Type=Application
-Icon=` + appNameLC + `
+Icon=${appNameLC}
 X-GNOME-Autostart-Delay=15`;
             let systemd_contents = `[Unit]
 Description=Talk web embedded app
@@ -522,21 +546,21 @@ Requires=graphical-session.target
 Type=simple
 Restart=on-failure
 RestartSec=5s
-WorkingDirectory=` + Path + `
-ExecStart=bash -c '` + executable + ` --systemd'
+WorkingDirectory=${Path}
+ExecStart=bash -c '${executable} --systemd'
 Environment="NODE_ENV=production"
 
 [Install]
 WantedBy=graphical-session.target`;
 
-            if (!fs.existsSync(app.getPath('home') + "/.config/autostart/" + appNameLC + ".desktop")) {
+            if (!fs.existsSync(`${app.getPath('home')}/.config/autostart/${appNameLC}.desktop`)) {
               //fs.unlinkSync(app.getPath('home')+"/.config/autostart/"+appNameLC+".desktop")
-              fs.writeFileSync(app.getPath('home') + "/.config/autostart/" + appNameLC + ".desktop", shortcut_contents, 'utf-8');
+              fs.writeFileSync(`${app.getPath('home')}/.config/autostart/${appNameLC}.desktop`, shortcut_contents, `utf-8`);
             }
-            if ((!fs.existsSync(app.getPath('home') + "/.config/systemd/user/" + appNameLC + ".service")) || exec_changed) {
-              fs.writeFileSync(app.getPath('home') + "/.config/systemd/user/" + appNameLC + ".service", systemd_contents, 'utf-8');
+            if ((!fs.existsSync(`${app.getPath('home')}/.config/systemd/user/${appNameLC}.service`)) || exec_changed) {
+              fs.writeFileSync(`${app.getPath('home')}/.config/systemd/user/${appNameLC}.service`, systemd_contents, `utf-8`);
               exec(`systemctl --user daemon-reload`);
-              exec(`systemctl --user enable ` + appNameLC + `.service`);
+              exec(`systemctl --user enable ${appNameLC}.service`);
               writeLog("Application was set to autostart as user systemd service")
             }
           }
@@ -547,7 +571,7 @@ WantedBy=graphical-session.target`;
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.electron.` + appNameLC + `</string>
+    <string>com.electron.${appNameLC}</string>
     <key>ProgramArguments</key>
     <array>
         <string>/Applications/NC Talk Electron.app/Contents/MacOS/NC Talk Electron</string>
@@ -557,9 +581,9 @@ WantedBy=graphical-session.target`;
 </dict>
 </plist>
 `;
-            if (!fs.existsSync(app.getPath('home') + "/Library/LaunchAgents/com.electron." + appNameLC + ".plist")) {
-              fs.writeFileSync(app.getPath('home') + "/Library/LaunchAgents/com.electron." + appNameLC + ".plist", plist_contents, 'utf-8');
-              exec('launchctl bootstrap enable ' + app.getPath('home') + '/Library/LaunchAgents/com.electron.' + appNameLC + '.plist');
+            if (!fs.existsSync(app.getPath('home') + `/Library/LaunchAgents/com.electron.${appNameLC}.plist`)) {
+              fs.writeFileSync(app.getPath('home') + `/Library/LaunchAgents/com.electron.${appNameLC}.plist`, plist_contents, `utf-8`);
+              exec(`launchctl bootstrap enable ${app.getPath('home')}/Library/LaunchAgents/com.electron.${appNameLC}.plist`);
               writeLog("Application was set to autostart as service")
             }
           }
@@ -573,20 +597,20 @@ WantedBy=graphical-session.target`;
             writeLog("Application was removed from autostart")
           }
           if (isLinux) {
-            if (fs.existsSync(app.getPath('home') + "/.config/autostart/" + appNameLC + ".desktop")) {
-              fs.unlinkSync(app.getPath('home') + "/.config/autostart/" + appNameLC + ".desktop")
+            if (fs.existsSync(`${app.getPath('home')}/.config/autostart/${appNameLC}.desktop`)) {
+              fs.unlinkSync(`${app.getPath('home')}/.config/autostart/${appNameLC}.desktop`)
             }
-            if (fs.existsSync(app.getPath('home') + "/.config/systemd/user/" + appNameLC + ".service")) {
-              exec(`systemctl --user disable ` + appNameLC + `.service`);
-              fs.unlinkSync(app.getPath('home') + "/.config/systemd/user/" + appNameLC + ".service")
+            if (fs.existsSync(`${app.getPath('home')}/.config/systemd/user/${appNameLC}.service`)) {
+              exec(`systemctl --user disable ${appNameLC}.service`);
+              fs.unlinkSync(`${app.getPath('home')}/.config/systemd/user/${appNameLC}.service`)
               exec(`systemctl --user daemon-reload`);
               writeLog("Application was removed from autostart")
             }
           }
           if (isMac) {
-            if (fs.existsSync(app.getPath('home') + "/Library/LaunchAgents/com.electron." + appNameLC + ".plist")) {
-              fs.unlinkSync(app.getPath('home') + "/Library/LaunchAgents/com.electron." + appNameLC + ".plist");
-              exec('launchctl bootstrap disable com.electron.' + appNameLC);
+            if (fs.existsSync(`${app.getPath('home')}/Library/LaunchAgents/com.electron.${appNameLC}.plist`)) {
+              fs.unlinkSync(`${app.getPath('home')}/Library/LaunchAgents/com.electron.${appNameLC}.plist`);
+              exec(`launchctl bootstrap disable com.electron.${appNameLC}`);
               writeLog("Application was removed from autostart")
             }
           }
@@ -941,6 +965,14 @@ WantedBy=graphical-session.target`;
             label: "COMMANDS",
             submenu: [
               {
+               label: "close_noti_id",
+                click: () => {
+                  //DismissAllNoti();
+                  //writeLog("Forced dismiss all notifications")
+                  graceCloseNoti(id);
+                }
+              },
+              {
                 label: "DismissAllNotiForced",
                 click: () => {
                   DismissAllNoti();
@@ -973,8 +1005,10 @@ WantedBy=graphical-session.target`;
           //writeLog(`Current idle time for notification ID ${win_noti.id } with interval ${activity_check_interval}s is: ${idleTime}s`);
 
           if ((idleTime < 1) && (!(dismissed[win_noti.id]))) {
+            //writeLog(`Max notificationWindowsIds ${Math.max(...notificationWindowsIds)}`)
+            //writeLog(notificationWindowsIds, true)
             // start counter in case of the last win_noti only
-            if (win_noti.id === Math.max(...notificationWindowsIds)) {
+            if (win_noti.id === Math.max(...notificationWindowsIds) || (notificationWindowsIds?.length < 1)) {
               win_noti.webContents.executeJavaScript(`updateDismissTimeout(10,${win_noti.id})`);
               dismissed[win_noti.id] = true;
             }
@@ -991,6 +1025,8 @@ WantedBy=graphical-session.target`;
             idleTime_non_active = 0;
           }
           //writeLog(`Current hidden or unfocused time is: ${idleTime_non_active} s`);
+          //writeLog(`Current account ${account}:${url} idle time is: ${idleTime} s`);
+
 
           if ((idleTime_non_active > 4*60) && (!isLocked_suspend)) {
             if (idleTime <= 4*60) {
@@ -1002,6 +1038,45 @@ WantedBy=graphical-session.target`;
           }
         }
 
+        // linux lock events listener
+        async function listenForScreenLockEvents() {
+          const bus = DBus.sessionBus();
+          const obj = await bus.getProxyObject('org.freedesktop.ScreenSaver', '/org/freedesktop/ScreenSaver');
+          const screenSaver = obj.getInterface('org.freedesktop.ScreenSaver');
+
+          screenSaver.on('ActiveChanged', (isActive) => {
+            if (isActive) {
+              isLocked_suspend = true;
+              //writeLog('The screen is locked');
+            } else {
+              isLocked_suspend = false;
+              writeLog('The screen is unlocked. Force restart app with 10 seconds delay...');
+              setTimeout(()=>{
+                restartApp();
+              }, 10000)
+            }
+          });
+        }
+
+        // linux suspend events listener
+        async function listenForSuspendEvents() {
+          const bus = DBus.systemBus();
+          const obj = await bus.getProxyObject('org.freedesktop.login1', '/org/freedesktop/login1');
+          const logindManager = obj.getInterface('org.freedesktop.login1.Manager');
+
+          logindManager.on('PrepareForSleep', (isStarting) => {
+            if (isStarting) {
+              isLocked_suspend = true;
+              //writeLog('The system is suspended');
+            } else {
+              isLocked_suspend = false;
+              writeLog('System is resumed. Force restart app with 10 seconds delay...');
+              setTimeout(()=>{
+                restartApp();
+              }, 10000)
+            }
+          });
+        }
         async function checkNetwork(urls_to_checks) {
           const doCheckNetwork = async (urls = []) => {
             /*const defaultUrls = [
@@ -1433,7 +1508,7 @@ WantedBy=graphical-session.target`;
             return false;
         }
 
-        async function getConfiguredAccounts(fallback) {
+        async function getConfiguredAccounts(fallback, failed_username, failed_url) {
           const savedCreds = await getCredentials();
           //writeLog(savedCreds,true)
           if (savedCreds) {
@@ -1466,7 +1541,7 @@ WantedBy=graphical-session.target`;
                 //deleteAccount('auto_login',check_remain_auto_login_url, true)
               }
               //writeLog(loginData.accounts,true)
-              insertServers(fallback);
+              insertServers(fallback, failed_username, failed_url);
             } catch (e) {
               writeLog("Error during servers get:" + e);
               app.exit(0);
@@ -1586,7 +1661,7 @@ WantedBy=graphical-session.target`;
           }
         }
 
-        function insertServers(fallback) {
+        function insertServers(fallback, failed_username, failed_url) {
           try {
             // First, filter and get only foreground accounts with their correct index
             /*const foregroundAccounts = loginData.accounts.filter((account, index) => {
@@ -1604,10 +1679,35 @@ WantedBy=graphical-session.target`;
 
               // if falled back then set the first server_url in config and return
               if (fallback) {
-                writeLog('Fallback to another configured account ' + account.username + ' and server '+account.url)
-                store.set('server_url', account.url);
-                store.set('current_login', account.username);
-                restartApp();
+                if (!failed_username) {
+                  writeLog('Fallback to another configured account ' + account.username + ' and server '+account.url)
+                  store.set('server_url', account.url);
+                  store.set('current_login', account.username);
+                  restartApp();
+                } else {
+                  // suggest to delete account
+                  dialog.showMessageBox(win_main.id[`${failed_username}:${failed_url}`].window, {
+                    type: 'error',
+                    message: i18n.__('message6', {
+                      account: `${failed_username}:${failed_url}`
+                    }),
+                    detail: i18n.__('message23'),
+                    buttons: [i18n.__('delete_account'), i18n.__('exit')],
+                    defaultId: 0,
+                    cancelId: 1
+                  })
+                  .then((result) => {
+                    // if yes
+                    if (result.response == 0) {
+                      writeLog(`Forced delete ${failed_username}:${failed_url} account and restart app.`)
+                      deleteAccount(failed_username,failed_url)
+                      //deleteCredentials(failed_username, failed_url);
+                      //restartApp();
+                    } else {
+                      app.exit();
+                    }
+                  })
+                }
                 break;
               }
 
@@ -1702,7 +1802,7 @@ WantedBy=graphical-session.target`;
                 {
                   label: '🌐  ' + account.url,
                   enabled: false,
-                  visible: isMac,
+                  //visible: isMac, // show account url in appIcon menu on any platform
                 },
                 delete_account,
                 {
@@ -1724,6 +1824,9 @@ WantedBy=graphical-session.target`;
               );
             }//);
 
+            if (failed_username) {
+              return;
+            }
             let tab_help = {
               label: '🔄 '+i18n.__('switch_accounts'),
               accelerator: `Ctrl+Tab`,
@@ -2626,6 +2729,31 @@ WantedBy=graphical-session.target`;
           })
         }
 
+        function showAccessErrorDialog(mes) {
+          const options = {
+            type: 'error',
+            buttons: [i18n.__('restart_app'), /*i18n.__('cleanup'),*/ i18n.__('exit')],
+            defaultId: 0,
+            title: i18n.__('error'),
+            message: mes,
+          };
+
+          dialog.showMessageBox(options)
+          .then((result) => {
+            switch (result.response) {
+              case 0: // Retry
+                restartApp();
+                break;
+              case 1: // exit
+                app.exit(0);
+                break;
+            }
+          })
+          .catch((err) => {
+            writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
+          })
+        }
+
         function showAutoRetryDialog(win, options, autoRetryTimeout = 10000, promted_value) {
           return new Promise((resolve) => {
             let dialogResult = null;
@@ -3087,7 +3215,7 @@ WantedBy=graphical-session.target`;
           }
         }
 
-        async function checkAuth(win, saved_password, server_url) {
+        async function checkAuth(win, saved_password, server_url, account) {
           ses = win.webContents.session;
           try {
 
@@ -3105,7 +3233,7 @@ WantedBy=graphical-session.target`;
             if (testResponse.statusCode !== 200) {
               writeLog("Token is not found, invalid, expired or revoked. Switch to another configured server")
               // set the first server_url from config if any
-              getConfiguredAccounts(true);
+              getConfiguredAccounts(true, account, server_url);
               return false;
             } else {
               return ses;
@@ -3648,10 +3776,10 @@ WantedBy=graphical-session.target`;
 
             if (unread) {
               appIcon.setToolTip(app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread);
-              win.setTitle(src_title[win.id] + " - " +app.getName() + " v." + app.getVersion() + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread)
+              win.setTitle(src_title[win.id] + " - " +app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread)
             } else {
               appIcon.setToolTip(app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL);
-              win.setTitle(src_title[win.id] + " - " +app.getName() + " v." + app.getVersion() + " - " + theURL)
+              win.setTitle(src_title[win.id] + " - " +app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL)
             }
 
             if (store.get('sum_unread')) {
@@ -3807,8 +3935,45 @@ WantedBy=graphical-session.target`;
           }
         }
 
+        function graceCloseNoti(noti_win) {
+          try {
+            noti_win.webContents.executeJavaScript(`slideAway('` + noti_win.id + `');`);
+            clearTimeout(checkInactivityInterval[noti_win.id]);
+            clearTimeout(delayedIdleTimeInterval[noti_win.id]);
+            dismissed[noti_win.id] = false;
+            delayedIdleTime[noti_win.id] = 5;
+          } catch (err) {
+            writeLog(`Error during graceCloseNoti: ${err}`)
+          }
+        }
+
+        function forceCloseNoti(noti_win){
+          try {
+            //notificationWindows.id[JSON.parse(message).action.win_noti_id].close();
+            delete dismissed[noti_win.id];
+            delete notificationWindows.id[noti_win.id]
+            noti_win.close();
+            
+          }
+          catch(err) {
+            writeLog(`Error while closing errored win_noti: ${err}`)
+          }
+        }
+
         function createNotification(data, position, demo, win, win_index, account_string) {
-          if (store.get("notification_timeout_checkbox") || demo) {
+          // wait until unread_observer is loaded
+          //if (!unread_observer_loaded[account_string]) {
+            // retry
+            //createNotification(data, position, demo, win, win_index, account_string);
+            //return;
+          //}
+          /*writeLog(`Got notification:`);
+          writeLog(data,true)
+          writeLog(win,true)
+          writeLog(win_index,true)
+          writeLog(account_string,true)*/
+
+          if ((store.get("notification_timeout_checkbox") || demo) && (!isLocked_suspend)) {
 
             const width = 360
             const height = 200
@@ -3849,7 +4014,6 @@ WantedBy=graphical-session.target`;
             }*/
 
             let win_noti = new BrowserWindow({
-              //modal: isMac,
               modal: true,
               icon: (original_server_icon[`${store.get('current_login')}:${store.get('server_url')}`]) ? original_server_icon[`${store.get('current_login')}:${store.get('server_url')}`] : original_icon,
               title: data.title,
@@ -3860,6 +4024,7 @@ WantedBy=graphical-session.target`;
               frame: false,
               show: false, // test in non-macos
               width: width,
+              //width: 600,
               height: height,
               resizable: false,
               movable: false,
@@ -3867,7 +4032,9 @@ WantedBy=graphical-session.target`;
               x: x,
               y: y,
               alwaysOnTop: !isLinux, // Optional: keep on top
+              //alwaysOnTop: true, // Optional: keep on top
               focusable: !isLinux,
+              //focusable: true,
               hasShadow: false,
               skipTaskbar: true, // Optional: don't show in taskbar
               autoHideMenuBar: true,
@@ -3880,9 +4047,40 @@ WantedBy=graphical-session.target`;
 
             //win_noti.setAlwaysOnTop(true, 'floating');
             //win_noti.setVisibleOnAllWorkspaces(true);
-
+            // TODO temporary customMenu
+            /*const customMenu = Menu.buildFromTemplate([
+              {
+                label: `Win_noti ID ${win_noti.id} debug`,
+                submenu: [
+                  {
+                    label: '🔍  ' + i18n.__('open_devtools'),
+                    //accelerator: 'Alt+F12',
+                    click: () => {
+                      win_noti.webContents.toggleDevTools();
+                    }
+                  },
+                  {
+                    label: 'Х  ' + i18n.__('dismiss gracefully'),
+                    //accelerator: 'Alt+F11',
+                    click: () => {
+                      graceCloseNoti(win_noti);
+                    }
+                  },
+                  {
+                    label: 'Х  ' + i18n.__('force close win_noti'),
+                    //accelerator: 'Alt+F10',
+                    click: () => {
+                      delete notificationWindows.id[win_noti.id]
+                      delete dismissed[win_noti.id];
+                      win_noti.close();
+                    }
+                  }
+                ]
+              }
+            ]);*/
             win_noti.loadFile("notification.html");
             win_noti.setMenu(null);
+            //win_noti.setMenu(customMenu);
 
             //writeLog("This notification win id is: "+win_noti.id);
             notificationWindowsIds.push(win_noti.id.toString());
@@ -3892,27 +4090,38 @@ WantedBy=graphical-session.target`;
 
             //writeLog(notificationWindows, true)
 
-            win_noti.on('ready-to-show', () => {
-              win_noti.showInactive();
+            //win_noti.on('ready-to-show', () => {
+            //  win_noti.showInactive();
               //win_noti.blur();
-            })
+            //})
 
-            win_noti.webContents.on('did-finish-load', () => {
+            win_noti.webContents.once('did-finish-load', () => {
               win_noti.webContents.insertCSS(`
                 * {
                   font-family: 'Arial', sans-serif !important;
                 }
               `);
+            })
 
+            win_noti.webContents.on('ready-to-show', () => {
               //win.webContents.executeJavaScript(`get_Notifications(${data.tag});`);
               try {
-                win.webContents.executeJavaScript(`get_Notifications('${JSON.stringify(data)}', '${win_noti.id.toString()}','${position}', '${win_index}');`);
+                win.webContents.executeJavaScript(`
+                  try{
+                    get_Notifications('${JSON.stringify(data)}', '${win_noti.id.toString()}','${position}', '${win_index}');
+                  }
+                  catch(err){
+                    console.log(JSON.stringify({'action': {'notification_get_error': err, 'win_noti_id': ${win_noti.id.toString()} }}));
+                  }
+                `);
+                //win_noti.showInactive();
               }
               catch(err){
-                writeLog(err)
+                writeLog(`Error during get_Notifications: ${err}`)
+
               }
+            });
               
-            })
 
             win_noti.webContents.on('console-message', (event, level, message, line, sourceId) => {
               // open message from notify process
@@ -3955,24 +4164,16 @@ WantedBy=graphical-session.target`;
 
               // dismiss button process
               if (JSON.parse(message).action.dismissed) {
-
-                //writeLog("Notify window with id "+JSON.parse(message).action.dismissed+" is dismissed")
-                //let index = notificationWindowsIds.indexOf(JSON.parse(message).action.dismissed)
+                
+                let index_id = notificationWindowsIds.indexOf(JSON.parse(message).action.dismissed)
                 let index = JSON.parse(message).action.dismissed;
+                //writeLog("Notify window with id "+index+" is dismissed")
 
                 if (index !== -1) {
-                  notificationWindowsIds.splice(index, 1)
-                  //notificationWindows.splice(index, 1)
+                  notificationWindowsIds.splice(index_id, 1)
                   delete notificationWindows.id[index]
                 }
-
-                //dismissed[win_noti.id] = false;
-                delete dismissed[win_noti.id];
-
-                clearTimeout(checkInactivityInterval[win_noti.id]);
-                clearTimeout(delayedIdleTimeInterval[win_noti.id]);
-                delayedIdleTime[win_noti.id] = 5;
-
+                //writeLog(notificationWindows.id, true)
                 // to remove all dismissed_all buttons in case of there is only one notification remain
                 //notificationWindows.forEach((noti_win) => {
                 for (let [ind, noti_win] of Object.entries(notificationWindows.id)) {
@@ -3988,6 +4189,13 @@ WantedBy=graphical-session.target`;
                     writeLog(`Error during updateDismissAllButton: ${err}`)
                   }
                 };
+
+                //dismissed[win_noti.id] = false;
+                delete dismissed[index];
+
+                clearTimeout(checkInactivityInterval[index]);
+                clearTimeout(delayedIdleTimeInterval[index]);
+                delayedIdleTime[index] = 5;
 
               }
 
@@ -4005,6 +4213,14 @@ WantedBy=graphical-session.target`;
                 
               }
 
+              // notification error process
+              if (JSON.parse(message).action.notification_error) {
+                writeLog(`Notify window with id ${win_noti.id} got an error and will be self-closed.`);
+                //writeLog(JSON.parse(message).action.notification_error, true)
+                forceCloseNoti(win_noti);
+                //DismissAllNoti(); 
+              }
+
               // if stale noti is found
               /*if (JSON.parse(message).action == "stale_noti_found") {
                 writeLog('Stale noti if found. Force close its window...')
@@ -4013,39 +4229,20 @@ WantedBy=graphical-session.target`;
 
             //win_noti.webContents.openDevTools()
           } else {
-            writeLog(`Got notification ${data.tag} but notifications are turned off by user.`)
+            writeLog(`Got notification ${data.tag} but notifications are turned off by user or system is suspended.`)
           }
         }
-
-        // TODO stale win noti wathcer
-        /*function stale_win_noti_watcher() {
-          //writeLog('stale_win_noti_watcher is started...')
-          setInterval(function() {
-            if ((notificationWindowsIds.length == 0) && (notificationWindows.length > 0)) {
-              writeLog("Found stale notification window. Force close all noti_wins...")
-              try {
-                notificationWindows.forEach((noti_win) => {
-                  noti_win.close();
-                })
-              }
-              catch(err) {
-                writeLog(`Error while force close stale noti_wins: ${err}`)
-              }
-            }
-
-          }, 10*1000); // check for stale noti_wins every 10 sec
-        }*/
 
         function DismissAllNoti() {
           //writeLog(notificationWindows, true)
           //notificationWindows.forEach((noti_win) => {
           for (let [ind, noti_win] of Object.entries(notificationWindows.id)) {
             try {
-              noti_win.webContents.executeJavaScript(`slideAway('` + noti_win.id + `');`);
               clearTimeout(checkInactivityInterval[noti_win.id]);
               clearTimeout(delayedIdleTimeInterval[noti_win.id]);
               dismissed[noti_win.id] = false;
               delayedIdleTime[noti_win.id] = 5;
+              noti_win.webContents.executeJavaScript(`slideAway('` + noti_win.id + `');`);
             } catch (err) {
               writeLog(`Error during DismissAllNoti: ${err}`)
             }
@@ -4193,7 +4390,8 @@ WantedBy=graphical-session.target`;
             isForeground: isForeground,
             index: index,
             server_color: undefined,
-            server_title: undefined
+            server_title: undefined,
+            shown_noti: undefined
           }
 
           // set always on top
@@ -4212,6 +4410,15 @@ WantedBy=graphical-session.target`;
               action: 'deny'
             };
           });
+
+          // Catch unhandled promise rejections in renderer
+          /*win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`window.addEventListener('unhandledrejection', (event) => {
+              console.log('Unhandled promise rejection: ' + event.reason');
+              // Prevent the default browser behavior (which may show an error in devtools)
+              event.preventDefault();
+              // Optional: send error to main process for logging
+              // window.electronAPI.logError(event.reason.toString());
+            });`);*/
 
 
           // implement html screen source picker
@@ -4276,12 +4483,13 @@ WantedBy=graphical-session.target`;
                         openClientAuth(win_main.id[`${account}:${theURL}`].window, theURL);
                       }
                     } else {
-                      authenticated = await checkAuth(win_main.id[`${account}:${theURL}`].window, saved_password, theURL);
+                      authenticated = await checkAuth(win_main.id[`${account}:${theURL}`].window, saved_password, theURL, account);
 
                       if (authenticated) {
                         writeLog("Token is valid. Log in to " + theURL + " with account "+account)
                         tryLogin(authenticated, win_main.id[`${account}:${theURL}`].window, saved_password, theURL)
                       } else {
+                        // fix fallback to another server in case of some accounts can't login (i.e. due to changed password )
                         writeLog("Not authenticated!");
                         if (!blockAuthCall) {
                           blockAuthCall = true;
@@ -4402,7 +4610,14 @@ WantedBy=graphical-session.target`;
             title,
             data,
             options
-          }) => { 
+          }) => {
+            // TODO workaround to block same data.tag notification
+            if (win_main.id[`${account}:${theURL}`].shown_noti == data.tag) {
+              writeLog("We have multiple same data.tag notification. Prevent runnig...")
+              return 0;
+            }
+            win_main.id[`${account}:${theURL}`].shown_noti = data.tag;
+
             // check muted notifications
             if (store.get('notification_muted')) {
               win_main.id[`${account}:${theURL}`].window.webContents.setAudioMuted(true);
@@ -4411,7 +4626,7 @@ WantedBy=graphical-session.target`;
               }, 6000); // 6s to prevent call sound
             }
 
-            // debounce 1s to avoid double call notification
+            // debounce 5s to avoid multiple notification fire
             //clearTimeout(debounce);
             //debounce = setTimeout(function() {
               // to filter other then event sender windows, check window.webContents.id as ids of event.sender are different then sorted win_main.id array
@@ -4420,7 +4635,7 @@ WantedBy=graphical-session.target`;
               if (win_main.id[`${account}:${theURL}`].window.webContents.id == event.sender.id) {
                 createNotification(data, false, false, win_main.id[`${account}:${theURL}`].window, win_main.id[`${account}:${theURL}`].index,`${account}:${theURL}`);
               }
-            //}, 1000);
+            //}, 5000);
           });
 
 
@@ -4450,9 +4665,9 @@ WantedBy=graphical-session.target`;
             e.preventDefault();
 
             if ((unread[`${account}:${theURL}`] != 0) && (unread[`${account}:${theURL}`] != undefined)) {
-              win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion() + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread[`${account}:${theURL}`]);
+              win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion() + " - " + account + " - " + theURL+ " - " + i18n.__("unread_messages") + ": " + unread[`${account}:${theURL}`]);
             } else {
-              win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion() + " - " + theURL);
+              win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL);
             }
 
           });
@@ -4613,6 +4828,12 @@ WantedBy=graphical-session.target`;
               // localize NC user_menu
               win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`var nc_link_loc = "` + i18n.__("nc_link") + `";`);
               win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`var switch_acc_loc = "` + i18n.__("switch_accounts") + `";`);
+
+
+              if (!store.get('turn_off_pinger')) {
+                win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`start_pinger();`);
+              }
+              
               // add roundrobin account switch button if there more then one account is configured
              if (Object.keys(loginData.accounts).length > 1) {
                 win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`createAccSwitch();`);
@@ -4721,15 +4942,21 @@ WantedBy=graphical-session.target`;
                   /*if (isLinux) {
                     win_main.id[`${account}:${theURL}`].window.setIcon(trayIcon[`${account}:${theURL}`])
                   }*/
-                  win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion() + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread[`${account}:${theURL}`]);
+                  win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread[`${account}:${theURL}`]);
                 } else {
                   // set linux taskbar image same as tray
                   /*if (isLinux) {
                     win_main.id[`${account}:${theURL}`].window.setIcon(trayIcon[`${account}:${theURL}`])
                   }*/
-                  win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion() + " - " + theURL);
+                  win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL);
                 }
               }
+
+              // if unread_observer_loaded allow get_Notifications
+              /*if (JSON.parse(message).action == 'unread_observer_loaded') {
+                writeLog(`unread_observer in ${account}:${theURL} is loaded`);
+                unread_observer_loaded[`${account}:${theURL}`] = true;
+              }*/
 
               //get incoming message id
               if (JSON.parse(message).action.token) {
@@ -4777,6 +5004,7 @@ WantedBy=graphical-session.target`;
                   // check if win_main is in not hidden, minimized, unfocused or notification_type is call
                   if (!win_main.id[`${account_string}`].window.isVisible() || win_main.id[`${account_string}`].window.isMinimized() || !win_main.id[`${account_string}`].window.isFocused() ||(notification_type[`${account_string}:${tag}`] == 'call')) {
                     // validate all parameters for showCustomNotification to prevent invisible stale noti_wins
+                    win_noti.showInactive();
                     win_noti.webContents.executeJavaScript(`showCustomNotification('${win_noti.id}', '${JSON.stringify(data)}', '${i18n.__('dismiss')}', '${i18n.__('dismiss_all')}', '${i18n.__('dismiss_all_title')}', '${i18n.__('open')}', '${i18n.__('open_title')}', '${theme}', '${server_icon.toDataURL()}', '${notification_message_icon[`${account_string}:${tag}`]}', '${position}', '${win_index}', '${account_string}', '${server_color}','${notification_type[`${account_string}:${tag}`]}')`);
 
                     // cleanup avatar after notification apper
@@ -4807,28 +5035,35 @@ WantedBy=graphical-session.target`;
                 }
               }
 
+              if (JSON.parse(message).action.notification_get_error) {
+                let index = JSON.parse(message).action.win_noti_id
+                writeLog(`Notification with win_noti id ${index} got an error. Trying to close win_noti.`);
+                //writeLog(JSON.parse(message).action.notification_get_error, true);
+                forceCloseNoti(notificationWindows.id[index])
+              }
+
               if (JSON.parse(message).action == 'not_alive') {
                 /*if (!gui_blocked) {
                   block_gui_loading(true);*/
-                win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion() + " - " + theURL + i18n.__('server_no_response'));
+                win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL + i18n.__('server_no_response'));
                 //}
               }
 
               if (JSON.parse(message).action == 'refresh') {
                 /*if (!gui_blocked) {
                   block_gui_loading(true);*/
-                win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion() + " - " + theURL + ' - ' + i18n.__('loading'));
+                win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL + ' - ' + i18n.__('loading'));
                 //}
               }
               if (JSON.parse(message).action == 'alive') {
                 if ((unread[`${account}:${theURL}`] != 0) && (unread[`${account}:${theURL}`] != undefined)) {
-                  win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion() + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread[`${account}:${theURL}`]);
+                  win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread[`${account}:${theURL}`]);
                 } else {
                   // set linux taskbar image same as tray
                   /*if (isLinux) {
                     win_main.id[`${account}:${theURL}`].window.setIcon(trayIcon[`${account}:${theURL}`])
                   }*/
-                  win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion() + " - " + theURL);
+                  win_main.id[`${account}:${theURL}`].window.setTitle(src_title[win_main.id[`${account}:${theURL}`].window.id] + " - " + app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL);
                 }
               }
 
@@ -4860,7 +5095,7 @@ WantedBy=graphical-session.target`;
                 //win_main.webContents.executeJavaScript('window.location.replace("/apps/spreed")')
                 if (!blockAuthCall) {
                   blockAuthCall = true;
-                  checkAuth(win_main.id[`${account}:${theURL}`].window, saved_password, store.get('server_url'));
+                  checkAuth(win_main.id[`${account}:${theURL}`].window, saved_password, store.get('server_url'), store.get('current_login'));
                   openClientAuth(win_main.id[`${account}:${theURL}`].window, theURL);
                 }
 
@@ -4971,7 +5206,6 @@ WantedBy=graphical-session.target`;
               //app.exit(0);
             }
           })
-
 
           // prevent navigation to cloud root after logout and following login
           details = win_main.id[`${account}:${theURL}`].window.webContents.on('will-navigate', (event, redirectUrl) => {
@@ -5367,30 +5601,36 @@ WantedBy=graphical-session.target`;
             // to set app.name instead of electron.app.Electron in Windows notifications
             if (!isMac) app.setAppUserModelId(app.name);
 
-            // to detect lock screen and suspend (mac)
-            if (isMac) {
-              powerMonitor.on('lock-screen', () => {
-                isLocked_suspend = true;
-                //writeLog('The screen is locked');
-              });
-              powerMonitor.on('unlock-screen', () => {
-                isLocked_suspend = false;
-                //writeLog('The screen of Mac is unlocked. Force restart app with 2 seconds delay...');
-                //setTimeout(()=>{
-                //  restartApp();
-                //}, 2000)
-              });
-              powerMonitor.on('suspend', () => {
-                isLocked_suspend = true;
-                //writeLog('The system is suspended');
-              });
-              powerMonitor.on('resume', () => {
-                isLocked_suspend = false;
-                writeLog('The Mac system is resumed. Force restart app with 10 seconds delay...');
-                setTimeout(()=>{
-                  restartApp();
-                }, 10000)
-              });
+            // to detect lock screen and suspend (mac and win)
+            if (store.get('restart_after_suspend')) {
+              if (!isLinux) {
+                powerMonitor.on('lock-screen', () => {
+                  isLocked_suspend = true;
+                  //writeLog('The screen is locked');
+                });
+                powerMonitor.on('unlock-screen', () => {
+                  isLocked_suspend = false;
+                  //writeLog('The screen of Mac is unlocked. Force restart app with 2 seconds delay...');
+                  //setTimeout(()=>{
+                  //  restartApp();
+                  //}, 2000)
+                });
+                powerMonitor.on('suspend', () => {
+                  isLocked_suspend = true;
+                  //writeLog('The system is suspended');
+                });
+                powerMonitor.on('resume', () => {
+                  isLocked_suspend = false;
+                  writeLog('System is resumed. Force restart app with 10 seconds delay...');
+                  setTimeout(()=>{
+                    restartApp();
+                  }, 10000)
+                });
+              } else {
+                // to detect lock screen and suspend (linux)
+                listenForScreenLockEvents().catch(console.error);
+                listenForSuspendEvents().catch(console.error);
+              }
             }
 
             if (url == "") {
@@ -5444,17 +5684,21 @@ WantedBy=graphical-session.target`;
                 }
                 guiInit();
               } else {
-                writeLog(`${store.get('server_url')} is unreachable. Exit app.`)
-                dialog.showErrorBox(i18n.__('error'), i18n.__('message1', {
+                writeLog(`${store.get('server_url')} is unreachable.`)
+                showAccessErrorDialog(i18n.__('message1', {
                   server_url: store.get('server_url')
                 }));
-                app.exit(0);
+                /*dialog.showErrorBox(i18n.__('error'), i18n.__('message1', {
+                  server_url: store.get('server_url')
+                }));*/
+                //app.exit(0);
               }
             }
           } else {
-            writeLog(`Internet (8.8.8.8) is unreachable. Exit app.`)
-            dialog.showErrorBox(i18n.__('error'), i18n.__('message22'));
-            app.exit(0);
+            writeLog(`Internet (8.8.8.8) is unreachable.`)
+            //dialog.showErrorBox(i18n.__('error'), i18n.__('message22'));
+            showAccessErrorDialog(i18n.__('message22'));
+            //app.exit(0);
           }
         })
 

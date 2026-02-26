@@ -4,6 +4,7 @@ Electron wrapper app for Nextcloud Talk. Learning some nodejs and electron basic
 <img width="1272" height="1022" alt="Screenshot" src="https://github.com/user-attachments/assets/e10c8c3e-fcd2-4c3a-94f1-df038b358bc4" />
 
 
+
 Sources are mess but it works =)
 
 Check my app if you are unsatisfied by [official Nextcloud Talk Desktop app](https://github.com/nextcloud/talk-desktop).
@@ -17,14 +18,14 @@ MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x) - a
 
 | Platform   | Type | Download link                               |
 |-------------|--------------|---------------------------------------------------|
-| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.0.0.msi)   |
-| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.0.0_amd64.deb)     |
-| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.0.x86_64.rpm)    |
-| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.0.AppImage)     |
-| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.0.tar.gz)      |
-| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.0-win.zip)       |
-| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.0.dmg)     |
-| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.0-arm64.dmg)     |
+| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.0.1.msi)   |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.0.1_amd64.deb)     |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.1.x86_64.rpm)    |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.1.AppImage)     |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.1.tar.gz)      |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.1-win.zip)       |
+| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.1.dmg)     |
+| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.1-arm64.dmg)     |
 
 
 ---
@@ -60,6 +61,8 @@ Supported setting arguments (see example.config.json):
 - `notification_muted` - true\false value means to mute all sounds from notifications and calls in app (default is false)
 - `sum_unread` - true\false value means to sum unread message counters from all configured accounts and show this sum on the app tray icon only; corresponding account unread counter will remain at taskbar and macos dock icon *(availlable since v.1.0.0-RC1)*
 - `use_server_theme` - true\false value means to get main theme color from the NC server and use it to customize background color of the app notification *(availlable since v.1.0.0-RC1)*
+- `restart_after_suspend` - true\false value means to forcefully restart app when the system is awake from sleep/hibernation(win/mac/linux) or is unlocked(linux) *(availlable since v.1.0.1)*
+- `turn_off_pinger` - true\false value means to prevent app to check alive status of NC server *(availlable since v.1.0.1)*
 
 # For developers
 Build depends on the platform since 0.2.9-alpha version as it brings support of the system idle detect function.

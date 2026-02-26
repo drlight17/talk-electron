@@ -38,6 +38,8 @@ const defaultSettings = {
   always_on_top: false,
   start_hidden: false,
   logging: false,
+  restart_after_suspend: false,
+  turn_off_pinger: false,
   run_at_startup: false
 };
 
@@ -73,7 +75,9 @@ function hasSettingsChanged(settings) {
   if (behaviourChanged) changedSections.push('behaviour');
   
   // Debug section
-  const debugChanged = settings.logging !== defaultSettings.logging;
+  const debugChanged = settings.logging !== defaultSettings.logging ||
+                      settings.restart_after_suspend !== defaultSettings.restart_after_suspend ||
+                      settings.turn_off_pinger !== defaultSettings.turn_off_pinger;
   if (debugChanged) changedSections.push('debug');
   
   // Also check proxy settings
@@ -140,6 +144,8 @@ function resetToDefaults() {
   
   // Reset debug settings
   document.getElementById('logging').checked = defaultSettings.logging;
+  document.getElementById('restart_after_suspend').checked = defaultSettings.restart_after_suspend;
+  document.getElementById('turn_off_pinger').checked = defaultSettings.turn_off_pinger;
   
   // Reset saved proxy login data
   let loginProxyData = { server: {} };
@@ -175,6 +181,8 @@ function resetToDefaults() {
     always_on_top: defaultSettings.always_on_top,
     start_hidden: defaultSettings.start_hidden,
     logging: defaultSettings.logging,
+    restart_after_suspend: defaultSettings.restart_after_suspend,
+    turn_off_pinger: defaultSettings.turn_off_pinger,
     run_at_startup: defaultSettings.run_at_startup
   };
   
@@ -389,6 +397,20 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
   } else {
     document.getElementById('logging').checked = defaultSettings.logging;
   }
+
+
+  if (settings.restart_after_suspend !== undefined) {
+    document.getElementById('restart_after_suspend').checked = settings.restart_after_suspend;
+  } else {
+    document.getElementById('restart_after_suspend').checked = defaultSettings.restart_after_suspend;
+  }
+
+  if (settings.turn_off_pinger !== undefined) {
+    document.getElementById('turn_off_pinger').checked = settings.turn_off_pinger;
+  } else {
+    document.getElementById('turn_off_pinger').checked = defaultSettings.turn_off_pinger;
+  }
+  
 
   // Check for changed settings and open relevant sections
   const changedSections = hasSettingsChanged(settings);

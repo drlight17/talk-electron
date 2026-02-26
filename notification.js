@@ -123,7 +123,11 @@ function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss
 
   }
   catch(err) {
-    console.log(err)
+    //console.log(err)
+    console.log(JSON.stringify({'action': {'notification_error': err }}));
+    setTimeout(()=>{
+      self.close();
+    }, 2000)
   }
 }
 
@@ -167,8 +171,11 @@ function updateDismissAllButton (counter, label_w_counter){
     })
   }
   catch(err) {
-    // do not show any errors in console for demo notif dismiss
     //console.log(err)
+    //console.log(JSON.stringify({'action': {'notification_error': err }}));
+    //setTimeout(()=>{
+    //  self.close();
+    //}, 2000)
   }
 }
 
@@ -210,56 +217,73 @@ function updateDismissTimeout(timeout,win_noti_id) {
 }
 
 function startDismissTimer(win_noti_id) {
+  try {
+    remaining = total;
+    
+    if (typeof updateTimer === 'function') {
+      updateTimer();
+    }
+    
+    if (timerDisplay) {
+      timerDisplay.classList.remove('fade-out');
+    }
 
-  remaining = total;
-  
-  if (typeof updateTimer === 'function') {
-    updateTimer();
-  }
-  
-  if (timerDisplay) {
-    timerDisplay.classList.remove('fade-out');
-  }
+    clearInterval(dismissTimeout);
 
-  clearInterval(dismissTimeout);
+    dismissTimeout = setInterval(() => {
+      remaining--;
 
-  dismissTimeout = setInterval(() => {
-    remaining--;
-
-    if (remaining <= 0) {
-      clearInterval(dismissTimeout);
-      if (timerDisplay && timerDisplay.parentNode) {
-        timerDisplay.classList.add('fade-out');
-        if (notif && notif.parentNode) {
-          notif.classList.remove(animation_direction_in);
-          notif.classList.add(animation_direction_out);
-          setTimeout(() => {
-            if (notif && notif.parentNode) {
-              notif.remove();
-              self.close();
-            }
-          }, 300);
-          console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
+      if (remaining <= 0) {
+        clearInterval(dismissTimeout);
+        if (timerDisplay && timerDisplay.parentNode) {
+          timerDisplay.classList.add('fade-out');
+          if (notif && notif.parentNode) {
+            notif.classList.remove(animation_direction_in);
+            notif.classList.add(animation_direction_out);
+            setTimeout(() => {
+              if (notif && notif.parentNode) {
+                notif.remove();
+                self.close();
+              }
+            }, 300);
+            console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
+          }
+        }
+      } else {
+        if (typeof updateTimer === 'function') {
+          updateTimer();
         }
       }
-    } else {
-      if (typeof updateTimer === 'function') {
-        updateTimer();
-      }
-    }
-  }, 100);
+    }, 100);
+  }
+  catch(err) {
+    //console.log(err)
+    console.log(JSON.stringify({'action': {'notification_error': err }}));
+    setTimeout(()=>{
+      self.close();
+    }, 2000)
+  }
 };
 
 function slideAway(id) {
-  if (notif && notif.parentNode) {
-    notif.classList.remove(animation_direction_in);
-    notif.classList.add(animation_direction_out);
-    setTimeout(() => {
-        if (notif && notif.parentNode) {
-          notif.remove();
-          self.close();
-        }
-      }, 300);
+  try {
+    if (notif && notif.parentNode) {
+      notif.classList.remove(animation_direction_in);
+      notif.classList.add(animation_direction_out);
+      setTimeout(() => {
+          if (notif && notif.parentNode) {
+            notif.remove();
+            self.close();
+          }
+        }, 300);
+    }
+    console.log(JSON.stringify({'action': {'dismissed': id }}));
   }
-  console.log(JSON.stringify({'action': {'dismissed': id }}));
+  catch(err) {
+    //console.log(err)
+    console.log(JSON.stringify({'action': {'notification_error': err }}));
+    setTimeout(()=>{
+      self.close();
+    }, 2000)
+  }
 }

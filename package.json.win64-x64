@@ -11,7 +11,7 @@
   ],
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "build": {
     "appId": "com.electron.talk-electron",
@@ -87,7 +87,8 @@
     "https-proxy-agent": "latest",
     "keytar": "^7.9.0",
     "semver": "latest",
-    "sharp": "^0.32"
+    "sharp": "^0.32",
+    "dbus-next": "latest"
   },
   "devDependencies": {
     "@paymoapp/electron-shutdown-handler": "latest",

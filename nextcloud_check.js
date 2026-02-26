@@ -520,6 +520,13 @@ async function getNameFromUrl(url) {
     }
 }
 
+// add pinger every 5 seconds to check NC alive
+async function start_pinger() {
+  setInterval(function () {
+    pingUrl(location.protocol + '//' + location.host);
+  }, 5000);
+}
+
 // test set 500ms timeout for _oc_config fetch
 setTimeout (()=>{
   if (typeof _oc_config === "undefined") {
@@ -648,9 +655,8 @@ setTimeout (()=>{
 
       console.log(JSON.stringify({action: "try_apply_theme_and_lang"}));
 
-      // add pinger every 5 seconds to check NC alive
+      // add pinger every 5 seconds
       var interval = setInterval(function () {
-        pingUrl(location.protocol + '//' + location.host);
         // TODO in further version we shouldn't recalc_counters_summary here as this function should be updated to use API requests
         recalc_counters_summary();  
       }, 5000);

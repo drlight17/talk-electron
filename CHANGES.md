@@ -1,3 +1,15 @@
+1.0.1
+- [x] BUG: still having invisible win_noti in some errored condition
+- [x] BUG: make pingURL optionable
+- [x] NEW: suggest app restart in case of no internet error (8.8.8.8)
+- [x] BUG: dismiss timer won't start on user action at the earlier notifications in case there are multiple notifications appeared
+- [x] BUG(linux, win): no server_url in account management trayIcon menu
+- [x] BUG: restart loop in case one of accunt is "Not authenticated!"
+- [x] NEW: add dialog to delete "Not authenticated!" account with restart or to close app
+- [x] BUG: add username in window title
+- [x] NEW: restart app after sleep for all platforms option to prevent issues with notifications, callbacks etc.
+- [x] BUG(linux): app is not shown in OS system monitor as app - add MimeType into app shortcut
+
 1.0.0
 - [x] NEW: add unregistered to version in about if no license key
 - [x] NEW: button to force restart app in case of any troubles

@@ -47,12 +47,14 @@ async function getBase64FromImageUrl(url) {
 }
 
 async function get_Notifications(data, win_noti_id, position, win_index) {
-    let data_parsed = JSON.parse(data);
-    if (data_parsed.tag === undefined) {
-        console.log(JSON.stringify({'action': {'notification': "demo", 'avatar': "", 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index}}));
-        return;
-    }
+
     try {
+        let data_parsed = JSON.parse(data);
+        if (data_parsed.tag === undefined) {
+            console.log(JSON.stringify({'action': {'notification': "demo", 'avatar': "", 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index}}));
+            return;
+        }
+    
         const response = await fetch('/ocs/v2.php/apps/notifications/api/v2/notifications/'+data_parsed.tag+'?format=json', {
           method: 'GET',
           credentials: 'include',
@@ -71,6 +73,10 @@ async function get_Notifications(data, win_noti_id, position, win_index) {
     }
     catch(error) {
         console.error("Error getting notification by tag "+data_parsed.tag+": ", error);
+        console.log(JSON.stringify({'action': {'notification_get_error': error, 'win_noti_id': win_noti_id }}));
+        //setTimeout(()=>{
+        //  self.close();
+        //}, 2000)
     }
 }
 
@@ -211,3 +217,5 @@ window.addEventListener('localStorageChange', (event) => {
       recalc_counters_summary ();
     }
 });
+
+

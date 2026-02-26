@@ -155,6 +155,11 @@ body.settings.dark-theme {
   background-color: #282c34;
 }
 
+#open_config_file_id {
+  left: 10px;
+  position:relative;
+}
+
 body.settings.dark-theme #app_icon {
   color:white;
   filter: blur(9px);
