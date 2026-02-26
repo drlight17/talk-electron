@@ -650,11 +650,12 @@ setTimeout (()=>{
 
       // add pinger every 5 seconds to check NC alive
       var interval = setInterval(function () {
-        pingUrl(location.protocol + '//' + location.host);
+        //pingUrl(location.protocol + '//' + location.host);
         // TODO in further version we shouldn't recalc_counters_summary here as this function should be updated to use API requests
         recalc_counters_summary();  
       }, 5000);
     }
   }
+
 
 }, 500)
