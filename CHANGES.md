@@ -1,3 +1,9 @@
+1.0.2
+- [x] BUG: don't restart on OS resume because usually it needs OS unlock to get credentials. Do it on unlock only
+- [x] NEW: Internet check (8.8.8.8) - make configurable check address
+- [x] move open config.json button to window buttons
+- [x] BUG: suggest to restart app also in case of token is not found, invalid, expired or revoked (message6)
+
 1.0.1
 - [x] BUG: still having invisible win_noti in some errored condition
 - [x] BUG: make pingURL optionable

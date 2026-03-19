@@ -35,6 +35,7 @@ const defaultSettings = {
   notification_timeout_checkbox: false,
   notification_sys_checkbox: false,
   notification_position: 'bottom-right',
+  inet_check_addr: '8.8.8.8',
   always_on_top: false,
   start_hidden: false,
   logging: false,
@@ -77,7 +78,7 @@ function hasSettingsChanged(settings) {
   // Debug section
   const debugChanged = settings.logging !== defaultSettings.logging ||
                       settings.restart_after_suspend !== defaultSettings.restart_after_suspend ||
-                      settings.turn_off_pinger !== defaultSettings.turn_off_pinger;
+                      settings.turn_off_pinger !== defaultSettings.turn_off_pinger || settings.inet_check_addr !== defaultSettings.inet_check_addr;
   if (debugChanged) changedSections.push('debug');
   
   // Also check proxy settings
@@ -146,6 +147,9 @@ function resetToDefaults() {
   document.getElementById('logging').checked = defaultSettings.logging;
   document.getElementById('restart_after_suspend').checked = defaultSettings.restart_after_suspend;
   document.getElementById('turn_off_pinger').checked = defaultSettings.turn_off_pinger;
+  document.getElementById('inet_check_addr').value = defaultSettings.inet_check_addr;
+  
+
   
   // Reset saved proxy login data
   let loginProxyData = { server: {} };
@@ -183,6 +187,7 @@ function resetToDefaults() {
     logging: defaultSettings.logging,
     restart_after_suspend: defaultSettings.restart_after_suspend,
     turn_off_pinger: defaultSettings.turn_off_pinger,
+    inet_check_addr: defaultSettings.inet_check_addr,
     run_at_startup: defaultSettings.run_at_startup
   };
   
@@ -409,6 +414,12 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
     document.getElementById('turn_off_pinger').checked = settings.turn_off_pinger;
   } else {
     document.getElementById('turn_off_pinger').checked = defaultSettings.turn_off_pinger;
+  }
+
+    if (settings.inet_check_addr !== undefined) {
+    document.getElementById('inet_check_addr').value = settings.inet_check_addr;
+  } else {
+    document.getElementById('inet_check_addr').value = defaultSettings.inet_check_addr;
   }
   
 

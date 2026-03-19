@@ -418,6 +418,10 @@ if (process.versions.electron != "22.3.27") {
         if (store.get('turn_off_pinger') === undefined) {
           store.set('turn_off_pinger', false);
         }
+        // check if inet_check_addr is configured and set default google 8.8.8.8 if not
+        if (!store.get('inet_check_addr')) {
+          store.set('inet_check_addr', '8.8.8.8')
+        }
 
         // check if notification_timeout_checkbox is configured and set default true if not
         if (store.get('notification_timeout_checkbox') == undefined) {
@@ -1059,7 +1063,7 @@ WantedBy=graphical-session.target`;
         }
 
         // linux suspend events listener
-        async function listenForSuspendEvents() {
+        /*async function listenForSuspendEvents() {
           const bus = DBus.systemBus();
           const obj = await bus.getProxyObject('org.freedesktop.login1', '/org/freedesktop/login1');
           const logindManager = obj.getInterface('org.freedesktop.login1.Manager');
@@ -1076,7 +1080,7 @@ WantedBy=graphical-session.target`;
               }, 10000)
             }
           });
-        }
+        }*/
         async function checkNetwork(urls_to_checks) {
           const doCheckNetwork = async (urls = []) => {
             /*const defaultUrls = [
@@ -1591,7 +1595,7 @@ WantedBy=graphical-session.target`;
                 }
             }
 
-            // rebuild man and appicon menus
+            // rebuild main and appicon menus
             const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate);
             appIcon.setContextMenu(contextMenu);
 
@@ -1685,8 +1689,9 @@ WantedBy=graphical-session.target`;
                   store.set('current_login', account.username);
                   restartApp();
                 } else {
-                  // suggest to delete account
-                  dialog.showMessageBox(win_main.id[`${failed_username}:${failed_url}`].window, {
+                  // suggest to delete account, to restart app or to exit
+
+                  /*dialog.showMessageBox(win_main.id[`${failed_username}:${failed_url}`].window, {
                     type: 'error',
                     message: i18n.__('message6', {
                       account: `${failed_username}:${failed_url}`
@@ -1701,10 +1706,35 @@ WantedBy=graphical-session.target`;
                     if (result.response == 0) {
                       writeLog(`Forced delete ${failed_username}:${failed_url} account and restart app.`)
                       deleteAccount(failed_username,failed_url)
-                      //deleteCredentials(failed_username, failed_url);
-                      //restartApp();
                     } else {
                       app.exit();
+                    }
+                  })*/
+
+                  const options = {
+                    type: 'error',
+                    buttons: [i18n.__('restart_app'), i18n.__('delete_account'), i18n.__('exit')],
+                    defaultId: 0,
+                    cancelId: 2,
+                    title: i18n.__('error'),
+                    message: i18n.__('message6', {
+                      account: `${failed_username}:${failed_url}`
+                    }),
+                  };
+
+                  dialog.showMessageBox(win_main.id[`${failed_username}:${failed_url}`].window, options)
+                  .then((result) => {
+                    switch (result.response) {
+                      case 0: // Retry
+                        restartApp();
+                        break;
+                      case 1: // delete account
+                        writeLog(`Forced delete ${failed_username}:${failed_url} account and restart app.`)
+                        deleteAccount(failed_username,failed_url)
+                        break;
+                      case 2: // exit
+                        app.exit(0);
+                        break;
                     }
                   })
                 }
@@ -2732,7 +2762,7 @@ WantedBy=graphical-session.target`;
         function showAccessErrorDialog(mes) {
           const options = {
             type: 'error',
-            buttons: [i18n.__('restart_app'), /*i18n.__('cleanup'),*/ i18n.__('exit')],
+            buttons: [i18n.__('restart_app'), i18n.__('check_preferences'), i18n.__('exit')],
             defaultId: 0,
             title: i18n.__('error'),
             message: mes,
@@ -2744,7 +2774,13 @@ WantedBy=graphical-session.target`;
               case 0: // Retry
                 restartApp();
                 break;
-              case 1: // exit
+              case 1: // check preferences
+                openSettings(true, true);
+                //if (promted_value) {
+                  promted = false;
+                //}
+                break;
+              case 2: // exit
                 app.exit(0);
                 break;
             }
@@ -3110,10 +3146,10 @@ WantedBy=graphical-session.target`;
         }
 
         function openSettings(flag, errored) {
-          /*let modal = isMac;
-          if (errored) {
-            modal = true;
-          }*/
+          let parent = false;
+          if (!errored) {
+            parent = win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window;
+          }
           let width = 500;
           let height = 550;
 
@@ -3144,7 +3180,7 @@ WantedBy=graphical-session.target`;
               minimizable: (isMac) ? false : true,
               maximizable: (isMac) ? false : true,
               fullScreenable: (isMac) ? false : true,
-              parent: win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window,
+              parent: parent,
               x: x,
               y: y
               //useContentSize: true
@@ -4931,8 +4967,6 @@ WantedBy=graphical-session.target`;
                   }
                 }
 
-                //removed = JSON.parse(message).action.removed
-                //UnreadTray(unread[`${account}:${theURL}:${isForeground}`], removed, win_main[`${account}:${theURL}:${isForeground}`]);
                 UnreadTray(account,theURL,isForeground, win_main.id[`${account}:${theURL}`].window);
                 unread_prev[`${account}:${theURL}`] = unread[`${account}:${theURL}`]
 
@@ -5577,9 +5611,9 @@ WantedBy=graphical-session.target`;
         //app.on('ready', async () => {
           writeLog('PID = ' + process.pid);
 
-          writeLog('Checking internet...');
+          writeLog(`Checking internet by access ${store.get("inet_check_addr")}`);
 
-          let check_result = await checkNetwork(['https://8.8.8.8'])
+          let check_result = await checkNetwork([`https://${store.get("inet_check_addr")}`])
 
           if (check_result) {
             writeLog('Internet is available.');
@@ -5629,7 +5663,7 @@ WantedBy=graphical-session.target`;
               } else {
                 // to detect lock screen and suspend (linux)
                 listenForScreenLockEvents().catch(console.error);
-                listenForSuspendEvents().catch(console.error);
+                //listenForSuspendEvents().catch(console.error);
               }
             }
 
@@ -5695,9 +5729,12 @@ WantedBy=graphical-session.target`;
               }
             }
           } else {
-            writeLog(`Internet (8.8.8.8) is unreachable.`)
+            writeLog(`Internet (${store.get("inet_check_addr")}) is unreachable.`)
             //dialog.showErrorBox(i18n.__('error'), i18n.__('message22'));
-            showAccessErrorDialog(i18n.__('message22'));
+            //showAccessErrorDialog(i18n.__('message22'));
+            showAccessErrorDialog(i18n.__('message22', {
+                  inet_check_addr: store.get('inet_check_addr')
+                }));
             //app.exit(0);
           }
         })

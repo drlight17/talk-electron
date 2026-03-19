@@ -148,13 +148,18 @@
 				    <input type='hidden' value=false name='logging'>
 				    <input type="checkbox" value=true name="logging" id="logging">
 				    <label id="logging_id" for="logging"></label>
+				    <br>
 				    <input type='hidden' value=false name='restart_after_suspend'>
 				    <input type="checkbox" value=true name="restart_after_suspend" id="restart_after_suspend">
 				    <label id="restart_after_suspend_id" for="restart_after_suspend"></label>
+				    <br>
 				    <input type='hidden' value=false name='turn_off_pinger'>
 				    <input type="checkbox" value=true name="turn_off_pinger" id="turn_off_pinger">
 				    <label id="turn_off_pinger_id" for="turn_off_pinger"></label>
-				    <button id="open_config_file_id" type="submit" onclick="return openConfigFile();"></button>
+				    <br>
+				    <br>
+				    <label id="inet_check_addr_id" for="inet_check_addr"></label>
+				    <input type="text" name="inet_check_addr" id="inet_check_addr">
 		        </div>
 		    </div>
 
@@ -163,6 +168,7 @@
 			    <button id="save_button_id" type="submit" onclick="return saveSettings();"></button>
 			    <button id="cancel_button_id" type="cancel"></button>
 				<button id="reset_button_id" type="button" onclick="resetToDefaults();"></button>
+				<button id="open_config_file_id" type="submit" onclick="return openConfigFile();"></button>
 			</div>
 		</form>
 	</div>

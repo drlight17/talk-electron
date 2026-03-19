@@ -63,6 +63,7 @@ Supported setting arguments (see example.config.json):
 - `use_server_theme` - true\false value means to get main theme color from the NC server and use it to customize background color of the app notification *(availlable since v.1.0.0-RC1)*
 - `restart_after_suspend` - true\false value means to forcefully restart app when the system is awake from sleep/hibernation(win/mac/linux) or is unlocked(linux) *(availlable since v.1.0.1)*
 - `turn_off_pinger` - true\false value means to prevent app to check alive status of NC server *(availlable since v.1.0.1)*
+- `inet_check_addr` - string value of ip or name address of the Internet host to check Internet availablity on app startup (default is google DNS 8.8.8.8) *(availlable since v.1.0.2)*
 
 # For developers
 Build depends on the platform since 0.2.9-alpha version as it brings support of the system idle detect function.

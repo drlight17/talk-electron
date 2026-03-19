@@ -126,7 +126,7 @@ body.dark-theme a {
 
 button {
   padding: 12px 24px;
-  font-size: 16px;
+  /*font-size: 16px;*/
   border: none;
   border-radius: 5px;
   
@@ -155,10 +155,10 @@ body.settings.dark-theme {
   background-color: #282c34;
 }
 
-#open_config_file_id {
+/*#open_config_file_id {
   left: 10px;
   position:relative;
-}
+}*/
 
 body.settings.dark-theme #app_icon {
   color:white;
@@ -216,7 +216,7 @@ body.settings .buttons {
   width: 100%;
   background-color: rgba(255, 255, 255, 0.8);
   display: flex;
-  justify-content: space-around;
+  justify-content: space-between;
   align-items: center;
   padding: 10px 0;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
@@ -398,12 +398,12 @@ body.settings .container-content.connection {
   align-items: center;
   justify-content: flex-start;
 }
-body.settings .container-content.debug {
+/*body.settings .container-content.debug {
   display: flex;
   flex-direction: row;
   justify-content: space-evenly;
   align-items: baseline;
-}
+}*/
 
 body.settings #notification_settings_id {
   margin-left: 30%;
