@@ -514,7 +514,7 @@ body.donate {
     background-color: #f0f0f0;
     color: #333;
     overflow-wrap: break-word;
-    padding-bottom:150px;
+    padding-bottom:175px;
 }
 
 
@@ -636,6 +636,49 @@ body.donate.dark-theme button:hover {
     }
 }
 
+/*dismiss_all win*/
+
+
+body.dismiss_all #dismiss_all-container {
+  /*position: fixed;
+  right: 20px;
+  top: 50px;
+  display: flex;
+  width: 330px;
+  z-index: 9998;*/
+  flex-direction: column;
+  gap: 10px;
+  position: absolute;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+body.dismiss_all #dismiss_all-container.right {
+  right:0;
+}
+
+body.dismiss_all #dismiss_all {
+  z-index: 9999;
+  /*position: absolute;
+  top: 0;
+  right: 0;*/
+  opacity: .85;
+  /*visibility: hidden;*/
+  transition: visibility 0.3s, opacity 0.3s ease;
+  
+}
+
+body.dismiss_all.dark-theme #dismiss_all {
+  filter: invert(.88);
+}
+    
+span:hover #dismiss_all {
+  opacity: 1;
+  /*visibility: visible;*/
+}
+
 /* notificayion styling */
 
 body.notification #notification-container {
@@ -651,22 +694,6 @@ body.notification #notification-container {
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
-}
-
-body.notification #dismiss_all {
-  z-index: 9999;
-  position: absolute;
-  top: -35px;
-  right: 25px;
-  opacity: 0;
-  visibility: hidden;
-  transition: visibility 0.3s, opacity 0.3s ease;
-  
-}
-
-body.notification span:hover #dismiss_all.visible {
-  opacity: 1;
-  visibility: visible;
 }
 
 
@@ -742,9 +769,6 @@ body.notification .notification.mix-color::after {
   z-index: 1;
 }
 
-/*body.notification .notification:hover, body.notification .notification.multiple {
-  background-color: white;
-}*/
 
 body.notification .notification > p> img {
   width: 40px;
@@ -781,24 +805,6 @@ body.notification .notification.slide-in-right {
 body.notification .notification.slide-in-left {
   animation: slide-in-left 0.3s ease-out forwards;
 }
-
-/*body.notification .notification .read-btn {
-  padding: 5px 10px;
-  font-size: 16px;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  position: fixed;
-  bottom: 10px;
-  left: 10px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-  z-index:10000;
-}
-
-body.notification .notification:hover .read-btn {
-  opacity: 1;
-}*/
 
 
 body.notification .notification:hover .close-btn {

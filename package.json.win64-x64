@@ -11,7 +11,7 @@
   ],
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "build": {
     "appId": "com.electron.talk-electron",
@@ -84,11 +84,14 @@
     "electron-fetch": "^1.9.1",
     "custom-electron-prompt": "^1.5.9",
     "electron-store": "^8.2.0",
-    "https-proxy-agent": "latest",
+    "https-proxy-agent": "^7.0.5",
     "keytar": "^7.9.0",
     "semver": "latest",
-    "sharp": "^0.32",
+    "sharp": "^0.34.5",
     "dbus-next": "latest"
+  },
+  "optionalDependencies": {
+    "node-desktop-idle-v2": "latest"
   },
   "devDependencies": {
     "@paymoapp/electron-shutdown-handler": "latest",

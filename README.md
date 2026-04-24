@@ -12,20 +12,22 @@ Check my app if you are unsatisfied by [official Nextcloud Talk Desktop app](htt
 # Minimum OS requirements
 MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x) - all x64 compatible only, no more 32-bit support (since 0.5.1-alpha)
 
+In order to monitor xinput (user acttivity check) on linux xprop package must be installed and your user must be in system 'input' group. Make sure to run `sudo usermod -aG input $USER` and restart system (system logout and login) before app use.
+
 ## Works correctly with Nextcloud since v.28.x.x till v.31.x.x and since Talk v.18.x till v.21.x.x
 
 # 📦 Download
 
 | Platform   | Type | Download link                               |
 |-------------|--------------|---------------------------------------------------|
-| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.0.2.msi)   |
-| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.0.2_amd64.deb)     |
-| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.2.x86_64.rpm)    |
-| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.2.AppImage)     |
-| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.2.tar.gz)      |
-| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.2-win.zip)       |
-| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.2.dmg)     |
-| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.2-arm64.dmg)     |
+| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.0.3.msi)   |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.0.3_amd64.deb)     |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.3.x86_64.rpm)    |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.3.AppImage)     |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.3.tar.gz)      |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.3-win.zip)       |
+| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.3.dmg)     |
+| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.3-arm64.dmg)     |
 
 
 ---
@@ -64,6 +66,8 @@ Supported setting arguments (see example.config.json):
 - `restart_after_suspend` - true\false value means to forcefully restart app when the system is awake from sleep/hibernation(win/mac/linux) or is unlocked(linux) *(availlable since v.1.0.1)*
 - `turn_off_pinger` - true\false value means to prevent app to check alive status of NC server *(availlable since v.1.0.1)*
 - `inet_check_addr` - string value of ip or name address of the Internet host to check Internet availablity on app startup (default is google DNS 8.8.8.8) *(availlable since v.1.0.2)*
+- `turn_off_inet_check` - true\false value means to prevent app to check Internet and NC server availability *(availlable since v.1.0.3)*
+
 
 # For developers
 Build depends on the platform since 0.2.9-alpha version as it brings support of the system idle detect function.

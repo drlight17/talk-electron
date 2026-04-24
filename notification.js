@@ -9,7 +9,7 @@ let timerDisplay;
 let src_body_opacity;
 let new_body_opacity;
 
-function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss_all_title, open, open_title, theme, appIcon, avatar, notification_position, win_main_index, account_string, server_color, notification_type) {
+function showCustomNotification(win_noti_id, data, dismiss, /*dismiss_all, dismiss_all_title,*/ open, open_title, theme, appIcon, avatar, notification_position, win_main_index, account_string, server_color, notification_type) {
 
   const container = document.getElementById('notification-container');
 
@@ -45,7 +45,6 @@ function showCustomNotification(win_noti_id, data, dismiss, dismiss_all, dismiss
 
     notif.innerHTML = `
       <span>
-        <button title="${dismiss_all_title}" id="dismiss_all">${dismiss_all}</button>
         <button title="${dismiss}" class="close-btn">&times;</button>
       </span>
       <div class="win_index">[ ${win_main_index} ]
@@ -150,7 +149,7 @@ function isTextLongAndHasSpace(element, minLength) {
   }
 }*/
 
-function updateDismissAllButton (counter, label_w_counter){
+/*function updateDismissAllButton (counter, label_w_counter){
   // if counter > 1 show dismiss all button
   try {
     let dismiss_all_button = notif.querySelector('#dismiss_all')
@@ -177,7 +176,7 @@ function updateDismissAllButton (counter, label_w_counter){
     //  self.close();
     //}, 2000)
   }
-}
+}*/
 
 function updateDismissTimeout(timeout,win_noti_id) {
 

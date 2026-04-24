@@ -46,12 +46,18 @@ async function getBase64FromImageUrl(url) {
   }
 }
 
-async function get_Notifications(data, win_noti_id, position, win_index) {
-
+async function get_Notifications(data, win_noti_id, position, win_index, x_dismiss_all, y_dismiss_all) {
     try {
+        // to remove all bad control characters
+        data = data.replace(/[\x00-\x1F\x7F]/g, '');
+        data = data.replace(/\n/g, '\\n');
+        data = data.replace(/\t/g, '\\t');
+        data = data.replace(/\\/g, '\\\\');
+
         let data_parsed = JSON.parse(data);
+
         if (data_parsed.tag === undefined) {
-            console.log(JSON.stringify({'action': {'notification': "demo", 'avatar': "", 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index}}));
+            console.log(JSON.stringify({'action': {'notification': "demo", 'avatar': "", 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index, 'x_dismiss_all':x_dismiss_all,'y_dismiss_all':y_dismiss_all}}));
             return;
         }
     
@@ -68,11 +74,11 @@ async function get_Notifications(data, win_noti_id, position, win_index) {
         const resp = await response.json();
         getBase64FromImageUrl(resp.ocs.data.subjectRichParameters.call['icon-url']).then(base64 => {
             //console.log(resp.ocs.data)
-            console.log(JSON.stringify({'action': {'notification': resp.ocs.data, 'avatar': base64, 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index}}));
+            console.log(JSON.stringify({'action': {'notification': resp.ocs.data, 'avatar': base64, 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index,'x_dismiss_all':x_dismiss_all,'y_dismiss_all':y_dismiss_all}}));
         });
     }
     catch(error) {
-        console.error("Error getting notification by tag "+data_parsed.tag+": ", error);
+        //console.error("Error getting notification by tag "+data_parsed.tag+": ", error);
         console.log(JSON.stringify({'action': {'notification_get_error': error, 'win_noti_id': win_noti_id }}));
         //setTimeout(()=>{
         //  self.close();

@@ -1,3 +1,16 @@
+1.0.3
+- [x] BUG (linux): libvips bug fix for modern linux kernels (>6.8) [issue 9](https://github.com/drlight17/talk-electron/issues/9)
+- [x] BUG: dismiss_all button sometimes appear even in there are no visible notifications
+- [x] BUG(linux): move down windows during account switch
+- [x] BUG: donate win wrong background image
+- [x] BUG(linux): wrong user activity in wayland (use node-desktop-idle-v2 instead of powerMonitor as it is not support wayland, delayedNotiActivityCheck won't be need anymore )
+- [x] BUG(linux): force create ~/.config/systemd/user folder for autorun systemd service if it is not existed
+- [x] BUG(macos): dismiss_all button blinking while style is being applied
+- [x] BUG: [object Object] in log file
+- [x] BUG: dismiss_all button appears in case when there are new messages during focused app (invisible notifications)
+- [x] BUG: no notification appera in case escape '\' is at the edges of message body
+- [x] BUG(win): exclude node-desktop-idle-v2 for windows (use powerMonitor instead)
+
 1.0.2
 - [x] BUG: don't restart on OS resume because usually it needs OS unlock to get credentials. Do it on unlock only
 - [x] NEW: Internet check (8.8.8.8) - make configurable check address

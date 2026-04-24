@@ -41,6 +41,7 @@ const defaultSettings = {
   logging: false,
   restart_after_suspend: false,
   turn_off_pinger: false,
+  turn_off_inet_check: false,
   run_at_startup: false
 };
 
@@ -78,7 +79,7 @@ function hasSettingsChanged(settings) {
   // Debug section
   const debugChanged = settings.logging !== defaultSettings.logging ||
                       settings.restart_after_suspend !== defaultSettings.restart_after_suspend ||
-                      settings.turn_off_pinger !== defaultSettings.turn_off_pinger || settings.inet_check_addr !== defaultSettings.inet_check_addr;
+                      settings.turn_off_pinger !== defaultSettings.turn_off_pinger || settings.turn_off_inet_check !== defaultSettings.turn_off_inet_check || settings.inet_check_addr !== defaultSettings.inet_check_addr;
   if (debugChanged) changedSections.push('debug');
   
   // Also check proxy settings
@@ -147,6 +148,7 @@ function resetToDefaults() {
   document.getElementById('logging').checked = defaultSettings.logging;
   document.getElementById('restart_after_suspend').checked = defaultSettings.restart_after_suspend;
   document.getElementById('turn_off_pinger').checked = defaultSettings.turn_off_pinger;
+  document.getElementById('turn_off_inet_check').checked = defaultSettings.turn_off_inet_check;
   document.getElementById('inet_check_addr').value = defaultSettings.inet_check_addr;
   
 
@@ -187,6 +189,7 @@ function resetToDefaults() {
     logging: defaultSettings.logging,
     restart_after_suspend: defaultSettings.restart_after_suspend,
     turn_off_pinger: defaultSettings.turn_off_pinger,
+    turn_off_inet_check: defaultSettings.turn_off_inet_check,
     inet_check_addr: defaultSettings.inet_check_addr,
     run_at_startup: defaultSettings.run_at_startup
   };
@@ -415,8 +418,14 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
   } else {
     document.getElementById('turn_off_pinger').checked = defaultSettings.turn_off_pinger;
   }
+  
+  if (settings.turn_off_inet_check !== undefined) {
+    document.getElementById('turn_off_inet_check').checked = settings.turn_off_inet_check;
+  } else {
+    document.getElementById('turn_off_inet_check').checked = defaultSettings.turn_off_inet_check;
+  }
 
-    if (settings.inet_check_addr !== undefined) {
+  if (settings.inet_check_addr !== undefined) {
     document.getElementById('inet_check_addr').value = settings.inet_check_addr;
   } else {
     document.getElementById('inet_check_addr').value = defaultSettings.inet_check_addr;
