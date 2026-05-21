@@ -1,4 +1,4 @@
-# talk-electron
+<h1><img align="center" width="60" height="60" src="https://raw.githubusercontent.com/drlight17/talk-electron/master/icon.png"> NC Talk Electron</h1>
 Electron wrapper app for Nextcloud Talk. Learning some nodejs and electron basics while building Nextcloud Talk Desktop app for easy enterprise deployment.
 
 <img width="1272" height="1022" alt="Screenshot" src="https://github.com/user-attachments/assets/e10c8c3e-fcd2-4c3a-94f1-df038b358bc4" />
@@ -20,14 +20,14 @@ In order to monitor xinput (user acttivity check) on linux xprop package must be
 
 | Platform   | Type | Download link                               |
 |-------------|--------------|---------------------------------------------------|
-| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.0.3.msi)   |
-| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.0.3_amd64.deb)     |
-| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.3.x86_64.rpm)    |
-| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.3.AppImage)     |
-| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.3.tar.gz)      |
-| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.3-win.zip)       |
-| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.3.dmg)     |
-| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.3-arm64.dmg)     |
+| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.0.4.msi)   |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.0.4_amd64.deb)     |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.4.x86_64.rpm)    |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.4.AppImage)     |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.4.tar.gz)      |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.4-win.zip)       |
+| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.4.dmg)     |
+| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.4-arm64.dmg)     |
 
 
 ---

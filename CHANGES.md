@@ -1,3 +1,21 @@
+1.0.4
+- [x] BUG(linux): move down windows after app restart by 30 px
+- [x] BUG(linux): skip setToolTip on this platform to prevent rerender submenus as workaround
+- [x] BUG(win): fix icon and badged icon in tray because of poor windows tray icon quality + use .ico
+- [x] change i18n of turn_off_inet_check and turn_off_pinger
+- [x] BUG: remove xprop dependency and function as it was added accidentally
+- [x] NEW: logo for app with "Electron" logo integration design
+- [x] BUG(macos): make new logo more contrast
+- [x] BUG(macos): detect OS theme change event and restartApp for auto theming trayIcon
+- [x] BUG: correct 2FA (TOTP etc.) auth flow to prevent errors
+- [x] show "Creds are saved" and "Creds are removed" in appropriate dialogs also before restartApp
+- [x] BUG: if no server_url and current_login in config - try to find them in keytar at app startup
+- [x] create 'ctrl+n' shortcut to add account
+- [x] add account index to switch accounts menu
+- [x] BUG: prevent 'window-false' persist partition creation
+- [x] BUG: fix some keytar related flows
+- [x] BUG: skip SSO set dialog 'Creds are saved' to prevent async issues
+
 1.0.3
 - [x] BUG (linux): libvips bug fix for modern linux kernels (>6.8) [issue 9](https://github.com/drlight17/talk-electron/issues/9)
 - [x] BUG: dismiss_all button sometimes appear even in there are no visible notifications
@@ -10,6 +28,7 @@
 - [x] BUG: dismiss_all button appears in case when there are new messages during focused app (invisible notifications)
 - [x] BUG: no notification appera in case escape '\' is at the edges of message body
 - [x] BUG(win): exclude node-desktop-idle-v2 for windows (use powerMonitor instead)
+- [x] BUG(win): broken sharp module dependency for old windows 7 - use sharp ^0.32 for windows7 support only, as ^0.35 is needed for modern kernels (>6.8)
 
 1.0.2
 - [x] BUG: don't restart on OS resume because usually it needs OS unlock to get credentials. Do it on unlock only

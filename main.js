@@ -257,13 +257,19 @@ if (process.versions.electron != "22.3.27") {
 
     //check if config is not empty
     try {
-      if (!isMac) {
+      if (isLinux) {
         var iconPath = path.resolve(getResourceDirectory(), "icon.png");
+        var iconPathDock = null;
         store = new Store();
-      } else {
+      } else if (isMac){
         getResourceDirectory();
         store = new Store();
+        var iconPathDock = path.join(__dirname, 'icon.png');
         var iconPath = path.join(__dirname, store.get('app_icon_name') || 'iconTemplate.png');
+      } else if (isWindows) {
+        var iconPath = path.resolve(getResourceDirectory(), "icon.ico");
+        var iconPathDock = null;
+        store = new Store();
       }
     } catch (err) {
       // show error in console and exit app instead of forced recreation userData folder
@@ -492,11 +498,13 @@ if (process.versions.electron != "22.3.27") {
           store.set('saved_proxy_login', false);
         }
 
-        const original_icon = nativeImage.createFromPath(iconPath); // template with center transparency
+        const original_icon = nativeImage.createFromPath(iconPath); // template with transparency for tray
+        const original_icon_dock = nativeImage.createFromPath(iconPathDock); // template without transparency for mac dock
+
         let trayIcon = [];
         trayIcon['original_icon'] = original_icon
         let dockIcon = [];
-        dockIcon['original_icon'] = original_icon
+        dockIcon['original_icon'] = original_icon_dock
         let original_server_icon = [];
         //let original_icon = icon
         let icon_bw = [];
@@ -1293,19 +1301,6 @@ WantedBy=graphical-session.target`;
           }
         }
 
-        // check xprop installed (linux)
-        function checkXpropInstalled() {
-          return new Promise((resolve, reject) => {
-            exec('which xprop', (error, stdout, stderr) => {
-              if (error) {
-                resolve(false);
-              } else {
-                resolve(true);
-              }
-            });
-          });
-        }
-
         function execAsync(command) {
           return new Promise((resolve, reject) => {
             exec(command, (error, stdout, stderr) => {
@@ -1621,13 +1616,21 @@ WantedBy=graphical-session.target`;
                 })
               };
               // check if there is auto_login with the same server_url to prevent issued state with both SSO and non-SSO account for the same server_url
-              //writeLog('Hi!')
+
               check_remain_auto_login_url = hasAutoLoginAndAnotherWithSameUrl(loginData);
 
               if (check_remain_auto_login_url) {
                 writeLog(`Found auto_login with another account having the same URL ${check_remain_auto_login_url}. Remove auto_login account for this URL to prevent issued state and restart app.`);
                 deleteCredentials('auto_login', check_remain_auto_login_url)
-                session.defaultSession.clearStorageData([], (data) => {});
+                // get current accouns session to cleanup cookies
+                let ses = session.fromPartition(`persist:window-auto_login:${check_remain_auto_login_url}`);
+
+                await ses.clearStorageData();
+                await session.defaultSession.clearStorageData()
+
+                writeLog("Session cookies are cleared");
+
+                //session.defaultSession.clearStorageData([], (data) => {});
                 getConfiguredAccounts(true);
                 //store.delete('current_login');
                 //store.delete('server_url');
@@ -1640,17 +1643,6 @@ WantedBy=graphical-session.target`;
             } catch (e) {
               writeLog("Error during servers get:" + e);
               app.exit(0);
-              // try to cleanup deprecated saved credentials
-              /*savedCreds.forEach((savedCred)=> {
-                deleteCredentials(savedCred.account, "")
-              })
-
-              
-              session.defaultSession.clearStorageData([], (data) => {});
-
-              store.delete('server_url');
-              store.delete('current_login');
-              restartApp();*/
             }
           } else {
             if (fallback) {
@@ -1687,6 +1679,8 @@ WantedBy=graphical-session.target`;
             }
 
             // rebuild main and appicon menus
+
+            // TODO this setContextMenu resets appIconMenu in linux - sad =(
             const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate);
             appIcon.setContextMenu(contextMenu);
 
@@ -1728,18 +1722,46 @@ WantedBy=graphical-session.target`;
               .then((result) => {
                 switch (result.response) {
                   case 0: // Yes
-                    deleteCredentials(username, url)
-                    session.defaultSession.clearStorageData([], (data) => {});
-                    //removeServerFromLoginData(url);
+                    // get current accouns session to cleanup cookies
+                    (async () => {
+                      try {
+                        deleteCredentials(username, url)
+                        
+                        let ses = session.fromPartition(`persist:window-${username}:${url}`);
 
-                    if (!forced) {
-                      getConfiguredAccounts(true);
-                    } else {
-                      store.delete('current_login');
-                      store.delete('server_url');
-                      restartApp();
-                    }
-                    
+                        await ses.clearStorageData();
+                        await session.defaultSession.clearStorageData()
+
+                        writeLog("Session cookies are cleared");
+
+                        const response = await dialog.showMessageBox(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, {
+                          type: 'info',
+                          message: i18n.__('message29'),
+                          detail: i18n.__('message30', {
+                            account: `${username}:${url}`
+                          })
+                        });
+
+                        if (response) {
+                          if (!forced) {
+                            getConfiguredAccounts(true);
+                          } else {
+                            store.delete('current_login');
+                            store.delete('server_url');
+                            restartApp();
+                          }
+                        }
+                      } catch (error) {
+                        writeLog(`Error clearing cookies: ${error.message}`);
+                      }
+                    })();
+
+                    //session.defaultSession.clearStorageData([], (data) => {});
+                    // delete cookies
+                    /*session.defaultSession.clearStorageData({
+                      storages: ['cookies']
+                    })*/
+                    //removeServerFromLoginData(url);
                     break;
                   case 1: // No
                     if (forced) {
@@ -1842,9 +1864,10 @@ WantedBy=graphical-session.target`;
 
               let label = '';
               if ((account.username) && (account.username !== 'auto_login')) {
-                label = '👤  ' + i18n.__('current_login') + ' ' + account.username
+
+                label = `${(Object.keys(loginData.accounts).length <= 1) ? '' : index+'.'} 👤  ${i18n.__('current_login')} ${account.username}`
               } else {
-                label = '👤  ' + i18n.__('logged_out')
+                label = `👤  ${i18n.__('logged_out')}`
               }
 
               if (!((account.url == store.get('server_url')) && (account.username == store.get('current_login')))) {
@@ -1964,6 +1987,7 @@ WantedBy=graphical-session.target`;
 
             let add_account = {
               label: '+  ' + i18n.__('add_account'),
+              accelerator: `Ctrl+N`,
               click: () => {
                 if (!isForegroundLoading) {
                   if (settings_opened) {
@@ -2966,15 +2990,40 @@ WantedBy=graphical-session.target`;
 
         async function saveCredentials(username, password, server_address) {
           try {
-            if (username=='auto_login') {
-              writeLog('✅ Server '+server_address+' is set to SSO.');
-            } else {
-              writeLog('✅ Creds are saved!');
-            }
+            // dummy window to make dialog on top
+            let win_modal_false = new BrowserWindow({
+              show: false,
+              alwaysOnTop: true
+            })
+
+
             store.set("current_login", username);
             store.set("server_url", server_address);
+
             // moved keytar.setPassword after store.set to prevent appImage terminate called after throwing an instance of 'Napi::Error'
             await keytar.setPassword("NC_Talk_Electron_v1", username+":"+server_address , password);
+            
+            if (username=='auto_login') {
+              writeLog(`✅ Server ${server_address} is set to SSO.`);
+              restartApp();
+              return 0;
+            } else {
+              writeLog("✅ Creds are saved!");
+              win_modal_false = win_main.id[`false:${server_address}`].window
+            }
+
+            const response = await dialog.showMessageBox(win_modal_false, {
+              type: 'info',
+              message: i18n.__('message26'),
+              detail: i18n.__('message27', {
+                account: `${username}:${server_address}`
+              })
+            });
+
+            if (response) {
+              restartApp();
+            }
+
           } catch (error) {
             writeLog('❌ Error during cred save: ' + error);
             store.delete("current_login");
@@ -2992,6 +3041,15 @@ WantedBy=graphical-session.target`;
           }
         }
 
+        function setWinBoundsLinux(win) {
+          /*const {
+            bounds,
+            workArea
+          } = screen.getDisplayMatching(store.get('bounds'));*/
+
+          win.setBounds({x: store.get('bounds').x, y: store.get('bounds').y-30, width: store.get('bounds').width, height: store.get('bounds').height})
+        }
+
         function syncBounds() {
           store.set('bounds', win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.getBounds());
 
@@ -2999,24 +3057,13 @@ WantedBy=graphical-session.target`;
 
             try {
               if (win.isForeground) {
-
-                // fix of y bound offset + 30px during account switch for linux (?)
-                let height = store.get('bounds').height;
                 if (isLinux) {
-                  const {
-                    bounds,
-                    workArea
-                  } = screen.getDisplayMatching(store.get('bounds'));
-
-                  /*if (parseInt(workArea.height) - parseInt(height) - 28 <= 0) {
-                    height -= 2;
-                  }*/
-                  win.window.setBounds({x: store.get('bounds').x, y: store.get('bounds').y-30, width: store.get('bounds').width, height: height})
+                  // fix of y bound offset + 30px during account switch for linux (?)
+                  setWinBoundsLinux(win.window);
                 } else {
                   win.window.setBounds(store.get('bounds'));
                 }
                 //writeLog(`Synced ${index} to current window height ${height}`)
-                
               }
             }
             catch(err) {
@@ -3043,11 +3090,11 @@ WantedBy=graphical-session.target`;
                 } else {
                   writeLog('❌ No saved creds found after attempt at all.');
                   // TODO force autologin save and restart to prevent run of setServerUrl
-                  if (store.get('current_login') == 'auto_login') {
+                  if ((store.get('current_login') == 'auto_login') && (store.get('server_url'))) {
                     pass_sso = true;
                     writeLog(`Force save auto_login credential for current server_url ${store.get('server_url')} and restart app.`)
                     saveCredentials('auto_login','auto_login', store.get('server_url'));
-                    restartApp();
+                    //restartApp();
                   }
                   return null; // No creds found, not an error per se, return null
                 }
@@ -3241,7 +3288,7 @@ WantedBy=graphical-session.target`;
           if (!errored) {
             parent = win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window;
           }
-          let width = 500;
+          let width = 520;
           let height = 550;
 
           const bounds = store.get('bounds');
@@ -3540,9 +3587,9 @@ WantedBy=graphical-session.target`;
                   saveCredentials(credentials.user, credentials.password, server_address);
                 } catch {
                   resolve(new Error('Unexpected server error'))
-                } finally {
+                }/* finally {
                   restartApp();
-                }
+                }*/
               }
             })
           })
@@ -3790,7 +3837,7 @@ WantedBy=graphical-session.target`;
             x: bounds.x,
             y: bounds.y,
             webPreferences: {
-              partition: `persist:window-${store.get('current_login')}:${store.get('server_url')}`
+              partition: (store.get('current_login')) ? `persist:window-${store.get('current_login')}:${store.get('server_url')}` : null
             }
           })
 
@@ -3902,10 +3949,14 @@ WantedBy=graphical-session.target`;
             // tray icon title
 
             if (unread) {
-              appIcon.setToolTip(app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread);
+              if (!isLinux) {
+                appIcon.setToolTip(app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread);
+              }
               win.setTitle(src_title[win.id] + " - " +app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL + " - " + i18n.__("unread_messages") + ": " + unread)
             } else {
-              appIcon.setToolTip(app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL);
+              if (!isLinux) {
+                appIcon.setToolTip(app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL);
+              }
               win.setTitle(src_title[win.id] + " - " +app.getName() + " v." + app.getVersion()+ " - " + account + " - " + theURL)
             }
 
@@ -3984,10 +4035,12 @@ WantedBy=graphical-session.target`;
 
           if (theme == 'dark') {
             var linear = 3 // for white color
+            var contrast = 200
           } else {
             var linear = 0 // for black color
+            var contrast = 0
           }
-          var newImage = await sharp(icon.toPNG()).greyscale().linear(linear, 0).png({
+          var newImage = await sharp(icon.toPNG()).greyscale().linear(linear, contrast).png({
             colors: 2
           }).toBuffer();
 
@@ -4023,6 +4076,11 @@ WantedBy=graphical-session.target`;
                 blend: 'over'
               }]).toBuffer();
 
+              // resize to fix icon pixelization on windows
+              if (isWindows) {
+                newImage = await sharp(newImage).resize(32, 32).toBuffer();
+              }
+              
               if (unread) {
                 trayIcon[`${account}:${theURL}`] = nativeImage.createFromBuffer(newImage);
               }
@@ -4475,8 +4533,7 @@ WantedBy=graphical-session.target`;
 
             win.flashFrame(false);
             win.setOverlayIcon(null, '');
-            // tray icon badge
-            //appIcon.setToolTip(app.getName() + " v." + app.getVersion() + " - " + store.get('server_url'));
+
           } else {
             //is_notification = true;
             
@@ -4572,7 +4629,7 @@ WantedBy=graphical-session.target`;
               icon: (original_server_icon[`${store.get('current_login')}:${store.get('server_url')}`]) ? original_server_icon[`${store.get('current_login')}:${store.get('server_url')}`] : original_icon,
               useContentSize: true,
               webPreferences: {
-                partition: `persist:window-${account}:${theURL}`,
+                partition: (account) ? `persist:window-${account}:${theURL}` : null,
                 enableRemoteModule: true,
                 backgroundThrottling: false,
                 //preload: !isForeground ? path.join(__dirname, 'preload.js'): null,
@@ -4600,7 +4657,13 @@ WantedBy=graphical-session.target`;
             win_main.id[`${account}:${theURL}`].window.setAlwaysOnTop(true, 'floating', 1);
           }
 
-          win_main.id[`${account}:${theURL}`].window.setBounds(store.get('bounds'));
+          if (isLinux) {
+            // fix of y bound offset + 30px during account switch for linux (?)
+            setWinBoundsLinux(win_main.id[`${account}:${theURL}`].window);
+          } else {
+            win_main.id[`${account}:${theURL}`].window.setBounds(store.get('bounds'));
+          }
+          
 
           // hanlde open external links in system browser
           win_main.id[`${account}:${theURL}`].window.webContents.setWindowOpenHandler(({
@@ -4926,7 +4989,7 @@ WantedBy=graphical-session.target`;
             }
 
             // initial individual win icons set before check use_server_icon
-            dockIcon[`${account}:${theURL}`] = original_icon
+            dockIcon[`${account}:${theURL}`] = original_icon_dock
             original_server_icon[`${account}:${theURL}`] = original_icon
             trayIcon[`${account}:${theURL}`] = original_icon
 
@@ -4943,10 +5006,17 @@ WantedBy=graphical-session.target`;
                   const nodebuffer = Buffer.from(buffer);
                   // add icon normalization in case of non standard icon size
                   let norm_icon = await normalizeIcon(nodebuffer);
+
+                  // resize to fix icon pixelization on windows
+                  if (isWindows) {
+                    original_server_icon[`${account}:${theURL}-orig-size`] = nativeImage.createFromBuffer(norm_icon)
+                    norm_icon = await sharp(norm_icon).resize(32, 32).toBuffer();
+                  }
+
                   let icon = nativeImage.createFromBuffer(norm_icon)
                   dockIcon[`${account}:${theURL}`] = icon
                   original_server_icon[`${account}:${theURL}`] = icon;
-
+   
                   win_main.id[`${account}:${theURL}`].window.setIcon(icon);
 
                   if (isMac) {
@@ -4958,11 +5028,8 @@ WantedBy=graphical-session.target`;
                     trayIcon[`${account}:${theURL}`] = icon_bw[`${account}:${theURL}`]
                     
                     addBadgeMac();
-                  } else if (isLinux) {
-                    trayIcon[`${account}:${theURL}`] = icon
-                  } else if (isWindows){
-                    // small 16x16 trayIcon looks better in windows tray
-                    trayIcon[`${account}:${theURL}`] = icon.resize({width:16});
+                  } else {
+                    trayIcon[`${account}:${theURL}`] = icon;
                   }
 
                   if (!isForeground) {
@@ -5192,8 +5259,10 @@ WantedBy=graphical-session.target`;
                   let server_icon = undefined;
                   if (isMac) {
                     server_icon = (dockIcon[account_string]) ? dockIcon[account_string] : dockIcon['original_icon'];
+                  } else if (isWindows){
+                    server_icon = (original_server_icon[`${account_string}-orig-size`]) ? original_server_icon[`${account_string}-orig-size`] : original_icon;
                   } else {
-                    server_icon = (original_server_icon[account_string]) ? original_server_icon[account_string] : original_icon;
+                    server_icon = (original_server_icon[`${account_string}`]) ? original_server_icon[`${account_string}`] : original_icon;
                   }
 
                   // temp server_color set
@@ -5509,12 +5578,6 @@ WantedBy=graphical-session.target`;
         function guiInit(sw) {
 
           try {
-            // check locale set and apply current browser locale if it is not set
-            /*writeLog(`Current system locale is: ${navigator.language.slice(0, 2).toLowerCase() || navigator.userLanguage.slice(0, 2).toLowerCase()}`)
-            if ((store.get('locale') == undefined) || (store.get('locale') == "")) {
-              store.set('locale', navigator.language.slice(0, 2).toLowerCase() || navigator.userLanguage.slice(0, 2).toLowerCase())
-              //localStorage.setItem('locale',this.settings.locale);
-            }*/
 
             // process logo icon for Mac
             if (isMac) {
@@ -5535,17 +5598,26 @@ WantedBy=graphical-session.target`;
 
             checkMaximize(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window,false);
 
-            const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
+            // TODO do we need this setContextMenu?
+            //const contextMenu = Menu.buildFromTemplate(appIconMenuTemplate)
+
+            // set ToolTip only once for linux
+            if ((isLinux) && (!sw)) {
+              appIcon.setToolTip(app.getName() + " v." + app.getVersion());
+            }
 
             if (sw) {
-              if ((unread[`${store.get('current_login')}:${store.get('server_url')}`] != 0) && (unread[`${store.get('current_login')}:${store.get('server_url')}`] != undefined)) {
-                appIcon.setToolTip(app.getName() + " v." + app.getVersion() + " - " + store.get('current_login') + " - " + store.get('server_url') + " - " + i18n.__("unread_messages") + ": " + unread[`${store.get('current_login')}:${store.get('server_url')}`]);
-              } else {
-                appIcon.setToolTip(app.getName() + " v." + app.getVersion() + " - " + store.get('server_url'));
+              if (!isLinux) {
+                if ((unread[`${store.get('current_login')}:${store.get('server_url')}`] != 0) && (unread[`${store.get('current_login')}:${store.get('server_url')}`] != undefined)) {
+                  appIcon.setToolTip(app.getName() + " v." + app.getVersion() + " - " + store.get('current_login') + " - " + store.get('server_url') + " - " + i18n.__("unread_messages") + ": " + unread[`${store.get('current_login')}:${store.get('server_url')}`]);
+                } else {
+                  appIcon.setToolTip(app.getName() + " v." + app.getVersion() + " - " + store.get('server_url'));
+                }
               }
             }
+
             
-            appIcon.setContextMenu(contextMenu)
+            //appIcon.setContextMenu(contextMenu)
 
             if (!sw) {
               appIcon.on('click', (event) => {
@@ -5852,16 +5924,6 @@ WantedBy=graphical-session.target`;
 
             }
 
-            if (isLinux) {
-              checkXpropInstalled().then((installed) => {
-                // check xprop
-                if (!installed) {
-                  dialog.showErrorBox(i18n.__('error'), i18n.__('message24'));
-                  app.exit(0);
-                }
-              });
-            }
-
             // start idle  system monitoring
             //check user permission to input group
             if (isLinux) {
@@ -5889,9 +5951,20 @@ WantedBy=graphical-session.target`;
               }
             }
             
-
-            if (url == "") {
-              setServerUrl(url_example);
+                            
+            // if no server_url or current_login - try to fetch them and start
+            if ((url == "") || (!(store.get('current_login')))) {
+              writeLog("No login or server_url is set. Trying to find any already configured accounts in keytar.")
+              let savedCreds = await getCredentials();
+              if (savedCreds) {
+                writeLog("Found configured account(s). Set in config and restart app.")
+                getConfiguredAccounts(true);
+                //restartApp(); // no need ?
+              } else {
+                // run first account add master
+                writeLog("No configured accounts found in keytar. Running first account adder.")
+                setServerUrl(url_example);
+              }
             } else {
 
               if (!store.get('turn_off_inet_check')) {
@@ -5926,13 +5999,11 @@ WantedBy=graphical-session.target`;
                 //}
 
                 url += "/apps/spreed";
+
                 createWindow(store.get('server_url'), store.get('current_login'),false);
 
-                //try to start another configured servers
+                //try to start another configured servers if any
                 startForeground();
-
-                // start stale_win_noti_watcher
-                //stale_win_noti_watcher();
 
                 // handle Windows shutdown/logout to prevent crush
                 if (isWindows) {
@@ -5997,6 +6068,14 @@ WantedBy=graphical-session.target`;
           writeLog(app.getName() + " v."+app.getVersion() + ' is exited')
           app.exit(0);
         })
+
+        // for macos trayIcon dynamic change based on theme
+        if (isMac) {
+          nativeTheme.on('updated', () => {
+            writeLog(`OS theme is changed to ${nativeTheme.shouldUseDarkColors ? 'dark' : 'light'}. Restart app.`)
+            restartApp();
+          })
+        }
 
         app.on('login', (event, webContents, request, authInfo, callback) => {
           //let fullProxy = `${authInfo.host}:${authInfo.port}`; //concat proxy for lookup
