@@ -101,7 +101,7 @@
           ]
         }
       ],
-      "asarUnpack": "./icon.png"
+      "asarUnpack": "./icon.ico"
     }
   },
   "scripts": {
