@@ -1,4 +1,6 @@
-const { ipcRenderer } = require('electron');
+function debug(...args) {
+    ipcRenderer.send('talk-debug', ...args);
+}
 
 // Save original Notification constructor
 const OriginalNotification = window.Notification;
@@ -13,32 +15,29 @@ try {
 }
 
 
-//window.addEventListener('DOMContentLoaded', () => {
-
   const isSysNotiEnabled = process.argv.find(arg => arg.startsWith('--isSysNotiEnabled'));
 
   if (!isSysNotiEnabled) {
     // Override Notification
     window.Notification = function(title, data, options) {
-      // Send to main process
-      ipcRenderer.send('show-electron-notification', {
-        title,
-        data,
-        options
-      });
+        ipcRenderer.send('show-electron-notification', {
+            title,
+            data,
+            options
+        });
 
-      // Return dummy notification object
-      return {
-        onclick: null,
-        onshow: null,
-        onclose: null,
-        onerror: null
-      };
+        // Return dummy notification object
+        return {
+            onclick: null,
+            onshow: null,
+            onclose: null,
+            onerror: null
+        };
     };
   }
-//}
 
 
 // Preserve permission status
 window.Notification.permission = OriginalNotification.permission;
 window.Notification.requestPermission = OriginalNotification.requestPermission;
+

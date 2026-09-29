@@ -1,3 +1,5 @@
+const { ipcRenderer } = require('electron');
+
 function localize(id,loc) {
   // localize media_picker.html
     document.getElementById(id).innerHTML = loc;
@@ -9,7 +11,7 @@ function get_all_ids () {
     if(obj.id)
      objs.push(obj.id);
   });
-  console.log(JSON.stringify({action: "return_localize_ids", localization_ids: JSON.stringify(objs)}));
+  ipcRenderer.send('picker', JSON.stringify({action: "return_localize_ids", localization_ids: JSON.stringify(objs)}));
 }
 
 function showSources(sources,theme) {
@@ -23,8 +25,6 @@ function showSources(sources,theme) {
   const container = document.getElementById('sources-container');
 
   for (let source of sources) {
-
-    //console.log(source.thumbnail)
 
     const isScreen = /screen/i.test(source.id);
     var sourceType = isScreen ? 'screen' : 'window';
@@ -42,7 +42,6 @@ function showSources(sources,theme) {
 
     const label = document.createElement('div');
     label.className = 'type-label';
-    //label.textContent = isScreen ? 'Экран' : 'Окно';
     sourceType = isScreen ? '◼' : '☰';
     label.textContent = sourceType + ' ' + source.name;
 
@@ -54,12 +53,6 @@ function showSources(sources,theme) {
 
       document.getElementById('share_button_id').removeAttribute("disabled");
 
-      /*console.log('Selected:', {
-        id: div.dataset.id,
-        name: div.dataset.name,
-        type: div.dataset.type
-      });*/
-
     });
 
     div.appendChild(img);
@@ -70,10 +63,10 @@ function showSources(sources,theme) {
 
 function sendPickedMedia() {
   document.querySelectorAll('.selected').forEach(el => {
-    console.log(JSON.stringify({action: "media_picked", media_id: el.dataset.id }));
+    ipcRenderer.send('picker', JSON.stringify({action: "media_picked", media_id: el.dataset.id }));
   })
 }
 
 function quitMediaPicker() {
-  console.log(JSON.stringify({action: "media_picker_quit"}));
+  ipcRenderer.send('picker', JSON.stringify({action: "media_picker_quit"}));
 }

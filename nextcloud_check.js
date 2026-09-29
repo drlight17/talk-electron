@@ -5,18 +5,6 @@ function waitForElm(selector) {
         if (document.querySelector(selector)) {
             return resolve(document.querySelector(selector));
         }
-
-        /*const observer = new MutationObserver(mutations => {
-            if (document.querySelector(selector)) {
-                resolve(document.querySelector(selector));
-                observer.disconnect();
-            }
-        });*/
-
-        /*observer.observe(document.querySelector('#notifications'), {
-            childList: true,
-            subtree: true
-        });*/
     });
 }
 
@@ -75,16 +63,16 @@ function loading(state) {
 
   // Only log if the action has changed
   if (shouldOutput) {
-    console.log(JSON.stringify({action: action}));
+    ipcRenderer.send('main', JSON.stringify({action: action}));
   }
 }
 
 let call_dialog = false;
 
-async function pingUrl(url){
+async function pingUrl(){
 
   try{
-    var result = await fetch(url, {
+    var result = await fetch(location.protocol + '//' + location.host, {
       signal: AbortSignal.timeout(4000),
       method: "GET",
       mode: "no-cors",
@@ -92,20 +80,16 @@ async function pingUrl(url){
       referrerPolicy: "no-referrer"
     });
 
-    //console.log(`result.type: ${result.type}`);
-    //console.log(`result.ok: ${result.ok}`);
     if (result.ok) {
       if (!call_dialog) {
         loading('finished');
       }
-      //checkURL();
     } else {
       loading('not_respond');
     }
     return result.ok;
   }
   catch(err){
-      //console.log(err);
       loading('not_respond');
   }
   return 'error';
@@ -147,26 +131,26 @@ function blur_on_call_dialog(flag) {
   }
 }
 
+function force_state(chat_token, state){
+      apiCall(
+      `/ocs/v2.php/apps/spreed/api/v4/room/${chat_token}/participants/state`,
+      'PUT',
+      JSON.stringify({ state: `${state}` })
+    )
+    .catch(error => {
+      console.error('Error participant state set:', error);
+    });
+
+    // state 0 or 1
+}
+
 function force_online() {
 
-    fetch('/ocs/v2.php/apps/user_status/api/v1/user_status/status?format=json', {
-      method: 'PUT',
-      credentials: 'include',
-      headers: {
-        'OCS-APIRequest': 'true',
-        'requesttoken': OC.requestToken,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ statusType: 'online' })
-    })
-    /*.then(response => response.json())
-    .then(data => {
-      if (data && data.ocs && data.ocs.data) {
-        console.log("User: "+JSON.stringify(data.ocs.data.userId))
-        console.log("Status: "+JSON.stringify(data.ocs.data.status))
-        console.log("Icon: "+JSON.stringify(data.ocs.data.icon))
-      }
-    })*/
+    apiCall(
+      '/ocs/v2.php/apps/user_status/api/v1/user_status/status?format=json',
+      'PUT',
+      JSON.stringify({ statusType: 'online' })
+    )
     .catch(error => {
       console.error('Error status set:', error);
     });
@@ -175,21 +159,12 @@ function force_online() {
 }
 
 async function check_user() {
-  const response = await fetch('/ocs/v2.php/cloud/user?format=json', {
-    method: 'GET',
-    credentials: 'include',
-    headers: {
-      'OCS-APIRequest': 'true',
-      'requesttoken': OC.requestToken,
-      'Content-Type': 'application/json'
-    }
-  })
+  const response = await apiCall(
+    '/ocs/v2.php/cloud/user?format=json',
+    'GET'
+  )
   try {
-    const data = await response.json();
-    /*.catch(error => {
-      console.error('Error userid get:', error);
-      return false;
-    });*/
+    const data = await JSON.parse(response);
 
     if (data && data.ocs) {
       return data.ocs
@@ -208,9 +183,10 @@ async function recheck_lang(locale) {
   let current_user = await check_user();
   if (typeof current_user.data === 'object') {
     if (current_user.data.language == locale) {
-      console.log(JSON.stringify({action: "language_changed"}));
+      ipcRenderer.send('main', JSON.stringify({action: "language_changed"}));
+
     } else {
-      console.log(JSON.stringify({action: "language_locked"}));
+      ipcRenderer.send('main', JSON.stringify({action: "language_locked"}));
     }
   }
 }
@@ -224,19 +200,18 @@ async function force_lang(locale,saved_password) {
         const formData = new URLSearchParams();
         formData.append('key', 'language');
         formData.append('value', locale);
-        fetch(`/ocs/v2.php/cloud/users/${current_user.data.id}?format=json`, {
-          method: 'PUT',
-          credentials: (saved_password !== 'undefined') ? 'omit' : 'include', // important for Basic auth!!!
-          //credentials: 'include',
-          headers: {
+        apiCall(
+          `/ocs/v2.php/cloud/users/${current_user.data.id}?format=json`, 
+          'PUT',
+          formData,
+          (saved_password !== 'undefined') ? 'omit' : 'include', // important for Basic auth!!!
+          {
             'OCS-APIRequest': 'true',
             'Authorization': `Basic ${credentials}`,
-          },
-          body: formData
-        })
-        .then(response => response.json())
+          }
+        )
+        .then(response => JSON.parse(response))
         .then(data => {
-          //console.log(data)
           if (data && data.ocs && data.ocs.meta) {
             if (data.ocs.meta.statuscode == 200) {
               // recheck if language is changed
@@ -268,22 +243,23 @@ async function force_theme(theme,saved_password) {
     if (typeof current_user.data === 'object') {
       if (document.body.getAttribute('data-themes') != theme) {
         const credentials = btoa(`${current_user.data.id}:${saved_password}`);
-        fetch(`/ocs/v2.php/apps/theming/api/v1/theme/${theme}/enable?format=json`, {
-          method: 'PUT',
-          credentials: (saved_password !== 'undefined') ? 'omit' : 'include', // important for Basic auth!!!
-          //credentials: 'include',
-          headers: {
+        
+        apiCall(
+          `/ocs/v2.php/apps/theming/api/v1/theme/${theme}/enable?format=json`, 
+          'PUT',
+          false,
+          (saved_password !== 'undefined') ? 'omit' : 'include', // important for Basic auth!!!
+          {
             'OCS-APIRequest': 'true',
-            //'requesttoken': OC.requestToken,
             'Authorization': `Basic ${credentials}`,
           }
-        })
-        .then(response => response.json())
+        )
+        .then(response => JSON.parse(response))
         .then(data => {
           //console.log(data)
           if (data && data.ocs && data.ocs.meta) {
             if (data.ocs.meta.statuscode == 200) {
-              console.log(JSON.stringify({action: "theme_changed"}));
+              ipcRenderer.send('main', JSON.stringify({action: "theme_changed"}));
               //recheck_setting('theme',theme);
             } else if (data.ocs.meta.statuscode == 403) {
               // TODO password is required
@@ -411,8 +387,9 @@ function create_spinner() {
   document.head.appendChild(style);
 }
 
+
 function switchAccountClick() {
-  console.log(JSON.stringify({action: "switch_account"}));
+  ipcRenderer.send('main', JSON.stringify({action: "switch_account"}));
 }
 
 function createAccSwitch(){
@@ -422,15 +399,10 @@ function createAccSwitch(){
   switch_button.addEventListener('click', switchAccountClick);
   switch_button.setAttribute('type', 'button');
   switch_button.setAttribute('id', 'switch_acc_button');
-  //switch_button.style.display = "none";
   switch_button.classList.add("header-menu__trigger","button-vue", "button-vue--size-normal", "button-vue--icon-only", "button-vue--vue-tertiary-no-background");
   switch_button.style.background = "#ff00"
   switch_button.textContent += '🔄 ' + switch_acc_loc;
   switch_button.title = "Ctrl+Tab";
-
-  /*let img = document.createElement("img");
-  img.setAttribute('src', '/core/img/favicon-mask.svg');
-  switch_button.insertBefore(img, switch_button.firstChild);*/
 
   let div = document.createElement("div");
   div.classList.add("header-menu");
@@ -447,8 +419,7 @@ function checkURL(auto_login/*,login,password*/){
     if (!(location.pathname.includes('apps/spreed')) && (!(location.pathname.includes('/call/'))) && (!location.pathname.includes('login'))) {
       // show loading
       loading('refresh');
-      console.log(JSON.stringify({action: "redirect_to_spreed"}));
-      //window.location.replace("/apps/spreed")
+      ipcRenderer.send('main', JSON.stringify({action: "redirect_to_spreed"}));
     }
   } else {
     // to force show app window if not logged in
@@ -464,8 +435,8 @@ function checkURL(auto_login/*,login,password*/){
       
       setTimeout(function() {
         // check localStorage to drop unread counter
-        recalc_counters_summary(true);
-        console.log(JSON.stringify({action: "force_show_app_win"}));
+        unreadFetch(true);
+        ipcRenderer.send('main', JSON.stringify({action: "force_show_app_win"}));
       }, 2000);
     } else {
       // show loading
@@ -474,14 +445,7 @@ function checkURL(auto_login/*,login,password*/){
       if (alternativeLogins.length > 0) {
         alternativeLogins[0].click();
       }
-      //window.location.href = "/apps/oidc_login/oidc";
     }
-
-    // to try login with saved credentials
-    /*if (login && password) {
-      console.log("Received login "+login)
-      console.log("Received password "+password)
-    }*/
   }
 }
 
@@ -492,29 +456,57 @@ catch (err) {
 
 }
 
-/*async function getAppManifestName() {
-  const manifestLink = document.querySelector('link[rel="manifest"]');
-  if (!manifestLink) {
-    console.warn('No manifest found');
-    return null;
-  }
+function putCachedConversations(){
+  let found_key = getItemsByPartialKey('_cachedConversations')[0].key
+  return JSON.parse(localStorage.getItem(found_key));
+}
 
-  try {
-    const response = await fetch(manifestLink.href);
-    const manifest = await response.json();
-    return manifest.name || manifest.short_name || null;
-  } catch (err) {
-    console.error('Failed to fetch manifest:', err);
-    return null;
-  }
-}*/
+async function wakeUp(chat_token) {
 
-async function getNameFromUrl(url) {
+  let response = await apiCall(
+      `/ocs/v2.php/apps/spreed/api/v1/chat/${chat_token}`,
+      'POST',
+      JSON.stringify({ message: `wake_up_neo_${chat_token}`, silent: true })
+  );
+
+  let result = await response;
+
+  // don't react if this not one to one chat, check types here https://github.com/nextcloud/spreed/blob/main/docs/constants.md#conversation-types
+
+  /*if (JSON.parse(result).ocs.data.type != 1) {
+    return 0;
+  }*/
+
+  ipcRenderer.send('main', JSON.stringify({action: {wake_up_response: `${result}`}}));
+}
+
+async function editWakeUpMessage(chat_token, chat_displayName, message_id, wakeup_message) {
+
+  let response = await apiCall(
+      `/ocs/v2.php/apps/spreed/api/v1/chat/${chat_token}/${message_id}`,
+      'PUT',
+      JSON.stringify({ message: `${wakeup_message}`, silent: true  })
+  );
+
+}
+
+async function markAsRead(chat_token) {
+    let result = await apiCall(
+        `/ocs/v2.php/apps/spreed/api/v1/chat/${chat_token}/read`,
+        `POST`
+    );
+}
+
+async function getNameFromUrl() {
+    let response = await apiCall(
+        `/apps/theming/manifest/spreed`,
+        `GET`
+    );
     try {
-        const response = await fetch(url);
-        const data = await response.json();
-        return data.name;
-    } catch (error) {
+      const data = await JSON.parse(response);
+      return data.name;
+    }
+    catch (error) {
         //console.error('Error fetching data:', error);
         return null;
     }
@@ -523,22 +515,39 @@ async function getNameFromUrl(url) {
 // add pinger every 5 seconds to check NC alive
 async function start_pinger() {
   setInterval(function () {
-    pingUrl(location.protocol + '//' + location.host);
+    pingUrl();
   }, 5000);
 }
+
+
+async function apiCall(url, method, payload, creds, headers ) {
+    const response = await fetch(url, {
+        method: method,
+        credentials: creds ? creds :'include',
+        headers: headers ? headers : {
+            'OCS-APIRequest': 'true',
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+        },
+        body: payload
+    });
+
+    return await response.text();
+}
+
+let cachedConversations;
 
 // test set 500ms timeout for _oc_config fetch
 setTimeout (()=>{
   if (typeof _oc_config === "undefined") {
       //document.getElementsByTagName("BODY")[0].style.display = "none";
       loading('refresh')
-      console.log(JSON.stringify({action: "not_found"}));
+      ipcRenderer.send('main', JSON.stringify({action: "not_found"}));
   } else {
 
     if ((parseInt(_oc_config.version.split('.')[0], 10)) < 28) {
-      //document.getElementsByTagName("BODY")[0].style.display = "none";
       loading('refresh')
-      console.log(JSON.stringify({action: "not_found"}));
+      ipcRenderer.send('main', JSON.stringify({action: "not_found"}));
     } else {
 
       // check current page is spreed
@@ -546,27 +555,19 @@ setTimeout (()=>{
       checkURL();
 
       // fetch theme_color
-      console.log(JSON.stringify({action: {color_theme: document.querySelector(`head > meta[name="theme-color"]`).content}}));
+      ipcRenderer.send('main', JSON.stringify({action: {color_theme: document.querySelector(`head > meta[name="theme-color"]`).content}}));
 
       // fetch NC title
-      //let nc_title = document.querySelector(`head > title`).textContent;
-      getNameFromUrl('/apps/theming/manifest/spreed')
+      getNameFromUrl()
       .then(name => {
-        console.log(JSON.stringify({action: {nc_title: name}}));
+        ipcRenderer.send('main', JSON.stringify({action: {nc_title: name}}));
         let span_title = document.createElement("span");
         span_title.innerText = name;
         span_title.id = "nc_title";
-        //console.log(document.querySelector(`.header-left, .header-start`))
         document.querySelector(`.header-left, .header-start`).appendChild(span_title)
       });
 
-      //console.log(JSON.stringify({action: {nc_title: nc_title}}));
-      // add server_title to .header-left
-
-      /*getAppManifestName().then(name => {
-        console.log(JSON.stringify({action: {nc_title: name}}));
-      });*/
-      
+      ipcRenderer.send('main', JSON.stringify({action: {cachedConversations: JSON.stringify(putCachedConversations())}}));
 
       // add open user settings menu link instead of default to prevent default behaviour
       if (!document.getElementById('user_settings_link')) {
@@ -644,22 +645,35 @@ setTimeout (()=>{
         if (help && help.parentNode) {
           help.parentNode.style.display = 'none';
         }
+
+        // to prevent spinning loading icon appear in firstrunwizard_about
+        const about = document.querySelector('li#firstrunwizard_about');
+        const icon = about?.querySelector('img.account-menu-entry__icon');
+
+        if (icon) {
+            const originalIcon = icon.cloneNode(true);
+
+            new MutationObserver(() => {
+                const loadingIcon = about.querySelector('span.loading-icon');
+
+                if (loadingIcon) {
+                    loadingIcon.replaceWith(originalIcon.cloneNode(true));
+                }
+            }).observe(about, {
+                childList: true,
+                subtree: true
+            });
+        }
         
-        console.log(JSON.stringify({action: "css_fix"}));
+        ipcRenderer.send('main', JSON.stringify({action: "css_fix"}));
       }
 
-      /*if ((parseInt(_oc_config.version.split('.')[0], 10)) > 30) {
-        const avatarStatus = document.querySelector('span.avatardiv__user-status');
-        avatarStatus.classList.add("fixed");
-      }*/
+      ipcRenderer.send('main', JSON.stringify({action: "try_apply_theme_and_lang"}));
 
-      console.log(JSON.stringify({action: "try_apply_theme_and_lang"}));
-
-      // add pinger every 5 seconds
+      // recalc unread counter every 3 seconds
       var interval = setInterval(function () {
-        // TODO in further version we shouldn't recalc_counters_summary here as this function should be updated to use API requests
-        recalc_counters_summary();  
-      }, 5000);
+        unreadFetch();
+      }, 3000);
     }
   }
 

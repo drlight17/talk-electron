@@ -11,12 +11,11 @@
   ],
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "build": {
     "appId": "com.electron.talk-electron",
     "productName": "NC Talk Electron",
-    "afterPack": "./linux-sandbox-fix.js",
     "asar": true,
     "asarUnpack": [
       "**/node_modules/sharp/**/*",
@@ -58,7 +57,7 @@
   },
   "scripts": {
     "dist": "electron-builder",
-    "start": "electron ."
+    "start": "electron . --log-level=3"
   },
   "dependencies": {
     "@electron/packager": "latest",

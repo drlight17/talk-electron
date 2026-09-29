@@ -14,20 +14,22 @@ MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x) - a
 
 In order to monitor xinput (user acttivity check) on linux xprop package must be installed and your user must be in system 'input' group. Make sure to run `sudo usermod -aG input $USER` and restart system (system logout and login) before app use.
 
+In the latest MacOS version you may see this error when trying to start installed application `App is damaged and can't be opened`. To fix this run this in terminal `xattr -c '/Applications/NC Talk Electron.app'` if application is installed in standard Applications folder of MacOS.
+
 ## Works correctly with Nextcloud since v.28.x.x till v.31.x.x and since Talk v.18.x till v.21.x.x
 
 # 📦 Download
 
 | Platform   | Type | Download link                               |
 |-------------|--------------|---------------------------------------------------|
-| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.0.4.msi)   |
-| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.0.4_amd64.deb)     |
-| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.4.x86_64.rpm)    |
-| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.4.AppImage)     |
-| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.0.4.tar.gz)      |
-| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.4-win.zip)       |
-| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.4.dmg)     |
-| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.0.4-arm64.dmg)     |
+| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.1.0.msi)   |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.1.0_amd64.deb)     |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.1.0.x86_64.rpm)    |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.0.AppImage)     |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.1.0.tar.gz)      |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.0-win.zip)       |
+| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.0.dmg)     |
+| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.0-arm64.dmg)     |
 
 
 ---

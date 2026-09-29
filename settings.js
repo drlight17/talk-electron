@@ -1,3 +1,4 @@
+const { ipcRenderer } = require('electron');
 
 function localize(id,loc) {
 
@@ -16,7 +17,7 @@ function get_all_ids () {
     if(obj.id)
      objs.push(obj.id);
   });
-  console.log(JSON.stringify({action: "return_localize_ids", localization_ids: JSON.stringify(objs)}));
+  ipcRenderer.send('settings', JSON.stringify({action: "return_localize_ids", localization_ids: JSON.stringify(objs)}));
 }
 
 // Define default settings for each section
@@ -42,7 +43,8 @@ const defaultSettings = {
   restart_after_suspend: false,
   turn_off_pinger: false,
   turn_off_inet_check: false,
-  run_at_startup: false
+  run_at_startup: false,
+  ignore_cert_err: false
 };
 
 function hasSettingsChanged(settings) {
@@ -51,7 +53,8 @@ function hasSettingsChanged(settings) {
   
   // Connection section
   const connectionChanged = settings.allow_domain !== defaultSettings.allow_domain ||
-                           settings.auto_login !== defaultSettings.auto_login;
+                           settings.auto_login !== defaultSettings.auto_login ||
+                           settings.ignore_cert_err !== defaultSettings.ignore_cert_err;
   if (connectionChanged) changedSections.push('connection');
   
   // Appearance section  
@@ -80,6 +83,7 @@ function hasSettingsChanged(settings) {
   const debugChanged = settings.logging !== defaultSettings.logging ||
                       settings.restart_after_suspend !== defaultSettings.restart_after_suspend ||
                       settings.turn_off_pinger !== defaultSettings.turn_off_pinger || settings.turn_off_inet_check !== defaultSettings.turn_off_inet_check || settings.inet_check_addr !== defaultSettings.inet_check_addr;
+
   if (debugChanged) changedSections.push('debug');
   
   // Also check proxy settings
@@ -117,6 +121,8 @@ function resetToDefaults() {
   // Reset all settings to defaults except server_url
   document.getElementById('allow_domain').value = defaultSettings.allow_domain;
   document.getElementById('auto_login').checked = defaultSettings.auto_login;
+  document.getElementById('ignore_cert_err').checked = defaultSettings.ignore_cert_err;
+  
   document.getElementById('lang').value = defaultSettings.locale;
   document.getElementById('theme').value = defaultSettings.theme;
   document.getElementById('use_server_icon').checked = defaultSettings.use_server_icon;
@@ -145,7 +151,10 @@ function resetToDefaults() {
   document.getElementById('run_at_startup').checked = defaultSettings.run_at_startup;
   
   // Reset debug settings
-  document.getElementById('logging').checked = defaultSettings.logging;
+  if (document.getElementById('logging').getAttribute("disabled") !== 'disabled') {
+    document.getElementById('logging').checked = defaultSettings.logging;
+  }
+  
   document.getElementById('restart_after_suspend').checked = defaultSettings.restart_after_suspend;
   document.getElementById('turn_off_pinger').checked = defaultSettings.turn_off_pinger;
   document.getElementById('turn_off_inet_check').checked = defaultSettings.turn_off_inet_check;
@@ -173,6 +182,7 @@ function resetToDefaults() {
     server_url: currentServerUrl,
     allow_domain: defaultSettings.allow_domain,
     auto_login: defaultSettings.auto_login,
+    ignore_cert_err: defaultSettings.ignore_cert_err,
     locale: defaultSettings.locale,
     theme: defaultSettings.theme,
     use_server_icon: defaultSettings.use_server_icon,
@@ -223,7 +233,6 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
   }
 
   if (settings.current_login !== undefined) {
-    //try {
       if (settings.current_login == "auto_login") {
         document.getElementById('auto_login').checked = true
         document.getElementById('current_login_p_id').classList.add('hidden');
@@ -232,13 +241,17 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
         document.getElementById('auto_login_p_id').classList.add('hidden');
       }
       document.getElementById('current_login').value = settings.current_login;
-    //}
-    //catch(err) {
-    //}
   } else {
     document.getElementById('auto_login').checked = defaultSettings.auto_login;
     document.getElementById('current_login_p_id').classList.add('hidden');
   }
+  
+  if (settings.ignore_cert_err !== undefined) {
+    document.getElementById('ignore_cert_err').checked = settings.ignore_cert_err;
+  } else {
+    document.getElementById('ignore_cert_err').checked = defaultSettings.ignore_cert_err;
+  }
+  
 
   var select = document.getElementById('lang');
   locales.forEach((locale) => {
@@ -277,7 +290,6 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
     document.getElementById('run_at_startup').checked = defaultSettings.run_at_startup;
   }
 
-  //console.log(settings.saved_proxy_login)
   if ((proxyUrl) && (proxyUrl != 'false')) {
     document.getElementById('saved_proxy_url').value = proxyUrl
   } else {
@@ -323,18 +335,6 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
   } else {
     document.getElementById('sum_unread').checked = defaultSettings.sum_unread;
   }
-
-  /*var select = document.getElementById('notification_timeout');
-  locales.forEach((locale) => {
-    var regionNames = new Intl.DisplayNames([locale], { type: 'language' });
-    var opt = document.createElement('option');
-    opt.value = locale;
-    opt.innerHTML = regionNames.of(locale);
-    select.appendChild(opt);
-  })*/
-
-  /*console.log('Notifications: ' + settings.notification_timeout_checkbox);
-  console.log('System notifications: ' + settings.notification_sys_checkbox);*/
   
   if (settings.notification_muted !== undefined) {
     document.getElementById('notification_muted').checked = settings.notification_muted;
@@ -440,10 +440,8 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
 
   cancel_button_action(flag);
 
-  //document.getElementById("saved_proxy_login").addEventListener("click", function () {
   document.querySelectorAll(`input[name="saved_proxy_login"]`).forEach(radio => {
     radio.addEventListener('change', function() {
-      //if (document.getElementById('saved_proxy_login').checked) {
       if (this.id == "saved_proxy_login") {
         document.getElementById('saved_proxy_login_creds').classList.remove('hidden')
       } else {
@@ -452,15 +450,9 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
     })
   });
 
-  /*if (settings.allow_multiple !== undefined) {
-    document.getElementById('allow_multiple').checked = settings.allow_multiple;
-  } else {
-    document.getElementById('allow_multiple').checked = false;
-  }*/
 }
 
 function setIcon(appIcon) {
-  //console.log(document.querySelector('#app_icon img'));
   document.querySelector('#app_icon img').src = appIcon;
 }
 
@@ -468,17 +460,23 @@ function disableRunAtStartup() {
   document.getElementById('run_at_startup').setAttribute("disabled","disabled");
 }
 
+function disableLogging() {
+  document.getElementById('logging').setAttribute("disabled","disabled");
+  document.getElementById('logging').checked = true;
+  let changedSections = [];
+  changedSections.push('debug');
+  openChangedSections(changedSections);
+}
+
+
 function cancel_button_action(flag) {
   if (flag) {
-    //document.getElementById('cancel_button_id').disabled = true;
     document.getElementById("cancel_button_id").addEventListener("click", function () {
-      //console.log("Retry clicked");
-      console.log(JSON.stringify({action: "restart_app"}));
+      ipcRenderer.send('settings', JSON.stringify({action: "restart_app"}));
       self.close();
     });
   } else {
     document.getElementById("cancel_button_id").addEventListener("click", function () {
-      //console.log("Retry clicked");
       self.close();
     });
   }
@@ -502,37 +500,27 @@ function saveSettings() {
   // add locale workaround
   settings['locale'] = document.getElementById('lang').value;
 
-  // add notification_timeout workaround
-  //settings['notification_timeout'] = document.getElementById('notification_timeout').value;
-
-  // add notification_position workaround
-  //settings['notification_position'] = document.getElementById('notification_position').value;
-
   // add theme workaround
   settings['theme'] = document.getElementById('theme').value;
 
   // add proxy workaround
-  //JSON.parse(settings.saved_proxy_login).server?.[proxyUrl]?.user;
-  //console.log(document.getElementById('saved_proxy_login').checked)
   let loginProxyData = { server: {} };
   if (document.getElementById('saved_proxy_login').checked) {
-    //document.getElementById('saved_proxy_url').checked
     loginProxyData.server[document.getElementById('saved_proxy_url').value] = {
       user: document.getElementById('saved_proxy_login_username').value,
       password: document.getElementById('saved_proxy_login_password').value
     };
   }
   settings['saved_proxy_login'] = JSON.stringify(loginProxyData);
-  //console.log(JSON.stringify(settings))
-  console.log(JSON.stringify({action: "save_settings", settings: JSON.stringify(settings)}));
+  ipcRenderer.send('settings', JSON.stringify({action: "save_settings", settings: JSON.stringify(settings)}));
 }
 
 function openConfigFile() {
-  console.log(JSON.stringify({action: "open_config_file"}));
+  ipcRenderer.send('settings', JSON.stringify({action: "open_config_file"}));
 }
 
 function openNotificationSettingsNC() {
-  console.log(JSON.stringify({action: "open_nofification_settings"}));
+  ipcRenderer.send('settings', JSON.stringify({action: "open_notification_settings"}));
 }
 
 function toggleContainer(selector) {
@@ -544,14 +532,12 @@ function toggleContainer(selector) {
 }
 
 function showMessageExample(pos) {
-  clearTimeout(debounce);
-  debounce = setTimeout(function() {
     if (position != pos.id) {
-      console.log(JSON.stringify({action: "show_message_example", position: pos.id}));
+      ipcRenderer.send('settings', JSON.stringify({action: "show_message_example", position: pos.id}));
       position = pos.id;
     }
-  }, 1000);
 }
 
 let position = '';
 let debounce;
+

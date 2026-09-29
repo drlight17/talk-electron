@@ -9,7 +9,7 @@
 <body class="dismiss_all">
   <div id="dismiss_all-container">
     <span>
-      <button onclick="console.log(JSON.stringify({'action': 'dismissed_all'}))" id="dismiss_all">dismiss_all</button>
+      <button onclick="const { ipcRenderer } = require('electron'); /*console.log(JSON.stringify({'action': 'dismissed_all'}))*/ ipcRenderer.send('dismiss_all', JSON.stringify({'action': 'dismissed_all'}));" id="dismiss_all">dismiss_all</button>
     </span>
   </div>
 </body>

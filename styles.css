@@ -38,11 +38,16 @@
   pointer-events: none!important;
 }
 
-#header-menu-user-menu > div > ul > li:nth-child(3)
+/*#header-menu-user-menu > div > ul > li:nth-child(3)*/
 
 /*center vertically login form*/
 #body-login .wrapper {
 	margin-block:initial!important;
+}
+
+/* hide alternative logins and lost password to avoid auth logic errors */
+#alternative-logins, #lost-password {
+  display:none!important;
 }
 
 /*to fix main_menu background blur filter in [ 910; 1024 ]px width */
@@ -199,9 +204,9 @@ body.settings #app {
   user-select: none; /* Standard syntax */
 }
 
-body.settings.dark-theme #app {
+/*body.settings.dark-theme #app {
   color: white;
-}
+}*/
 
 body.settings #saved_proxy_login_group {
   display:flex;
@@ -214,9 +219,9 @@ body.settings .buttons {
   bottom: 0;
   left: 0;
   width: 100%;
-  background-color: rgba(255, 255, 255, 0.8);
+  /*background-color: rgba(255, 255, 255, 0.8);*/
   display: flex;
-  justify-content: space-between;
+  /*justify-content: space-between;*/
   align-items: center;
   padding: 10px 0;
   box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
@@ -369,6 +374,10 @@ body.settings.light-theme .container-title-alt {
 
 body.settings.dark-theme .container-title-alt {
   background-color: #4f5356;
+}
+
+body.settings label {
+  color: white;
 }
 
 body.settings .container-title-alt.collapsed {
@@ -636,7 +645,7 @@ body.donate.dark-theme button:hover {
     }
 }
 
-/*dismiss_all win*/
+/*dismiss_all styling*/
 
 
 body.dismiss_all #dismiss_all-container {
@@ -679,7 +688,7 @@ span:hover #dismiss_all {
   /*visibility: visible;*/
 }
 
-/* notificayion styling */
+/* notification styling */
 
 body.notification #notification-container {
   position: fixed;

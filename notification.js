@@ -1,3 +1,5 @@
+const { ipcRenderer } = require('electron');
+
 // Create notification element
 let notif = document.createElement('div');
 let animation_direction_in = '';
@@ -81,26 +83,14 @@ function showCustomNotification(win_noti_id, data, dismiss, /*dismiss_all, dismi
 
     // Dismiss on close-btn click
     notif.querySelector('.close-btn').addEventListener('click', (event) => {
-        event.stopPropagation();
-        notif.classList.remove(animation_direction_in);
-        notif.classList.add(animation_direction_out);
-        setTimeout(() => {
-          notif.remove();
-          self.close();
-        }, 300);
-        console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
+      event.stopPropagation();
+      slideAway(win_noti_id);
     });
 
     // open message tag link at read-btn
     notif.addEventListener('click', (event) => {
-      notif.classList.remove(animation_direction_in);
-      notif.classList.add(animation_direction_out);
-      setTimeout(() => {
-        notif.remove();
-        self.close();
-      }, 300);
-      console.log(JSON.stringify({'action': {'open_message': data.tag }}));
-      console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
+      slideAway(win_noti_id);
+      ipcRenderer.send(`notification-${win_noti_id}`, JSON.stringify({'action': {'open_message': data.tag }}));
     });
 
     // Pause timer on hover
@@ -111,7 +101,7 @@ function showCustomNotification(win_noti_id, data, dismiss, /*dismiss_all, dismi
     // Restart timer on mouse leave
     notif.addEventListener('mouseleave', () => {
       startDismissTimer(win_noti_id); // Reset countdown
-      console.log(JSON.stringify({'action': 'mouse_leave'}));
+      ipcRenderer.send(`notification-${win_noti_id}`, JSON.stringify({'action': 'mouse_leave'}));
     });
 
     // Start initial timer
@@ -122,8 +112,7 @@ function showCustomNotification(win_noti_id, data, dismiss, /*dismiss_all, dismi
 
   }
   catch(err) {
-    //console.log(err)
-    console.log(JSON.stringify({'action': {'notification_error': err }}));
+    ipcRenderer.send(`notification-${win_noti_id}`, JSON.stringify({'action': {'notification_error': err }}));
     setTimeout(()=>{
       self.close();
     }, 2000)
@@ -142,41 +131,6 @@ function isTextLongAndHasSpace(element, minLength) {
 
   return isLongEnough && hasSpace;
 }
-
-/*function checkStaleNoti(){
-  if (notif.classList.contains(animation_direction_out)) {
-    console.log(JSON.stringify({'action': 'stale_noti_found'}));
-  }
-}*/
-
-/*function updateDismissAllButton (counter, label_w_counter){
-  // if counter > 1 show dismiss all button
-  try {
-    let dismiss_all_button = notif.querySelector('#dismiss_all')
-    if (counter > 1) {
-      dismiss_all_button.classList.add('visible');
-      notif.classList.add('multiple');
-      document.body.classList.add('multiple');
-      dismiss_all_button.textContent = label_w_counter;
-    } else {
-      dismiss_all_button.classList.remove('visible');
-      notif.classList.remove('multiple');
-      document.body.classList.remove('multiple');
-    }
-    // dismiss all notifications action
-    dismiss_all_button.addEventListener('click', (event) => {
-      event.stopPropagation();
-      console.log(JSON.stringify({'action': 'dismissed_all'}));
-    })
-  }
-  catch(err) {
-    //console.log(err)
-    //console.log(JSON.stringify({'action': {'notification_error': err }}));
-    //setTimeout(()=>{
-    //  self.close();
-    //}, 2000)
-  }
-}*/
 
 function updateDismissTimeout(timeout,win_noti_id) {
 
@@ -216,6 +170,7 @@ function updateDismissTimeout(timeout,win_noti_id) {
 }
 
 function startDismissTimer(win_noti_id) {
+
   try {
     remaining = total;
     
@@ -236,17 +191,7 @@ function startDismissTimer(win_noti_id) {
         clearInterval(dismissTimeout);
         if (timerDisplay && timerDisplay.parentNode) {
           timerDisplay.classList.add('fade-out');
-          if (notif && notif.parentNode) {
-            notif.classList.remove(animation_direction_in);
-            notif.classList.add(animation_direction_out);
-            setTimeout(() => {
-              if (notif && notif.parentNode) {
-                notif.remove();
-                self.close();
-              }
-            }, 300);
-            console.log(JSON.stringify({'action': {'dismissed': win_noti_id }}));
-          }
+          slideAway(win_noti_id);
         }
       } else {
         if (typeof updateTimer === 'function') {
@@ -256,8 +201,7 @@ function startDismissTimer(win_noti_id) {
     }, 100);
   }
   catch(err) {
-    //console.log(err)
-    console.log(JSON.stringify({'action': {'notification_error': err }}));
+    ipcRenderer.send(`notification-${win_noti_id}`, JSON.stringify({'action': {'notification_error': err }}));
     setTimeout(()=>{
       self.close();
     }, 2000)
@@ -266,21 +210,19 @@ function startDismissTimer(win_noti_id) {
 
 function slideAway(id) {
   try {
-    if (notif && notif.parentNode) {
-      notif.classList.remove(animation_direction_in);
-      notif.classList.add(animation_direction_out);
-      setTimeout(() => {
-          if (notif && notif.parentNode) {
-            notif.remove();
-            self.close();
-          }
-        }, 300);
-    }
-    console.log(JSON.stringify({'action': {'dismissed': id }}));
+    notif.classList.remove(animation_direction_in);
+    notif.classList.add(animation_direction_out);
+    setTimeout(() => {
+        if (notif && notif.parentNode) {
+          notif.remove();
+          self.close();
+        }
+      }, 300);
+    console.log(`notification-${id}`, JSON.stringify({'action': {'dismissed': id }}))
+    ipcRenderer.send(`notification-${id}`, JSON.stringify({'action': {'dismissed': id }}));
   }
   catch(err) {
-    //console.log(err)
-    console.log(JSON.stringify({'action': {'notification_error': err }}));
+    ipcRenderer.send(`notification-${id}`, JSON.stringify({'action': {'notification_error': err }}));
     setTimeout(()=>{
       self.close();
     }, 2000)

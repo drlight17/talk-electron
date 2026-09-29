@@ -83,15 +83,8 @@ function i18n() {
         } catch (unlinkErr) {
             console.error('Could not clear config file:', unlinkErr);
         }
-        // app.relaunch();
         app.exit(1); // Use exit code 1 for error
     }
-    /*finally {
-        clearTimeout(debounce);
-        debounce = setTimeout(()=>{
-            console.log('Used locale:', loadedLanguageTag);
-        }, 100);
-    }*/
 }
 
 /**
@@ -120,7 +113,6 @@ i18n.prototype.__ = function(phrase, variables) {
                 // If the variable is not found, you can leave the placeholder or replace it with something else
                 console.warn(`Missing variable for placeholder "${key}" in translation for key "${phrase}"`);
                 return match; // Leave the original placeholder {key}
-                // return `[Missing: ${key}]`; // Alternative: show that the variable is missing
             }
         });
     }

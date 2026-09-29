@@ -1,4 +1,4 @@
-// preload-donate.js
+// donate-preload.js
 const { contextBridge, ipcRenderer } = require('electron');
 
 

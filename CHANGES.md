@@ -1,3 +1,46 @@
+1.1.0
+- [x] NEW: replace console.log-based message exchange between app and server to IPC-based (pay attention to preload.js as it is not used in main win when adding account is called)
+- [x] \- \[x\] win_dismiss_all
+- [x] \- \[x\] win_noti
+- [x] BUG(linux): unstable systemd related app restart in plasma6 wayland session - remove `Restart=on-failure RestartSec=5s` in systemd service source, remove `bash -c` and add `KillMode=mixed`
+- [x] add "remove all accounts" button
+- [x] BUG: limit max number of notifications and dismiss_all to appear in time to prevent `Possible EventEmitter memory leak detected` error and app crash.
+- [x] refactor slideAway logic - use one finction for all cases (close, force close all, close by timer)
+- [x] \- \[x\] remove notificationWindowsIds dependancy, use only notificationWindows array
+- [x] BUG: dismiss_all button blocks notification close button in top part
+- [x] BUG(linux): app hangs during setSettings() for ~ 10 seconds - force close settings win and add 1s delay in appRestart() fix this
+- [x] BUG(linux): dri and gpu browser related errors if nvidia drm is set in console for dev npm start command - add --log-level=3 and place no-sandbox arg into main.js, remove linux-sandbox-fix.js and package-after-install.sh - caused popup windows and devtool not available, try disable-dev-shm-usage
+- [x] BUG(win): account managemen server_url doubling
+- [x] add --ignore-certificate-errors setting to supress cert errors
+- [x] \`if (store.get('logging'))\` for logs verbose full
+- [x] cleanup js files from comments
+- [x] BUG: infinite loading circle after click on firstrunwizard_about in account-menu
+- [x] BUG: notifications delay in preferences notification examples - remove timeout in showMessageExample in settings.js
+- [x] BUG(macos): original_icon is black in dark theme when no messages - check from line 4034 in main.js
+- [x] NEW: button to "wake up" user from user-to-user conversation (similar to Openfire's Spark)
+- [x] \- \[x\] make sure to skip "wake up" response while system is locked/suspended
+- [x] \- \[x\] edit 'wake_up_neo' message on click 'wake_up' button
+- [x] \- \[x\] filter 'wake_up' button for non user-to-user chat
+- [x] \- \[x\] switch to 'wake_up' chat
+- [x] \- \[x\] switch 'wake_up' function from notification based to new_message based
+- [x] \- \[x\] 20 sec timeout after every 'wake_up'
+- [x] \- \[x\] BUG(linux): fix shakeWindow to respect top when switch account
+- [x] \- \[x\] add amount of remain seconds to wake up context menu
+- [x] NEW: switchAccount function to optimize switch between accounts
+- [x] BUG: if unread counter is refreshed in foreground win_main then badge is not until refreshBadge is called somehow (account switch and so on)
+- [x] NEW: unread counter based on api request (ocs->data\[index\]->unreadMessages and maybe unreadMention) or [check Event-driven updates via store.subscribe() (no polling!)](https://github.com/nextcloud/talk-desktop/pull/1605)
+- [x] BUG(linux): context and main menus won't appear after pin/resize main win until change focus/size, {} in log
+- [x] BUG(linux): wake up in KDE 6+ with pinned main window - won't shake - try to forced resize a little shaked main win
+- [x] change TON to bank card number
+- [x] (BUG): hide alternative logins to avoid auth logic errors
+- [x] mark account messages as read button
+- [x] BUG(linux): 1.0.4 regression - no auth flow window appear in case the first account add (with almost clear config)
+- [x] BUG: show unfocused main window on 'open_message'
+- [x] force logging for dev mode
+- [x] BUG(win): null electron-shutdown-handler object cause wrong app startup - delete ".default" in module require
+- [x] BUG: iconTray menu->about wrong activated donate menu is showed
+- [x] (linux): sharp module update to ^0.35.5 for the newest linux versions - check macos!
+
 1.0.4
 - [x] BUG(linux): move down windows after app restart by 30 px
 - [x] BUG(linux): skip setToolTip on this platform to prevent rerender submenus as workaround

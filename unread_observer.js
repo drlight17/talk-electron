@@ -57,171 +57,98 @@ async function get_Notifications(data, win_noti_id, position, win_index, x_dismi
         let data_parsed = JSON.parse(data);
 
         if (data_parsed.tag === undefined) {
-            console.log(JSON.stringify({'action': {'notification': "demo", 'avatar': "", 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index, 'x_dismiss_all':x_dismiss_all,'y_dismiss_all':y_dismiss_all}}));
+            ipcRenderer.send('main', JSON.stringify({'action': {'notification': "demo", 'avatar': "", 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index, 'x_dismiss_all':x_dismiss_all,'y_dismiss_all':y_dismiss_all}}));
             return;
         }
-    
-        const response = await fetch('/ocs/v2.php/apps/notifications/api/v2/notifications/'+data_parsed.tag+'?format=json', {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'OCS-APIRequest': 'true',
-            'requesttoken': OC.requestToken,
-            'Content-Type': 'application/json'
-          }/*,
-          body: JSON.stringify({ statusType: 'online' })*/
-        })
-        const resp = await response.json();
+
+        const response = await apiCall(
+            '/ocs/v2.php/apps/notifications/api/v2/notifications/'+data_parsed.tag+'?format=json', 
+            'GET'
+        )
+        const resp = await JSON.parse(response);
         getBase64FromImageUrl(resp.ocs.data.subjectRichParameters.call['icon-url']).then(base64 => {
-            //console.log(resp.ocs.data)
-            console.log(JSON.stringify({'action': {'notification': resp.ocs.data, 'avatar': base64, 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index,'x_dismiss_all':x_dismiss_all,'y_dismiss_all':y_dismiss_all}}));
+            ipcRenderer.send('main', JSON.stringify({'action': {'notification': resp.ocs.data, 'avatar': base64, 'win_noti_id': win_noti_id, 'data_parsed':data_parsed, 'position': position, 'win_index':win_index,'x_dismiss_all':x_dismiss_all,'y_dismiss_all':y_dismiss_all}}));
         });
     }
     catch(error) {
-        //console.error("Error getting notification by tag "+data_parsed.tag+": ", error);
-        console.log(JSON.stringify({'action': {'notification_get_error': error, 'win_noti_id': win_noti_id }}));
-        //setTimeout(()=>{
-        //  self.close();
-        //}, 2000)
+
+        ipcRenderer.send('main', JSON.stringify({'action': {'notification_get_error': error, 'win_noti_id': win_noti_id }}));
     }
 }
 
-/*async function get_avatar(conversation) {
 
-    const response = await fetch('/ocs/v2.php/apps/spreed/api/v1/room/'+conversation.lastMessage.token+'/avatar?format=json', {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'OCS-APIRequest': 'true',
-        'requesttoken': OC.requestToken,
-        'Content-Type': 'application/json'
-      }
-    })
+function checkMessageForWakeUp(response) {
 
-    const blob = await response.blob();
+    if (!response?.ocs?.data) {
+        return false;
+    }
 
-    blobToBase64(blob)
-      .then(base64String => {
-        console.log(JSON.stringify({'action': {'call': conversation, 'avatar': base64String}}));
-      })
-      .catch(err => {
-        console.error("Conversion failed:", err);
-      });
-}*/
+    const chats = Array.isArray(response.ocs.data)
+        ? response.ocs.data
+        : [];
+
+    for (const chat of chats) {
+        if (chat && typeof chat.unreadMessages === 'number') {
+            if ((chat.lastMessage.message.includes("wake_up_neo_"+chat.lastMessage.token)) && (chat.type == 1)) {
+                if (chat.lastReadMessage !== chat.lastMessage.id) {
+                    // send IPC response to electron app
+                    ipcRenderer.send('main', JSON.stringify({'action': { wake_up_neo: JSON.stringify(chat.lastMessage) }}));
+                    // mark as read
+                    markMessageForWakeUpRead(chat.lastMessage.token, chat.lastMessage.actorDisplayName);
+                }
+            }
+        }
+    }
+    
+}
+
+async function markMessageForWakeUpRead(chat_token, chat_displayName) {
+    let result = await apiCall(
+        `/ocs/v2.php/apps/spreed/api/v1/chat/${chat_token}/read`,
+        `POST`
+    );
+}
 
 // Store the previous total for comparison
-let previousTotalUnreadMessages = null; // Используем null как начальное значение
+let previousTotalUnreadMessagesCounter = null;
 
-async function recalc_counters_summary (removed) {
-    let totalUnreadMessages = 0;
-    try {
-        let found_key = getItemsByPartialKey('_cachedConversations')[0].key
-        const cachedConversationsStr = localStorage.getItem(found_key);
-        if (!cachedConversationsStr) {
-            //console.warn('Ключ "_cachedConversations" не найден в localStorage.');
-            console.log(JSON.stringify({'action': {'unread': 0, 'removed': removed}}));
-            return found_key;
+// function to replace localStorage based recalc_counters_summary 
+async function unreadFetch(removed){
+    let totalUnreadMessagesCounter = 0;
+    let totalUnreadMessages = [];
+
+    let response = await apiCall(
+      `/ocs/v2.php/apps/spreed/api/v4/room?modifiedSince=0&includeStatus=true`,
+      'GET'
+    );
+
+    checkMessageForWakeUp(JSON.parse(response));
+
+    let modifiedConversations = await JSON.parse(response)?.ocs?.data;
+
+    modifiedConversations.forEach((conversation, index) => {
+        if (conversation && typeof conversation.unreadMessages === 'number') {
+            
+            totalUnreadMessagesCounter += conversation.unreadMessages;
+            
         }
-
-        let cachedConversations;
-        try {
-            cachedConversations = JSON.parse(cachedConversationsStr);
-        } catch (parseError) {
-            //console.error('Не удалось распарсить "_cachedConversations" как JSON:', parseError);
-            console.log(JSON.stringify({'action': {'unread': 0, 'removed': removed}}));
-            return found_key;
+        // last message chat id and token fetch; TODO refactor this way to transfer chat id and token for message_link in main.js
+        if ((conversation.unreadMessages != 0) && (typeof conversation.unreadMessages === 'number')) {
+            totalUnreadMessages.push(conversation.token);
+            ipcRenderer.send('main', JSON.stringify({'action': {'token': conversation.lastMessage.token, 'id':conversation.lastMessage.id}}));
         }
+    });
 
-        if (!Array.isArray(cachedConversations)) {
-            //console.warn('Ожидается, что "_cachedConversations" будет массивом.');
-            console.log(JSON.stringify({'action': {'unread': 0, 'removed': removed}}));
-            return found_key;
-        }
-        
-        cachedConversations.forEach((conversation, index) => {
+    if (totalUnreadMessagesCounter !== previousTotalUnreadMessagesCounter) {
 
-            if (conversation && typeof conversation.unreadMessages === 'number') {
-                totalUnreadMessages += conversation.unreadMessages;
-            } else {
-                //console.warn(`Чат под индексом ${index} не содержит поля "unreadMessages" или оно не является числом.`);
-            }
-
-            // incoming call hook
-            /*if ((conversation) && (conversation.hasCall) && (conversation.participantFlags != 7)) {
-                //console.log(conversation)
-                console.log(JSON.stringify({'action': {'call': conversation}}));
-            }*/
-
-            // statuses are: call_ended, call_missed, call_started
-            // participantFlags == 7 means you're the caller, participantFlags == 0 - someone calls you
-            let onehourago = new Date(Date.now() - (60 * 60 * 1000));
-            let lastMessagetimestamp = new Date(conversation.lastMessage.timestamp*1000);
-
-            /*if ((conversation) && ((conversation.lastMessage.systemMessage.includes('call_started'))||(conversation.lastMessage.systemMessage.includes('call_missed')) || (conversation.lastMessage.systemMessage.includes('call_ended'))) && (conversation.participantFlags != 7)) {
-
-                //console.log(conversation.name + " is calling!")
-                if (lastMessagetimestamp > onehourago) {
-                    get_avatar(conversation);
-                }
-            }*/
-
-            // last message chat id and token fetch
-            if ((conversation.unreadMessages != 0) && (typeof conversation.unreadMessages === 'number')) {
-                console.log(JSON.stringify({'action': {'token': conversation.lastMessage.token, 'id':conversation.lastMessage.id}}));
-            }
-        });
-
-        //console.log(`Общее количество непрочитанных сообщений: ${totalUnreadMessages}`);
-        
-        if (totalUnreadMessages !== previousTotalUnreadMessages) {
-            console.log(JSON.stringify({'action': {'unread': totalUnreadMessages, 'removed': removed}}));
-            previousTotalUnreadMessages = totalUnreadMessages;
-        }
-        
-        if (removed) {
-            localStorage.removeItem(found_key);
-        }
-        
-        return found_key;
-
-    } catch (error) {
-        console.log(JSON.stringify({'action': {'unread': 0, 'removed': removed}}));
-        //console.error('Произошла ошибка при обработке "_cachedConversations":', error);
-        //return found_key;
+        previousTotalUnreadMessagesCounter = totalUnreadMessagesCounter;
+        ipcRenderer.send('main', JSON.stringify({'action': {'unread': totalUnreadMessagesCounter, 'removed': removed, 'unread_chat_tokens': JSON.stringify(totalUnreadMessages) }}));
     }
+
 }
 
-const originalSetItem = localStorage.setItem;
-const originalRemoveItem = localStorage.removeItem;
 
-localStorage.setItem = function(key, value) {
-    const event = new Event('localStorageChange');
-    event.key = key;
-    event.newValue = value;
-    event.oldValue = localStorage.getItem(key);
+unreadFetch();
 
-    originalSetItem.apply(this, arguments);
-
-    window.dispatchEvent(event);
-};
-
-localStorage.removeItem = function(key) {
-    const event = new Event('localStorageChange');
-    event.key = key;
-    event.oldValue = localStorage.getItem(key);
-
-    originalRemoveItem.apply(this, arguments);
-
-    window.dispatchEvent(event);
-};
-
-let found_key = recalc_counters_summary ();
-
-window.addEventListener('localStorageChange', (event) => {
-    if (event.key === found_key) { // замените 'yourKey' на ключ, который хотите отслеживать
-      //console.log(`Значение ключа "${event.key}" изменено с ${event.oldValue} на ${event.newValue}`);
-      recalc_counters_summary ();
-    }
-});
 
 
