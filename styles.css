@@ -376,7 +376,7 @@ body.settings.dark-theme .container-title-alt {
   background-color: #4f5356;
 }
 
-body.settings label {
+body.settings label, body.settings span {
   color: white;
 }
 

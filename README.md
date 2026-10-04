@@ -22,14 +22,14 @@ In the latest MacOS version you may see this error when trying to start installe
 
 | Platform   | Type | Download link                               |
 |-------------|--------------|---------------------------------------------------|
-| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.1.0.msi)   |
-| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.1.0_amd64.deb)     |
-| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.1.0.x86_64.rpm)    |
-| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.0.AppImage)     |
-| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.1.0.tar.gz)      |
-| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.0-win.zip)       |
-| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.0.dmg)     |
-| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.0-arm64.dmg)     |
+| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.1.1.msi)   |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.1.1_amd64.deb)     |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.1.1.x86_64.rpm)    |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.1.AppImage)     |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.1.1.tar.gz)      |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.1-win.zip)       |
+| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.1.dmg)     |
+| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.1-arm64.dmg)     |
 
 
 ---
@@ -66,9 +66,10 @@ Supported setting arguments (see example.config.json):
 - `sum_unread` - true\false value means to sum unread message counters from all configured accounts and show this sum on the app tray icon only; corresponding account unread counter will remain at taskbar and macos dock icon *(availlable since v.1.0.0-RC1)*
 - `use_server_theme` - true\false value means to get main theme color from the NC server and use it to customize background color of the app notification *(availlable since v.1.0.0-RC1)*
 - `restart_after_suspend` - true\false value means to forcefully restart app when the system is awake from sleep/hibernation(win/mac/linux) or is unlocked(linux) *(availlable since v.1.0.1)*
-- `turn_off_pinger` - true\false value means to prevent app to check alive status of NC server *(availlable since v.1.0.1)*
+- `turn_off_pinger` - true\false value means to prevent app to check alive status of NC server *(availlable since v.1.0.1, deprecated since v.1.1.1, check `unread_int` instead)*
 - `inet_check_addr` - string value of ip or name address of the Internet host to check Internet availablity on app startup (default is google DNS 8.8.8.8) *(availlable since v.1.0.2)*
 - `turn_off_inet_check` - true\false value means to prevent app to check Internet and NC server availability *(availlable since v.1.0.3)*
+- `unread_int` - integer value between 5 and 30 means frequency of calls to NC server for unread data in seconds *(available since v.1.1.1 to replace `turn_off_pinger` also)*
 
 
 # For developers

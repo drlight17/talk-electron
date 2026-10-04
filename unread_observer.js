@@ -116,33 +116,50 @@ let previousTotalUnreadMessagesCounter = null;
 async function unreadFetch(removed){
     let totalUnreadMessagesCounter = 0;
     let totalUnreadMessages = [];
+    //const modifiedSince = Math.floor(Date.now() / 1000) - unread_int;
+    // to force get unread from old conversations
+    let modifiedSince = 0;
 
     let response = await apiCall(
-      `/ocs/v2.php/apps/spreed/api/v4/room?modifiedSince=0&includeStatus=true`,
+      `/ocs/v2.php/apps/spreed/api/v4/room?modifiedSince=${modifiedSince}&includeStatus=true`,
       'GET'
     );
 
-    checkMessageForWakeUp(JSON.parse(response));
+    let response_json = JSON.parse(response);
 
-    let modifiedConversations = await JSON.parse(response)?.ocs?.data;
-
-    modifiedConversations.forEach((conversation, index) => {
-        if (conversation && typeof conversation.unreadMessages === 'number') {
-            
-            totalUnreadMessagesCounter += conversation.unreadMessages;
-            
+    try {
+        if (response_json?.ocs?.meta.statusCode != 200) {
+            loading('finished');
+        } else {
+            loading('not_respond');
         }
-        // last message chat id and token fetch; TODO refactor this way to transfer chat id and token for message_link in main.js
-        if ((conversation.unreadMessages != 0) && (typeof conversation.unreadMessages === 'number')) {
-            totalUnreadMessages.push(conversation.token);
-            ipcRenderer.send('main', JSON.stringify({'action': {'token': conversation.lastMessage.token, 'id':conversation.lastMessage.id}}));
+
+        checkMessageForWakeUp(response_json);
+
+        let modifiedConversations = response_json?.ocs?.data;
+
+        modifiedConversations.forEach((conversation, index) => {
+            if (conversation && typeof conversation.unreadMessages === 'number') {
+                
+                totalUnreadMessagesCounter += conversation.unreadMessages;
+                
+            }
+            // last message chat id and token fetch; TODO refactor this way to transfer chat id and token for message_link in main.js
+            if ((conversation.unreadMessages != 0) && (typeof conversation.unreadMessages === 'number')) {
+                totalUnreadMessages.push(conversation.token);
+                ipcRenderer.send('main', JSON.stringify({'action': {'token': conversation.lastMessage.token, 'id':conversation.lastMessage.id}}));
+            }
+        });
+
+        if (totalUnreadMessagesCounter !== previousTotalUnreadMessagesCounter) {
+
+            previousTotalUnreadMessagesCounter = totalUnreadMessagesCounter;
+            ipcRenderer.send('main', JSON.stringify({'action': {'unread': totalUnreadMessagesCounter, 'removed': removed, 'unread_chat_tokens': JSON.stringify(totalUnreadMessages) }}));
         }
-    });
-
-    if (totalUnreadMessagesCounter !== previousTotalUnreadMessagesCounter) {
-
-        previousTotalUnreadMessagesCounter = totalUnreadMessagesCounter;
-        ipcRenderer.send('main', JSON.stringify({'action': {'unread': totalUnreadMessagesCounter, 'removed': removed, 'unread_chat_tokens': JSON.stringify(totalUnreadMessages) }}));
+    }
+    catch(err) {
+        console.log(err);
+        loading('not_respond');
     }
 
 }

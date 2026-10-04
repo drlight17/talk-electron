@@ -428,8 +428,13 @@ if (process.versions.electron != "22.3.27") {
         }
 
         // check if turn_off_pinger is configured and set default false if not
-        if (store.get('turn_off_pinger') === undefined) {
+        /*if (store.get('turn_off_pinger') === undefined) {
           store.set('turn_off_pinger', false);
+        }*/
+
+        // check if unread_int is configured and set default 5 if not
+        if (store.get('unread_int') === undefined) {
+          store.set('unread_int', 5);
         }
 
         // check if turn_off_inet_check is configured and set default false if not
@@ -2885,8 +2890,8 @@ WantedBy=graphical-session.target`;
                     let setting_loc = i18n.__(id.replace('_id', ''))
                     win.webContents.executeJavaScript(`localize("` + id + `","` + setting_loc + `");`);
 
-                    // localization of allow_domain_id title
-                    if (id == 'allow_domain_id') {
+                    // localization of allow_domain_id and unread_int_id title
+                    if ((id == 'allow_domain_id') || (id == 'unread_int_id')) {
                       id = id.replace('_id', '_title')
                       let setting_loc = i18n.__(id.replace('_id', '_title'))
                       win.webContents.executeJavaScript(`localize("` + id + `","` + setting_loc + `");`);
@@ -3455,7 +3460,8 @@ WantedBy=graphical-session.target`;
 
             win_settings.once('ready-to-show', () => {
               if (isMac) {
-                win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.show();
+                // fix bug with empty settings are shown if application can't connect to NC server
+                //win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.show();
                 app.dock.show();
               }
               localize(win_settings, 'settings');
@@ -4894,6 +4900,17 @@ WantedBy=graphical-session.target`;
             }
           });
 
+          // Handle preload
+          ipcMain.on('preload', (event, message) => {
+            // to filter other then event sender windows, check window.webContents.id as ids of event.sender are different then sorted win_main.id array
+            if (win_main.id[`${account}:${theURL}`].window.webContents.id == event.sender.id) {
+              if (JSON.parse(message).action=='fetchunread') {
+                // force unread recalc with 1 second delay
+                win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`setTimeout(()=>{unreadFetch();}, 1000)`);
+              }
+            }
+          });
+
           // Handle incoming notification requests
           ipcMain.on('show-electron-notification', (event, {
             title,
@@ -4921,6 +4938,8 @@ WantedBy=graphical-session.target`;
             if (win_main.id[`${account}:${theURL}`].window.webContents.id == event.sender.id) {
               createNotification(data, false, false, win_main.id[`${account}:${theURL}`].window, win_main.id[`${account}:${theURL}`].index,`${account}:${theURL}`);
             }
+            // force unread recalc with 1 second delay
+            win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`setTimeout(()=>{unreadFetch();}, 1000)`);
           });
 
 
@@ -5088,10 +5107,14 @@ WantedBy=graphical-session.target`;
 
             // IPC communication initialize 
             win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`const { ipcRenderer } = require('electron');`);
-
-            // check nc and talk status and version and run pinger
+            
             if (!add) {
 
+              if (store.get('unread_int')) {
+                win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`let unread_int = ${store.get('unread_int')};`);
+              }
+
+              // check nc and talk status and version
               win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(fs.readFileSync(path.join(__dirname, 'nextcloud_check.js')), true)
 
               // get unread messages count
@@ -5104,10 +5127,11 @@ WantedBy=graphical-session.target`;
               win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`var nc_link_loc = "` + i18n.__("nc_link") + `";`);
               win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`var switch_acc_loc = "` + i18n.__("switch_accounts") + `";`);
 
-
-              if (!store.get('turn_off_pinger')) {
+              // TODO change this to api callbacks
+              // run pinger
+              /*if (!store.get('turn_off_pinger')) {
                 win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`start_pinger();`);
-              }
+              }*/
               
               // add roundrobin account switch button if there more then one account is configured
              if (Object.keys(loginData.accounts).length > 1) {

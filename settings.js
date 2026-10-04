@@ -1,10 +1,9 @@
 const { ipcRenderer } = require('electron');
 
 function localize(id,loc) {
-
   // localize settings.html
-  if (id == 'allow_domain_title') {
-    // localization of allow_domain_id title
+  if ((id == 'allow_domain_title') || (id == 'unread_int_title')) {
+    // localization of allow_domain_id and unread_int_id titles
     document.getElementById(id.replace('_title','_id')).title = loc;
   } else {
     document.getElementById(id).innerHTML = loc;
@@ -41,7 +40,7 @@ const defaultSettings = {
   start_hidden: false,
   logging: false,
   restart_after_suspend: false,
-  turn_off_pinger: false,
+  unread_int: 5,
   turn_off_inet_check: false,
   run_at_startup: false,
   ignore_cert_err: false
@@ -82,7 +81,7 @@ function hasSettingsChanged(settings) {
   // Debug section
   const debugChanged = settings.logging !== defaultSettings.logging ||
                       settings.restart_after_suspend !== defaultSettings.restart_after_suspend ||
-                      settings.turn_off_pinger !== defaultSettings.turn_off_pinger || settings.turn_off_inet_check !== defaultSettings.turn_off_inet_check || settings.inet_check_addr !== defaultSettings.inet_check_addr;
+                      settings.unread_int !== defaultSettings.unread_int || settings.turn_off_inet_check !== defaultSettings.turn_off_inet_check || settings.inet_check_addr !== defaultSettings.inet_check_addr;
 
   if (debugChanged) changedSections.push('debug');
   
@@ -156,7 +155,7 @@ function resetToDefaults() {
   }
   
   document.getElementById('restart_after_suspend').checked = defaultSettings.restart_after_suspend;
-  document.getElementById('turn_off_pinger').checked = defaultSettings.turn_off_pinger;
+  document.getElementById('unread_int').value = defaultSettings.unread_int;
   document.getElementById('turn_off_inet_check').checked = defaultSettings.turn_off_inet_check;
   document.getElementById('inet_check_addr').value = defaultSettings.inet_check_addr;
   
@@ -198,7 +197,7 @@ function resetToDefaults() {
     start_hidden: defaultSettings.start_hidden,
     logging: defaultSettings.logging,
     restart_after_suspend: defaultSettings.restart_after_suspend,
-    turn_off_pinger: defaultSettings.turn_off_pinger,
+    unread_int: defaultSettings.unread_int,
     turn_off_inet_check: defaultSettings.turn_off_inet_check,
     inet_check_addr: defaultSettings.inet_check_addr,
     run_at_startup: defaultSettings.run_at_startup
@@ -413,11 +412,15 @@ function loadSettings(settings,locales,flag,themes,proxyUrl,proxy_password,theme
     document.getElementById('restart_after_suspend').checked = defaultSettings.restart_after_suspend;
   }
 
-  if (settings.turn_off_pinger !== undefined) {
-    document.getElementById('turn_off_pinger').checked = settings.turn_off_pinger;
+  if (settings.unread_int !== undefined) {
+    document.getElementById('unread_int').value = settings.unread_int;
+    document.getElementById('unread_int_value').textContent = settings.unread_int;
   } else {
-    document.getElementById('turn_off_pinger').checked = defaultSettings.turn_off_pinger;
+    document.getElementById('unread_int').value = defaultSettings.unread_int;
+    document.getElementById('unread_int_value').textContent = defaultSettings.unread_int;
   }
+
+
   
   if (settings.turn_off_inet_check !== undefined) {
     document.getElementById('turn_off_inet_check').checked = settings.turn_off_inet_check;
@@ -494,7 +497,11 @@ function saveSettings() {
     }
     // For all other fields, store the value as is
     else {
-        settings[key] = value;
+        if (key == "unread_int") {
+          settings[key] = parseInt(value);
+        } else {
+          settings[key] = value;
+        }
     }
   }
   // add locale workaround

@@ -1,3 +1,9 @@
+1.1.1
+- [x] NEW: frequency setting for additional unread check (default 5 seconds, from 5 s till 30 s)
+- [x] remove periodic NC server pinger, replace with unread api request result
+- [x] unreadFetch() on notify, mark_as_read and internal room and read xhr calls
+- [x] BUG(mac): empty settings are shown if application can't connect to NC server
+
 1.1.0
 - [x] NEW: replace console.log-based message exchange between app and server to IPC-based (pay attention to preload.js as it is not used in main win when adding account is called)
 - [x] \- \[x\] win_dismiss_all

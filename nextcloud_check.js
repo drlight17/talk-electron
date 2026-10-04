@@ -69,7 +69,7 @@ function loading(state) {
 
 let call_dialog = false;
 
-async function pingUrl(){
+/*async function pingUrl(){
 
   try{
     var result = await fetch(location.protocol + '//' + location.host, {
@@ -93,7 +93,7 @@ async function pingUrl(){
       loading('not_respond');
   }
   return 'error';
-}
+}*/
 
 function open_message(link) {
   window.location.replace(link)
@@ -495,6 +495,7 @@ async function markAsRead(chat_token) {
         `/ocs/v2.php/apps/spreed/api/v1/chat/${chat_token}/read`,
         `POST`
     );
+    unreadFetch();
 }
 
 async function getNameFromUrl() {
@@ -513,11 +514,11 @@ async function getNameFromUrl() {
 }
 
 // add pinger every 5 seconds to check NC alive
-async function start_pinger() {
+/*async function start_pinger() {
   setInterval(function () {
     pingUrl();
   }, 5000);
-}
+}*/
 
 
 async function apiCall(url, method, payload, creds, headers ) {
@@ -540,7 +541,6 @@ let cachedConversations;
 // test set 500ms timeout for _oc_config fetch
 setTimeout (()=>{
   if (typeof _oc_config === "undefined") {
-      //document.getElementsByTagName("BODY")[0].style.display = "none";
       loading('refresh')
       ipcRenderer.send('main', JSON.stringify({action: "not_found"}));
   } else {
@@ -670,10 +670,10 @@ setTimeout (()=>{
 
       ipcRenderer.send('main', JSON.stringify({action: "try_apply_theme_and_lang"}));
 
-      // recalc unread counter every 3 seconds
+      // recalc unread counter every unread_int seconds
       var interval = setInterval(function () {
         unreadFetch();
-      }, 3000);
+      }, unread_int * 1000);
     }
   }
 

@@ -162,10 +162,10 @@
 				    <input type='hidden' value=false name='restart_after_suspend'>
 				    <input type="checkbox" value=true name="restart_after_suspend" id="restart_after_suspend">
 				    <label id="restart_after_suspend_id" for="restart_after_suspend"></label>
-				    <br>
+				    <!--<br>
 				    <input type='hidden' value=false name='turn_off_pinger'>
 				    <input type="checkbox" value=true name="turn_off_pinger" id="turn_off_pinger">
-				    <label id="turn_off_pinger_id" for="turn_off_pinger"></label>
+				    <label id="turn_off_pinger_id" for="turn_off_pinger"></label>-->
 				    <br>
 				    <input type='hidden' value=false name='turn_off_inet_check'>
 				    <input type="checkbox" value=true name="turn_off_inet_check" id="turn_off_inet_check">
@@ -174,6 +174,19 @@
 				    <br>
 				    <label id="inet_check_addr_id" for="inet_check_addr"></label>
 				    <input type="text" name="inet_check_addr" id="inet_check_addr">
+				    <br>
+				    <br>
+				    <label id="unread_int_id" for="unread_int"></label>
+				    <input
+					  type="range"
+					  name="unread_int" 
+					  id="unread_int"
+					  min=5
+					  max=30
+					  step=1
+					  oninput="document.getElementById('unread_int_value').textContent = this.value"
+					/>
+					<span id="unread_int_value"></span><label id="unread_int_value_id" for="unread_int_value"></label>
 		        </div>
 		    </div>
 
