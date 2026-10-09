@@ -15,6 +15,7 @@ MacOS 10.15 Catalina, Windows 7/2008, Linux with modern kernel version (5.x) - a
 In order to monitor xinput (user acttivity check) on linux xprop package must be installed and your user must be in system 'input' group. Make sure to run `sudo usermod -aG input $USER` and restart system (system logout and login) before app use.
 
 In the latest MacOS version you may see this error when trying to start installed application `App is damaged and can't be opened`. To fix this run this in terminal `xattr -c '/Applications/NC Talk Electron.app'` if application is installed in standard Applications folder of MacOS.
+Application is free so pay 99$ per year to Apple in order to sign application is not an option for me.
 
 ## Works correctly with Nextcloud since v.28.x.x till v.31.x.x and since Talk v.18.x till v.21.x.x
 
@@ -22,14 +23,16 @@ In the latest MacOS version you may see this error when trying to start installe
 
 | Platform   | Type | Download link                               |
 |-------------|--------------|---------------------------------------------------|
-| 🖥 Windows x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron.1.1.1.msi)   |
-| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron_1.1.1_amd64.deb)     |
-| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.1.1.x86_64.rpm)    |
-| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.1.AppImage)     |
-| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/talk-electron-1.1.1.tar.gz)      |
-| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.1-win.zip)       |
-| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.1.dmg)     |
-| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.1-arm64.dmg)     |
+| 🖥 Windows x64   | `.exe`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-win.exe)   |
+| 🖥 Windows MSI x64   | `.msi`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-win.msi)   |
+| 🐧 Debian/Ubuntu Linux x64    | `.deb`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2.deb)     |
+| 🐧 RHEL/Fedora Linux x64    | `.rpm`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2.rpm)    |
+| 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2.AppImage)     |
+| 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2.tar.gz)      |
+| 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-win.zip)       |
+| 🌐 macOS Archive universal  | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-mac.zip)     |
+| 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-mac-x64.dmg)     |
+| 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-mac-arm64.dmg)     |
 
 
 ---
@@ -37,6 +40,9 @@ In the latest MacOS version you may see this error when trying to start installe
 1. Choose your platform distrib.
 2. Click download.
 3. Follow installation.
+
+## 🔥 How to update?
+Automatic app update is only supported in AppImage (Linux) and exe (Windows) distributions *since v.1.1.2*. Another distributions should be updated manually.
 
 # Supported settings
 All app settings are saved in the local user folder in file config.json:
@@ -119,7 +125,7 @@ npm run dist
 ```
 If there are any module errors try to `npx electron-rebuild` before every `npm start` or `npm run dist`.
 
-Also check [package.json.linux](package.json.linux) and [package.json.windows](package.json.windows). Pay attention: [package.json.windows](package.json.windows) should be used for macos development and build.
+Also check [package.json](package.json) for Linux and MacOS development and build. For any Windows - [package.json.win7](package.json.win7)
 
 
 

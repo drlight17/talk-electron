@@ -88,7 +88,7 @@ function checkMessageForWakeUp(response) {
         : [];
 
     for (const chat of chats) {
-        if (chat && typeof chat.unreadMessages === 'number') {
+        if (chat && typeof chat.unreadMessages === 'number' && chat.type < 4 ) {
             if ((chat.lastMessage.message.includes("wake_up_neo_"+chat.lastMessage.token)) && (chat.type == 1)) {
                 if (chat.lastReadMessage !== chat.lastMessage.id) {
                     // send IPC response to electron app
@@ -99,7 +99,6 @@ function checkMessageForWakeUp(response) {
             }
         }
     }
-    
 }
 
 async function markMessageForWakeUpRead(chat_token, chat_displayName) {
@@ -119,27 +118,31 @@ async function unreadFetch(removed){
     //const modifiedSince = Math.floor(Date.now() / 1000) - unread_int;
     // to force get unread from old conversations
     let modifiedSince = 0;
-
-    let response = await apiCall(
-      `/ocs/v2.php/apps/spreed/api/v4/room?modifiedSince=${modifiedSince}&includeStatus=true`,
-      'GET'
-    );
-
-    let response_json = JSON.parse(response);
-
     try {
-        if (response_json?.ocs?.meta.statusCode != 200) {
+
+        let response = await apiCall(
+          `/ocs/v2.php/apps/spreed/api/v4/room?modifiedSince=${modifiedSince}&includeStatus=true`,
+          'GET',
+          undefined,
+          'include',
+          undefined,
+          3000 // 3 seconds
+        );
+
+        let response_json = JSON.parse(response);
+
+        /*if (response_json?.ocs?.meta.statusCode != 200) {
             loading('finished');
         } else {
             loading('not_respond');
-        }
+        }*/
 
         checkMessageForWakeUp(response_json);
 
         let modifiedConversations = response_json?.ocs?.data;
 
         modifiedConversations.forEach((conversation, index) => {
-            if (conversation && typeof conversation.unreadMessages === 'number') {
+            if (conversation && typeof conversation.unreadMessages === 'number' && conversation.type < 4) {
                 
                 totalUnreadMessagesCounter += conversation.unreadMessages;
                 
@@ -157,11 +160,10 @@ async function unreadFetch(removed){
             ipcRenderer.send('main', JSON.stringify({'action': {'unread': totalUnreadMessagesCounter, 'removed': removed, 'unread_chat_tokens': JSON.stringify(totalUnreadMessages) }}));
         }
     }
-    catch(err) {
+    
+    catch (err) {
         console.log(err);
-        loading('not_respond');
     }
-
 }
 
 

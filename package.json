@@ -7,22 +7,30 @@
     "talk",
     "spreed",
     "electron",
-    "win7"
+    "win7",
+    "cross-platform"
   ],
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "author": "Yuri Samoilov <root@drlight.fun>",
   "homepage": "https://github.com/drlight17/talk-electron",
+  "apiLink": "https://api.github.com/repos/drlight17/talk-electron",
   "build": {
     "npmRebuild": false,
     "appId": "com.electron.talk-electron",
     "productName": "NC Talk Electron",
+    "artifactName": "NC.Talk.Electron-${version}.${ext}",
     "asar": true,
     "asarUnpack": [
       "**/node_modules/sharp/**/*",
       "**/node_modules/@img/**/*"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "drlight17",
+      "repo": "talk-electron"
+    },
     "linux": {
       "icon": "icon.icns",
       "category": "Network",
@@ -52,53 +60,29 @@
           ]
         }
       ],
-      "asarUnpack": "./icon.png"
+      "asarUnpack": [
+        "./icon.png",
+        "./UPDATE_BLOCK"
+      ]
     },
     "mac": {
       "category": "public.app-category.social-networking",
+      "artifactName": "NC.Talk.Electron-${version}-mac-${arch}.${ext}",
       "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "dmg",
-          "arch": [
-            "arm64"
-          ]
-        }
+        { "target": "dmg", "arch": ["arm64", "x64"] },
+        { "target": "zip", "arch": ["arm64", "x64"] }
       ],
       "asarUnpack": "./icon.png"
-    },
-    "win": {
-      "icon": "icon.ico",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "zip",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "msi",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "asarUnpack": "./icon.ico"
     }
   },
   "scripts": {
-    "dist": "electron-builder",
+    "build-rpm": "touch UPDATE_BLOCK && electron-builder --linux rpm && rm -f UPDATE_BLOCK",
+    "build-deb": "touch UPDATE_BLOCK && electron-builder --linux deb && rm -f UPDATE_BLOCK",
+    "build-targz": "touch UPDATE_BLOCK && electron-builder --linux tar.gz && rm -f UPDATE_BLOCK",
+    "build-AppImage": "electron-builder --linux AppImage",
+    "build-dmg": "touch UPDATE_BLOCK && electron-builder --mac dmg && rm -f UPDATE_BLOCK",
+    "build-zip": "touch UPDATE_BLOCK && electron-builder --mac zip && rm -f UPDATE_BLOCK",
+    "dist": "npm run build-rpm ; npm run build-deb ; npm run build-targz ; npm run build-dmg ; npm run build-zip ; npm run build-AppImage",
     "start": "electron . --log-level=3"
   },
   "dependencies": {
@@ -108,6 +92,7 @@
     "dbus-next": "latest",
     "electron-fetch": "^1.9.1",
     "electron-store": "^8.2.0",
+    "electron-updater": "^4.0.0",
     "https-proxy-agent": "^7.0.5",
     "keytar": "^7.9.0",
     "semver": "latest",

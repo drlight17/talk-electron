@@ -96,7 +96,10 @@ let call_dialog = false;
 }*/
 
 function open_message(link) {
-  window.location.replace(link)
+  //window.location.replace(link)
+  // this method won't reload page
+  window.history.pushState({}, '', link);
+  window.dispatchEvent(new PopStateEvent('popstate'));
 }
 
 function blur_on_call_dialog(flag) {
@@ -521,19 +524,38 @@ async function getNameFromUrl() {
 }*/
 
 
-async function apiCall(url, method, payload, creds, headers ) {
-    const response = await fetch(url, {
-        method: method,
-        credentials: creds ? creds :'include',
-        headers: headers ? headers : {
-            'OCS-APIRequest': 'true',
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        },
-        body: payload
-    });
+async function apiCall(url, method = 'GET', payload = undefined, creds = 'include', headers, timeout = 5000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeout);
 
-    return await response.text();
+    try {
+        const response = await fetch(url, {
+            method,
+            credentials: creds,
+            headers: headers || {
+                'OCS-APIRequest': 'true',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: payload,
+            signal: controller.signal
+        });
+        
+        loading('finished');
+        return await response.text();
+
+    }
+    catch (err) {
+        loading('not_respond');
+        if (err.name === 'AbortError') {
+            throw new Error(`Request timeout after ${timeout} ms`);
+        }
+
+        throw err;
+
+    } finally {
+        clearTimeout(timer);
+    }
 }
 
 let cachedConversations;

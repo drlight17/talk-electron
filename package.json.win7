@@ -7,20 +7,29 @@
     "talk",
     "spreed",
     "electron",
-    "win7"
+    "win7",
+    "cross-platform"
   ],
   "icon": "icon.png",
   "main": "./main.js",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "author": "Yuri Samoilov <root@drlight.fun>",
+  "homepage": "https://github.com/drlight17/talk-electron",
+  "apiLink": "https://api.github.com/repos/drlight17/talk-electron",
   "build": {
     "appId": "com.electron.talk-electron",
     "productName": "NC Talk Electron",
+    "artifactName": "NC.Talk.Electron-${version}-win.${ext}",
     "asar": true,
     "asarUnpack": [
       "**/node_modules/sharp/**/*",
       "**/node_modules/@img/**/*"
     ],
+    "publish": {
+      "provider": "github",
+      "owner": "drlight17",
+      "repo": "talk-electron"
+    },
     "nsis": {
       "oneClick": true,
       "perMachine": true,
@@ -52,16 +61,23 @@
           ]
         }
       ],
-      "asarUnpack": "./icon.ico"
+      "asarUnpack": [
+        "./icon.ico",
+        "./UPDATE_BLOCK"
+      ]
     }
   },
   "scripts": {
-    "dist": "electron-builder",
+    "build-exe": "electron-builder --windows nsis",
+    "build-msi": "type nul > UPDATE_BLOCK && electron-builder --win msi && del /f UPDATE_BLOCK",
+    "build-zip": "type nul > UPDATE_BLOCK && electron-builder --windows zip && del /f UPDATE_BLOCK",
+    "dist": "npm run build-zip && npm run build-msi && npm run build-exe",
     "start": "electron . --log-level=3"
   },
   "dependencies": {
     "@electron/packager": "latest",
     "@paymoapp/electron-shutdown-handler": "latest",
+    "electron-updater": "^4.0.0",
     "electron-fetch": "^1.9.1",
     "custom-electron-prompt": "^1.5.9",
     "electron-store": "^8.2.0",

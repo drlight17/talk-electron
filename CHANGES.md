@@ -1,3 +1,15 @@
+1.1.2
+- [x] BUG: some logged in accounts fallback to `Cannot read properties of undefined (reading 'message')` in checkMessageForWakeUp() - need to check [chat type](https://nextcloud-talk.readthedocs.io/en/latest/constants/#conversation-types) (<4)
+- [x] BUG(mac): force show main_win when about is clicked to prevent hidden about window
+- [x] NEW: self-update function
+  - [x] for linux AppImage
+  - [ ] ~~for macos dev sign is needed so won't happen in near future~~
+  - [x] for windows nsis only (skip msi)
+- [x] add api requests timeout to properly show loading (prevend limitless pending)
+- [x] NEW: switch hidden app to corresponding account on new message arrive (notification-based)
+- [x] BUG: wrong 'add_account' titled main_win in case of replace SSO with non-SSO account and open app in dev mode (and vice versa) or if there is an current_login with no saved keytar - do fallback to configured account if any
+- [x] switch to message (noti click, wake_up etc.) no by browser location with page reload, but click event
+
 1.1.1
 - [x] NEW: frequency setting for additional unread check (default 5 seconds, from 5 s till 30 s)
 - [x] remove periodic NC server pinger, replace with unread api request result

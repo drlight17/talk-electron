@@ -35,6 +35,9 @@
   desktopCapturer
  } = require('electron')
 
+ const { autoUpdater } = require('electron-updater');
+ const { autoUpdater: nativeUpdater } = require('electron');
+
  const DBus = require('dbus-next');
 
  const {
@@ -53,6 +56,8 @@
  //const SystemIdleTime = require('desktop-idle');
 let desktopIdle;
 let logging_cached;
+let update_block = false;
+
 if (!isWindows) {
   ({ desktopIdle } = require('node-desktop-idle-v2'));
 }
@@ -248,8 +253,11 @@ if (process.versions.electron != "22.3.27") {
       })
     }
 
-    //check if config is not empty
+    //check for UPDATE_BLOCK, process icons for platforms and inialize electron store
     try {
+      if (fs.existsSync(path.resolve(getResourceDirectory(), "UPDATE_BLOCK"))) {
+        update_block = true;
+      }
       if (isLinux) {
         var iconPath = path.resolve(getResourceDirectory(), "icon.png");
         var iconPathDock = null;
@@ -265,8 +273,9 @@ if (process.versions.electron != "22.3.27") {
         store = new Store();
       }
     } catch (err) {
+      writeLog(err);
       // show error in console and exit app instead of forced recreation userData folder
-      writeLog("Empty or broken config.json file. App will now exit. If this error will appear again try to remove config.json from userData path: "+app.getPath('userData'));
+      //writeLog("Empty or broken config.json file. App will now exit. If this error will appear again try to remove config.json from userData path: "+app.getPath('userData'));
       app.exit(0);
     }
 
@@ -848,7 +857,12 @@ WantedBy=graphical-session.target`;
                     label: 'ⓘ  ' + i18n.__('show'),
                     click: () => {
                       updateAbout();
-                      app.showAboutPanel();
+                      if (isMac) {
+                        win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.show();
+                      }
+                      setTimeout(()=>{
+                        app.showAboutPanel();
+                      }, 200)
                     },
                   },
                   {
@@ -949,8 +963,13 @@ WantedBy=graphical-session.target`;
             submenu: [{
                 label: 'ℹ️  ' + i18n.__('show'),
                 click: () => {
-                  updateAbout()
-                  app.showAboutPanel();
+                  updateAbout();
+                  if (isMac) {
+                    win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.show();
+                  }
+                  setTimeout(()=>{
+                    app.showAboutPanel();
+                  }, 200)
                 },
               },
               {
@@ -1015,7 +1034,14 @@ WantedBy=graphical-session.target`;
                 click: () => {
                   markAsRead(store.get('current_login'), store.get('server_url'))
                 }
-              }
+              },
+              {
+                label: "selfUpdate",
+                click: () => {
+                  selfUpdate()
+                }
+              },
+              
             ]
           },*/
         ];
@@ -1244,21 +1270,24 @@ WantedBy=graphical-session.target`;
         }
 
         // to switch account
-        function switchAccount(username, url) {
-          const windowKey = `${username}:${url}`;
-          const targetWindow = win_main.id[windowKey];
+        function switchAccount(account_string, hidden) {
+          //const windowKey = `${username}:${url}`;
+          const targetWindow = win_main.id[account_string];
           if (targetWindow && targetWindow.window) {
             if (!targetWindow.window.isVisible() || targetWindow.window.isMinimized()) {
+              if (!hidden) {
+                // Hide current foreground window
+                win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.hide();
+                win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].isForeground = true;
+                
+                
+                targetWindow.window.show();
+              }
 
-              // Hide current foreground window
-              win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.hide();
-              win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].isForeground = true;
               targetWindow.isForeground = false;
-              
-              targetWindow.window.show();
 
-              store.set('current_login', username);
-              store.set('server_url', url);
+              store.set('current_login', account_string.split(/:(.+)/)[0]);
+              store.set('server_url', account_string.split(/:(.+)/)[1]);
               guiInit(true);
             }
           }
@@ -1290,7 +1319,7 @@ WantedBy=graphical-session.target`;
             store.set('current_login', keysArray[next_index-1].split(/:(.+)/)[0]);
             store.set('server_url', keysArray[next_index-1].split(/:(.+)/)[1]);
 
-            markCurrentAccMenu(keysArray[next_index-1].split(/:(.+)/)[0], keysArray[next_index-1].split(/:(.+)/)[1])
+            markCurrentAccMenu(`${keysArray[next_index-1].split(/:(.+)/)[0]}:${keysArray[next_index-1].split(/:(.+)/)[1]}`)
             guiInit(true);
           }
         }
@@ -1513,7 +1542,7 @@ WantedBy=graphical-session.target`;
                   prompted = false;
                 });
             } else if (result.response === 3) {
-              shell.openExternal('https://github.com/drlight17/talk-electron');
+              shell.openExternal(packageJson.homepage);
             }
           } catch (err) {
             writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
@@ -1695,7 +1724,7 @@ WantedBy=graphical-session.target`;
 
         }
 
-        function markCurrentAccMenu(account,url) {
+        function markCurrentAccMenu(account_string) {
           try {
             // at first force uncheck all accounts
             mainMenuTemplate[0].submenu[0]
@@ -1708,7 +1737,7 @@ WantedBy=graphical-session.target`;
             });
 
             let newItem = mainMenuTemplate[0].submenu[0]
-                ?.submenu?.find(sub => sub.id === `show-${account}:${url}`);
+                ?.submenu?.find(sub => sub.id === `show-${account_string}`);
             if (newItem) {
                 if (!newItem.label.includes('✓')) {
                   newItem.label = '✓ '+newItem.label;
@@ -1732,13 +1761,13 @@ WantedBy=graphical-session.target`;
         }
 
         function deleteAllAccounts() {
-          if (isForegroundLoading) {
+          /*if (isForegroundLoading) {
             dialog.showErrorBox(
               i18n.__('error'),
               i18n.__('still_loading')
             );
             return;
-          }
+          }*/
 
           if (settings_opened) {
             return;
@@ -1811,79 +1840,75 @@ WantedBy=graphical-session.target`;
         }
 
         function deleteAccount(username, url, forced) {
-          if (!isForegroundLoading) {
-            if (settings_opened) {
-              return;
-            }
-            const options = {
-              type: 'question',
-              buttons: [i18n.__('yes_button'), i18n.__('no_button')],
-              defaultId: 1,
-              title: i18n.__('delete_account'),
-              message: i18n.__('delete_account_confirm', {
-                server_url: url,
-                saved_login: username
-              }),
-            };
-
-            dialog.showMessageBox(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, options)
-              .then((result) => {
-                switch (result.response) {
-                  case 0: // Yes
-                    // get current accouns session to cleanup cookies
-                    (async () => {
-                      try {
-                        deleteCredentials(username, url)
-                        
-                        let ses = session.fromPartition(`persist:window-${username}:${url}`);
-
-                        await ses.clearStorageData();
-                        await session.defaultSession.clearStorageData()
-
-                        if (logging_cached){
-                          writeLog("Session cookies are cleared");
-                        }
-
-                        const response = await dialog.showMessageBox(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, {
-                          type: 'info',
-                          message: i18n.__('message29'),
-                          detail: i18n.__('message30', {
-                            account: `${username}:${url}`
-                          })
-                        });
-
-
-
-                        if (response) {
-                          if (!forced) {
-                            getConfiguredAccounts(true);
-                          } else {
-                            store.delete('current_login');
-                            store.delete('server_url');
-                            
-                            restartApp();
-                            
-                          }
-                        }
-                      } catch (error) {
-                        writeLog(`Error clearing cookies: ${error.message}`);
-                      }
-                    })();
-
-                    break;
-                  case 1: // No
-                    if (forced) {
-                      restartApp();
-                    }
-                    break;
-                }
-              })
-              .catch((err) => {
-                writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
-              })
-          } else {
-            dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
+          if (settings_opened) {
+            return;
           }
+          const options = {
+            type: 'question',
+            buttons: [i18n.__('yes_button'), i18n.__('no_button')],
+            defaultId: 1,
+            title: i18n.__('delete_account'),
+            message: i18n.__('delete_account_confirm', {
+              server_url: url,
+              saved_login: username
+            }),
+          };
+
+          dialog.showMessageBox(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, options)
+            .then((result) => {
+              switch (result.response) {
+                case 0: // Yes
+                  // get current accouns session to cleanup cookies
+                  (async () => {
+                    try {
+                      deleteCredentials(username, url)
+                      
+                      let ses = session.fromPartition(`persist:window-${username}:${url}`);
+
+                      await ses.clearStorageData();
+                      await session.defaultSession.clearStorageData()
+
+                      if (logging_cached){
+                        writeLog("Session cookies are cleared");
+                      }
+
+                      const response = await dialog.showMessageBox(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, {
+                        type: 'info',
+                        message: i18n.__('message29'),
+                        detail: i18n.__('message30', {
+                          account: `${username}:${url}`
+                        })
+                      });
+
+
+
+                      if (response) {
+                        if (!forced) {
+                          getConfiguredAccounts(true);
+                        } else {
+                          store.delete('current_login');
+                          store.delete('server_url');
+                          
+                          restartApp();
+                          
+                        }
+                      }
+                    } catch (error) {
+                      writeLog(`Error clearing cookies: ${error.message}`);
+                    }
+                  })();
+
+                  break;
+                case 1: // No
+                  if (forced) {
+                    restartApp();
+                  }
+                  break;
+              }
+            })
+            .catch((err) => {
+              writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
+            })
         }
 
         function insertServers(fallback, failed_username, failed_url) {
@@ -1912,8 +1937,11 @@ WantedBy=graphical-session.target`;
                     title: i18n.__('error'),
                     message: i18n.__('message6', {
                       account: `${failed_username}:${failed_url}`
-                    }),
+                    }) + (cert_error ? '\n' + i18n.__('cert_error') : '')
                   };
+
+                   // force hide trayIcon to prevent issues
+                  appIcon.destroy();
 
                   dialog.showMessageBox(win_main.id[`${failed_username}:${failed_url}`].window, options)
                   .then((result) => {
@@ -1930,7 +1958,7 @@ WantedBy=graphical-session.target`;
                       case 2: // exit
                         app.exit(0);
                         break;
-                    }
+                    };
                   })
                 }
                 break;
@@ -1978,9 +2006,9 @@ WantedBy=graphical-session.target`;
                     if (settings_opened) {
                       return;
                     }
-                    markCurrentAccMenu(account.username,account.url);
+                    markCurrentAccMenu(`${account.username}:${account.url}`);
 
-                    switchAccount(account.username, account.url);
+                    switchAccount(`${account.username}:${account.url}`);
 
                   } else {
                     dialog.showErrorBox(i18n.__('error'), i18n.__('still_loading'));
@@ -2056,10 +2084,6 @@ WantedBy=graphical-session.target`;
               click: () => {
                 if (!isForegroundLoading) {
                   if (Object.keys(loginData).length !== 0) {
-                    /*for (let [index, account] of Object.entries(loginData.accounts)) {
-                      // try to delete account func
-                      deleteAccount(account.username, account.url, false, true);
-                    }*/
                     deleteAllAccounts();
                   }
                 }
@@ -2320,11 +2344,11 @@ WantedBy=graphical-session.target`;
           app.setAboutPanelOptions({
             applicationName: app.getName(),
             applicationVersion: "v." + app.getVersion(),
-            authors: ["drlight17"],
+            authors: [packageJson.author],
             version: app.getVersion(),
             copyright: copyright,
             iconPath: iconPath,
-            website: "https://github.com/drlight17/talk-electron"
+            website: packageJson.homepage
           });
         }
 
@@ -2754,78 +2778,115 @@ WantedBy=graphical-session.target`;
           }
         };
 
-        function openNewVersionDialog(releaseUrl, latestVersion) {
+        // *************** update zone *************************
 
-          if (isDialogOpen) {
-            return;
-          }
-
-          let remembered = false;
+        async function openNewVersionDialog(releaseUrl, latestVersion) {
           try {
-            const rememberData = JSON.parse(store.get('new_version_remember'));
-            remembered = Boolean(rememberData[latestVersion]);
-          } catch (err) {
-            writeLog(err)
-          }
+            if (isDialogOpen) {
+              return;
+            }
 
-          updateMenu(releaseUrl, latestVersion);
+            let remembered = false;
+            try {
+              const rememberData = JSON.parse(store.get('new_version_remember'));
+              remembered = Boolean(rememberData[latestVersion]);
+            } catch (err) {
+              writeLog(err)
+            }
 
-          if (remembered) {
-            return;
-          }
+            updateMenu(releaseUrl, latestVersion);
 
-          isDialogOpen = true;
-          let readChanges = false;
+            if (remembered) {
+              return;
+            }
 
-          const options = {
-            type: 'info',
-            buttons: [i18n.__('yes_button'), i18n.__('no_button'), i18n.__('new_version_details')],
-            defaultId: 0,
-            message: i18n.__('new_version') + ": " + latestVersion,
-            detail: i18n.__('new_version_ask'),
-            checkboxLabel: i18n.__('new_version_remember'),
-            checkboxChecked: false,
-          };
+            isDialogOpen = true;
+            let readChanges = false;
 
-          dialog.showMessageBox(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, options)
-            .then((result) => {
-              const decisionData = {};
+            const options = {
+              type: 'info',
+              buttons: [i18n.__('yes_button'), i18n.__('no_button'), i18n.__('new_version_details'), ...(!update_block ? [i18n.__('new_version_install')] : [])],
+              defaultId: 0,
+              message: i18n.__('new_version') + ": " + latestVersion,
+              detail: i18n.__('new_version_ask'),
+              checkboxLabel: i18n.__('new_version_remember'),
+              checkboxChecked: false,
+            };
 
-              switch (result.response) {
-                case 0: // Yes
-                  decisionData[latestVersion] = result.checkboxChecked;
-                  store.set('new_version_remember', JSON.stringify(decisionData));
-                  shell.openExternal(releaseUrl);
-                  break;
+            dialog.showMessageBox(win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window, options)
+              .then(async(result) => {
+                const decisionData = {};
 
-                case 1: // No
-                  decisionData[latestVersion] = result.checkboxChecked;
-                  store.set('new_version_remember', JSON.stringify(decisionData));
-                  break;
+                switch (result.response) {
+                  case 0: // Yes
+                    decisionData[latestVersion] = result.checkboxChecked;
+                    store.set('new_version_remember', JSON.stringify(decisionData));
+                    shell.openExternal(releaseUrl);
+                    break;
 
-                case 2: // show changelog
-                  shell.openExternal('https://raw.githubusercontent.com/drlight17/talk-electron/main/CHANGES.md');
-                  readChanges = true;
+                  case 1: // No
+                    decisionData[latestVersion] = result.checkboxChecked;
+                    store.set('new_version_remember', JSON.stringify(decisionData));
+                    break;
 
-                  break;
-              }
-            })
-            .catch((err) => {
-              writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
-            })
-            .finally(() => {
-              isDialogOpen = false;
-              if (readChanges) {
-                openNewVersionDialog(releaseUrl, latestVersion);
-              }
-            });
+                  case 2: // show changelog
+
+                    shell.openExternal(`${packageJson.homepage}/blob/main/CHANGES.md`);
+                    readChanges = true;
+
+                    break;
+
+                  case 3: // install
+                    // if AppImage
+                    if (isLinux) {
+                      if (process.env.APPIMAGE) {
+                        if (logging_cached) {
+                          writeLog("You app is AppImage, so trying to update.")
+                        }
+                        selfUpdate();
+
+                        await dialog.showMessageBox({
+                          type: 'info',
+                          message: i18n.__('wake_up_wait'),
+                          detail: i18n.__('message31')
+                        });
+                      }
+                    } else {
+                      if (app.isPackaged) {
+                        if (logging_cached) {
+                          writeLog("You app is properly installed, so trying to update.")
+                        }
+                        selfUpdate();
+                        await dialog.showMessageBox({
+                          type: 'info',
+                          message: i18n.__('wake_up_wait'),
+                          detail: i18n.__('message31')
+                        });
+                      }
+                    }
+                    break;
+                }
+              })
+              .catch((err) => {
+                writeLog('Dialog was closed unexpectedly or error occurred: ' + err);
+              })
+              .finally(() => {
+                isDialogOpen = false;
+                if (readChanges) {
+                  openNewVersionDialog(releaseUrl, latestVersion);
+                }
+              });
+            }
+            catch(err) {
+              writeLog(`Error in openNewVersionDialog: ${err}`)
+            }
         }
 
         async function checkNewVersion(currentVersion) {
           const cachedVersion = store.get('latestVersion');
           const cachedUrl = store.get('releaseUrl');
 
-          const apiUrl = `https://api.github.com/repos/drlight17/talk-electron/releases/latest`;
+          const apiUrl = `${packageJson.apiLink}/releases/latest`;
 
           try {
             let latestVersion;
@@ -2848,7 +2909,11 @@ WantedBy=graphical-session.target`;
               releaseUrl = cachedUrl;
             }
 
+            //const comparison = -1;
+            // TODO comment above and uncomment below in prod
             const comparison = semver.compare(currentVersion, latestVersion)
+            
+
             if (comparison === 0) {
               if (logging_cached){
                 writeLog("You are using the latest version.");
@@ -2868,6 +2933,46 @@ WantedBy=graphical-session.target`;
             writeLog('Error fetching the latest release:' + error);
           }
         }
+
+        let updateReady = false;
+
+        autoUpdater.on('update-downloaded', (info) => {
+            writeLog(`[UPDATER] Downloaded: ${info.version}`);
+            updateReady = true;
+
+            setTimeout(() => {
+                writeLog('[UPDATER] Installing...');
+                // force close all main windows to complete install
+                app.removeAllListeners('before-quit');
+                app.removeAllListeners('window-all-closed');
+
+                for (let [index, account] of Object.entries(loginData.accounts)) {
+                  win_main.id[`${account.username}:${account.url}`].window.removeAllListeners('close');
+                  win_main.id[`${account.username}:${account.url}`].window.close();
+                }
+
+                nativeUpdater.once('before-quit-for-update', () => {
+                    app.exit();
+                });
+
+                autoUpdater.quitAndInstall(true, true);
+            }, 1000);
+        });
+
+        async function selfUpdate() {
+            try {
+                writeLog('[UPDATER] Checking for update');
+
+                const result = await autoUpdater.checkForUpdates();
+
+                if (!result?.updateInfo) {
+                    writeLog('[UPDATER] No update');
+                }
+            } catch (err) {
+                writeLog(`[UPDATER] Failed: ${err}`);
+            }
+        }
+        // ******************************************************
 
         function sumUnreadCounters() {
           unread_sum = 0;
@@ -3222,7 +3327,7 @@ WantedBy=graphical-session.target`;
                   if (logging_cached){
                     writeLog(`❌ No saved ${username} user found after attempt.`);
                   }
-                  return null; // No password found, not an error per se, return null
+                  return 'fallback'; // No password found, not an error per se, return fallback
                 }
               }
             } catch (error) {
@@ -4390,6 +4495,13 @@ WantedBy=graphical-session.target`;
               writeLog(data,true)
             }
 
+            // switch to account which got notification (if win_main is not visible)
+            if (!win_main.id[`${store.get('current_login')}:${store.get('server_url')}`].window.isVisible()) {
+              markCurrentAccMenu(account_string);
+              switchAccount(account_string, true);
+            }
+            
+
 
             if ((store.get("notification_timeout_checkbox") || demo) && (!isLocked_suspend)) {
 
@@ -4497,7 +4609,7 @@ WantedBy=graphical-session.target`;
                           store.set('current_login', account.username);
                           store.set('server_url', account.url);
 
-                          markCurrentAccMenu(account.username, account.url)
+                          markCurrentAccMenu(`${account.username}:${account.url}`)
                         }
                       }
                     }
@@ -4593,7 +4705,7 @@ WantedBy=graphical-session.target`;
                     store.set('current_login', account);
                     store.set('server_url', theURL);
 
-                    markCurrentAccMenu(account,theURL)
+                    markCurrentAccMenu(`${account}:${theURL}`)
                     if (isMac) app.dock.show();
                     // open corresponding message
                     setTimeout(function() {
@@ -4761,6 +4873,11 @@ WantedBy=graphical-session.target`;
                         blockAuthCall = true;
                         openClientAuth(win_main.id[`${account}:${theURL}`].window, theURL);
                       }
+                    // check to prevent BUG from pre-v.1.1.2 condition
+                    } else if (saved_password == 'fallback'){
+                      // set the first server_url from config if any
+                      getConfiguredAccounts(true, account, theURL);
+                      return false;
                     } else {
                       authenticated = await checkAuth(win_main.id[`${account}:${theURL}`].window, saved_password, theURL, account);
 
@@ -4795,6 +4912,19 @@ WantedBy=graphical-session.target`;
               if (logging_cached){
                 writeLog("Autologin is enabled. Log in using SSO.")
               }
+
+              // check for auto_login to prevent BUG from pre-v.1.1.2 condition
+              saved_password = await getCredentials(account, theURL);
+
+              if (saved_password == 'fallback'){
+                if (logging_cached){
+                  writeLog("Not authenticated!");
+                }
+                // set the first server_url from config if any
+                getConfiguredAccounts(true, account, theURL);
+                return false;
+              }
+
               if (proxyUrl) {
                 loadURLWithProxy(win_main.id[`${account}:${theURL}`].window, theURL, proxyAgent)
               } else {
@@ -5203,8 +5333,8 @@ WantedBy=graphical-session.target`;
                       writeLog(`👋 ${account}:${theURL}, found wake up message id ${JSON.parse(JSON.parse(message).action.wake_up_neo).id} from ${JSON.parse(JSON.parse(message).action.wake_up_neo).actorDisplayName}`)
                     }
 
-                    markCurrentAccMenu(account,theURL);
-                    switchAccount(account,theURL);
+                    markCurrentAccMenu(`${account}:${theURL}`);
+                    switchAccount(`${account}:${theURL}`);
                     shakeWindow(win_main.id[`${account}:${theURL}`].window);
                     setTimeout(()=>{
                       win_main.id[`${account}:${theURL}`].window.webContents.executeJavaScript(`open_message("${`${theURL}/call/${JSON.parse(JSON.parse(message).action.wake_up_neo).token}#message_${JSON.parse(JSON.parse(message).action.wake_up_neo).id}`}");`);
@@ -5443,15 +5573,15 @@ WantedBy=graphical-session.target`;
                         message: i18n.__('message6', {
                           account: `${account}:${theURL}`
                         }),
-                        detail: (cert_error) ? i18n.__('cert_error') + "\n" + i18n.__('message9') : i18n.__('message9'),
+                        detail: i18n.__('message9') + (cert_error ? '\n' + i18n.__('cert_error')  : ''),
                       };
 
                       if (Object.keys(loginData.accounts).length <= 1) {
                         showAutoRetryDialog(win_main.id[`${account}:${theURL}`].window, options, 20 * 1000);
                       } else {
-                        dialog.showErrorBox(i18n.__('error'),i18n.__('message6', {
+                        dialog.showErrorBox(i18n.__('error'), i18n.__('message6', {
                           account: `${account}:${theURL}`
-                        }));
+                        }) + (cert_error ? '\n' + i18n.__('cert_error') : ''));
                       }
                       auto_login_error = true;
                     }
@@ -5472,15 +5602,15 @@ WantedBy=graphical-session.target`;
                         message: i18n.__('message1', {
                           server_url: theURL
                         }),
-                        detail: i18n.__('message9'),
+                        detail: i18n.__('message9') + (cert_error ? '\n' + i18n.__('cert_error')  : ''),
                       };
                       prompted = true;
                       if (Object.keys(loginData.accounts).length <= 1) {
                         showAutoRetryDialog(win_main.id[`${account}:${theURL}`].window, options, 20 * 1000, prompted);
                       } else {
-                        dialog.showErrorBox(i18n.__('error'),i18n.__('message6', {
+                        dialog.showErrorBox(i18n.__('error'), i18n.__('message6', {
                           account: `${account}:${theURL}`
-                        }));
+                        }) + (cert_error ? '\n' + i18n.__('cert_error') : ''));
                       }
                     }
                   }
