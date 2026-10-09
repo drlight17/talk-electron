@@ -224,6 +224,9 @@ if (process.versions.electron != "22.3.27") {
     };
 
     async function restartApp(removed) {
+      syncBounds();
+      store.delete('latestVersion');
+      store.delete('releaseUrl');
       //1s timeout to prevent hangs
       setTimeout(()=>{
         let options = [];
@@ -5844,7 +5847,7 @@ WantedBy=graphical-session.target`;
               prompted = false;
               if (input === null) {
                 if (!multiple) {
-                  store.delete('latestVersion');
+                  store.delete(' ');
                   store.delete('releaseUrl');
                   app.exit(0);
                 }

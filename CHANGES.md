@@ -9,6 +9,7 @@
 - [x] NEW: switch hidden app to corresponding account on new message arrive (notification-based)
 - [x] BUG: wrong 'add_account' titled main_win in case of replace SSO with non-SSO account and open app in dev mode (and vice versa) or if there is an current_login with no saved keytar - do fallback to configured account if any
 - [x] switch to message (noti click, wake_up etc.) no by browser location with page reload, but click event
+- [x] BUG: sync bounds and clear checked app version in restartApp()
 
 1.1.1
 - [x] NEW: frequency setting for additional unread check (default 5 seconds, from 5 s till 30 s)
