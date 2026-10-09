@@ -30,7 +30,8 @@ Application is free so pay 99$ per year to Apple in order to sign application is
 | 🐧 Linux AppImage x64   | `.AppImage`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2.AppImage)     |
 | 🌐 Linux Archive x64      | `.tar.gz`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2.tar.gz)      |
 | 🌐 Windows Archive x64      | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-win.zip)       |
-| 🌐 macOS Archive universal  | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-mac.zip)     |
+| 🌐 macOS Archive x64  | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-mac-x64.zip)     |
+| 🌐 macOS Archive arm64  | `.zip`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-mac-arm64.zip)     |
 | 🍎 macOS DMG x64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-mac-x64.dmg)     |
 | 🍎 macOS DMG arm64   | `.dmg`       | [Download](https://github.com/drlight17/talk-electron/releases/latest/download/NC.Talk.Electron-1.1.2-mac-arm64.dmg)     |
 
