@@ -16,6 +16,8 @@ In order to monitor xinput (user acttivity check) on linux xprop package must be
 
 In the latest MacOS version you may see this error when trying to start installed application `App is damaged and can't be opened`. To fix this run this in terminal `xattr -c '/Applications/NC Talk Electron.app'` if application is installed in standard Applications folder of MacOS.
 Application is free so pay 99$ per year to Apple in order to sign application is not an option for me.
+Also if there is no badge with unread counter in dock - check OS System -> Notifications -> NC Talk Electron (or Electron for dev app) -> Badge on icon
+
 
 ## Works correctly with Nextcloud since v.28.x.x till v.31.x.x and since Talk v.18.x till v.21.x.x
 
